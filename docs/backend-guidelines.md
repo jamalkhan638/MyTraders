@@ -83,7 +83,7 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /invoices/preview` | ADMIN | computes totals server-side without saving |
 | `POST /invoices` | ADMIN | body may contain `orderId`; one unified creation path |
 | `GET /invoices`, `GET /invoices/:id` | ADMIN | |
-| `POST /invoices/:id/cancel` | ADMIN | only if OQ-3 = yes |
+| `POST /invoices/:id/cancel` | ADMIN | reason required; reverses ledger debit in the same transaction |
 | `GET/POST /expenses`, `PATCH /expenses/:id` | ADMIN | |
 | `GET/POST /expense-categories`, `PATCH …/:id` | ADMIN | |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
@@ -115,6 +115,7 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
 - **Permissions**: booker → 403 on invoice/expense/ledger/admin endpoints; booker sees only assigned shops; no cost fields.
 - **Invoice**: calculator unit tests from real invoices (once formulas confirmed); cost snapshot preserved after product cost change; totals recomputed server-side ignoring client totals.
 - **Order workflow**: booker creates `PENDING`; admin invoices → `INVOICED`; second invoice for same order → 409.
+- **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds debt; payment reduces; overpayment rejected; balance correct; concurrent payments don't overdraw.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
 - **Profit**: sales, COGS, gross, expenses, net for a period; cancelled invoices excluded.

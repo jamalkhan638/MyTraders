@@ -13,7 +13,7 @@ Every request is checked for: authenticated → user active → organization not
 | Areas: manage | ✅ | ❌ |
 | Areas: list (for filter) | ✅ | ✅ only areas of assigned shops |
 | Products: manage | ✅ | ❌ |
-| Products: list active (name, code, prices) | ✅ | ✅ **without cost price** |
+| Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** |
 | Shops: manage / assign booker | ✅ | ❌ |
 | Shops: list / view | ✅ all | ✅ **assigned shops only** (incl. outstanding balance) |
 | Orders: create | ✅ | ✅ only for assigned, active shops |
@@ -21,6 +21,7 @@ Every request is checked for: authenticated → user active → organization not
 | Orders: cancel | ✅ any pending | ✅ own pending only |
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
 | Invoices: list / view / print | ✅ | ❌ |
+| Invoices: cancel (auto-reverses ledger) | ✅ | ❌ |
 | Ledger: add credit / receive payment | ✅ | ❌ |
 | Ledger: view history | ✅ | ❌ |
 | Expenses & categories | ✅ | ❌ |

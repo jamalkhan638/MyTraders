@@ -66,7 +66,7 @@ Fields: name (required), contact person / owner, phone, address, area (required)
 - **Total Market Credit** = sum of outstanding balances of all shops in the organization.
 
 ### 4.6 Products
-Product = one sellable unit. For the first customer the unit an Order Booker orders is **one carton** (e.g. "Dalda 5L pouch" = 1 carton containing 5 × 1L pouches; the Admin adds it as one product).
+Product = one sellable unit ("piece"), exactly as the Admin adds it. For the first customer one unit is **one carton** (e.g. "Dalda 5L pouch" = 1 carton containing 5 × 1L pouches; the Admin adds it as one product). **All prices, cost and weight are entered per this one unit** (D-15), and all quantities (orders and invoices) count these units.
 
 Product master (defaults, editable any time):
 
@@ -76,11 +76,11 @@ Product master (defaults, editable any time):
 | Name | Required |
 | Category | Optional, configurable |
 | Rate Code | **Display only**, never used in calculations |
-| Retail Price (R.P) | Default, per piece incl. tax |
-| Trade Price (T.P) | Default, per piece excl. FED |
-| Cost Price | What the distributor is invoiced by the company. Used for profit. |
-| Pieces per Carton | Default 1 |
-| Weight (kg) | Entered by Admin; used for Total Weight and Tons |
+| Retail Price (R.P) | Default, per unit incl. tax |
+| Trade Price (T.P) | Default, per unit excl. FED |
+| Cost Price | Per unit; what the distributor is invoiced by the company. Used for profit. |
+| Pieces per Carton | Optional, informational (e.g. 5 for a 1×5 pouch carton); default 1 |
+| Weight (kg) | Per unit, entered by Admin; Total Weight = qty × weight; Tons = kg ÷ 1000 |
 | Default Tax Rate (%) | Data-driven, never hard-coded 18% |
 | Active | Inactive products cannot be ordered/invoiced |
 
@@ -88,13 +88,11 @@ When a product is selected on an invoice, its defaults auto-fill the invoice row
 
 UI: table + right-side drawer for add/edit.
 
-> ⚠️ Open question OQ-4: are prices / cost / weight entered **per piece or per carton**? Must be answered before the Products module.
-
 ### 4.7 Order Booker experience (mobile)
 Navigation: Home · My Shops · My Orders · Profile.
 
 - **My Shops**: only shops assigned to them, area filter at top, search. Card shows shop name, area, outstanding balance, *Book Order*.
-- **Book Order**: product list with search, quantity in **cartons** (− / + buttons), prices are visible, estimated total, Submit.
+- **Book Order**: product list with search, quantity in units/cartons (− / + buttons), shows **both Trade Price and Retail Price** (D-17), estimated total (see OQ-5), Submit.
 - Booker cannot change prices, create invoices, manage credit, record payments, see cost/profit, or open any Admin screen.
 - **My Orders**: own orders with status. Booker may cancel their own order while it is still `PENDING`.
 
@@ -110,6 +108,7 @@ Full detail in [invoice-specification.md](./invoice-specification.md). Key rules
 - Admin has full control: change product, quantity, rates, discounts; add/remove rows.
 - Backend recalculates every value; frontend totals are UX only.
 - Every value needed to reproduce the invoice is **snapshotted**; confirmed invoices never change when products, shops or settings change.
+- Admin can cancel a confirmed invoice; the ledger debit is reversed automatically (D-16).
 - Invoice numbers are sequential and unique **per organization**, format from settings (first customer: `M-00000001`).
 - Printable layout matching the customer's current invoice; print / save-as-PDF.
 - Shop's previous outstanding balance is printed on the invoice as **"Credit Balance"** when > 0.
@@ -167,6 +166,9 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-12 | English UI only | Owner answer |
 | D-13 | GST / tax rates are data (product default + per-invoice snapshot) | Master spec |
 | D-14 | Invoice formulas are **not assumed**; they are confirmed by the owner before the invoice module | Owner instruction |
+| D-15 | One product = one unit as added by Admin (e.g. one carton); prices, cost and weight are per that unit | Owner answer |
+| D-16 | Admin can cancel a confirmed invoice; cancellation automatically reverses the ledger debit | Owner answer |
+| D-17 | Order Booker sees both Trade Price and Retail Price | Owner answer |
 
 ## 6. Open questions
 
@@ -174,7 +176,5 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 |---|---|---|
 | OQ-1 | Exact invoice formulas: R.P, T.P, value excl. tax, GST, FED, TO, ATO, special discount, total trade offer, gross value, further tax, due payment / credit balance, payable value, rounding | Invoice module |
 | OQ-2 | Are Sales / Profit based on value **excl. tax** or incl. tax? | Dashboard / Profit |
-| OQ-3 | Can a confirmed invoice be cancelled (auto-reversing its ledger entry)? | Invoice module |
-| OQ-4 | Are retail/trade/cost price and weight entered **per piece or per carton**? | Products module |
-| OQ-5 | Which price does the Order Booker see, and how is the estimated order total calculated? | Orders module |
+| OQ-5 | How is the booker's estimated order total calculated? Default until confirmed: Σ qty × Trade Price, labelled "Estimated" | Orders module (non-blocking) |
 | OQ-6 | Can Admin invoice loose pieces (invoice has both Qty ctn and Qty pcs columns)? | Invoice module |

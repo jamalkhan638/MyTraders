@@ -38,7 +38,7 @@ User ─< RefreshToken
 | `INVOICE` | debit | shop owes more (invoice's own amount) |
 | `PAYMENT` | credit | shop owes less |
 | `MANUAL_ADJUSTMENT` | debit or credit | *Add Credit* (debit) — e.g. old khata; reduce (credit) with note |
-| `INVOICE_CANCELLATION` | credit | reverses an invoice (only if OQ-3 allows cancellation) |
+| `INVOICE_CANCELLATION` | credit | reverses a cancelled invoice's debit (D-16) |
 
 ```
 Outstanding balance (shop) = Σ debit − Σ credit
@@ -163,11 +163,11 @@ model Product {
   name            String
   categoryId      String?  @db.Uuid
   rateCode        String?                              // display only
-  retailPrice     Decimal  @db.Decimal(14, 2)          // R.P  (per piece/carton: OQ-4)
-  tradePrice      Decimal  @db.Decimal(14, 2)          // T.P  (per piece/carton: OQ-4)
-  costPrice       Decimal  @db.Decimal(14, 2)          // company invoice price
-  piecesPerCarton Int      @default(1)
-  weightKg        Decimal  @db.Decimal(12, 3)          // per piece/carton: OQ-4
+  retailPrice     Decimal  @db.Decimal(14, 2)          // R.P per unit (D-15)
+  tradePrice      Decimal  @db.Decimal(14, 2)          // T.P per unit
+  costPrice       Decimal  @db.Decimal(14, 2)          // company invoice price per unit
+  piecesPerCarton Int      @default(1)                 // informational
+  weightKg        Decimal  @db.Decimal(12, 3)          // per unit
   defaultTaxRate  Decimal  @default(0) @db.Decimal(7, 4)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now()) @db.Timestamptz
@@ -197,7 +197,7 @@ model OrderItem {
   id        String  @id @default(uuid(7)) @db.Uuid
   orderId   String  @db.Uuid
   productId String  @db.Uuid
-  quantity  Decimal @db.Decimal(12, 3)                 // cartons (D-4)
+  quantity  Decimal @db.Decimal(12, 3)                 // units as added by Admin, e.g. cartons (D-4, D-15)
   @@unique([orderId, productId])
 }
 

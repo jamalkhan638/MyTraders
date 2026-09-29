@@ -7,7 +7,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 
 ## Phase 0 — Foundation docs
 - ☑ `/docs` specification files
-- ☐ Owner review of docs, open questions answered as needed
+- ☑ Owner answers: D-15 (per unit), D-16 (cancel + reverse), D-17 (booker sees T.P + R.P)
+- ☐ Owner review of docs
 
 ## Phase 1 — Platform foundation
 - ☐ Monorepo: pnpm workspaces, Turborepo, `packages/config`, `packages/shared-types`
@@ -25,23 +26,23 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 ## Phase 2 — Master data
 - ☐ Areas (table + dialog)
 - ☐ Shop channels, product categories (settings lists)
-- ⛔ Products (table + drawer) — needs **OQ-4** (per piece vs per carton)
+- ☐ Products (table + drawer)
 - ☐ Shops (table, filters, drawer, assign booker) + ShopLedgerEntry table + balance column
 - ☐ Shop details page (info, balance, ledger, Add Credit)
 - ☐ Shops export Excel / PDF (filtered)
 
 ## Phase 3 — Order Booker flow
 - ☐ Booker: My Shops (assigned only, area filter, balance)
-- ⛔ Booker: Book Order (cartons, prices, estimated total) — estimated total needs **OQ-5**
+- ☐ Booker: Book Order (units, trade + retail price, estimated total = Σ qty × T.P until OQ-5 confirmed)
 - ☐ Booker: My Orders, cancel own pending
 - ☐ Admin: Orders list + Pending Orders (polling)
 
-## Phase 4 — Invoices ⛔ needs OQ-1, OQ-3, OQ-6 (owner will provide formulas)
+## Phase 4 — Invoices ⛔ needs OQ-1, OQ-6 (owner will provide formulas)
 - ☐ Shared invoice calculator + unit tests from real invoices
 - ☐ `POST /invoices/preview`, `POST /invoices` (unified; optional `orderId`), numbering, snapshots, ledger debit, order → INVOICED, optional paid amount — one transaction
 - ☐ Invoice form (blank + prefilled from order)
 - ☐ Invoices list, invoice view, print layout matching reference
-- ☐ Cancellation (if OQ-3 = yes)
+- ☐ Cancellation with automatic ledger reversal (D-16)
 
 ## Phase 5 — Ledger & payments
 - ☐ Receive Payment (overpayment rejected, row lock)

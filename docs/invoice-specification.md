@@ -14,7 +14,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 3. **Product holds defaults; InvoiceItem holds what was actually used.** Overriding a value on an invoice never changes the product master.
 4. Frontend computes live totals with the shared calculator for UX. **Backend recomputes everything** from the inputs with the same calculator and ignores client-sent totals.
 5. On confirm, one DB transaction: allocate invoice number → create invoice + items with snapshots → ledger entry for the shop → (if from order) mark order `INVOICED` (fails if not `PENDING`) → (optional) payment entry for amount paid now.
-6. A confirmed invoice is **immutable**. Cancellation policy: OQ-3.
+6. A confirmed invoice is **immutable**. Admin can **cancel** it (D-16): in one transaction the invoice becomes `CANCELLED` (with reason, user, time) and an `INVOICE_CANCELLATION` ledger credit equal to `invoiceAmount` reverses the debit. A payment recorded at invoice time stays as a normal payment. The linked order stays `INVOICED` (not reopened). Cancelled invoices are excluded from sales, profit and weight sold.
 
 ## 2. Header
 
@@ -33,9 +33,9 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | R.P / Pcs incl. tax | editable | Product.retailPrice | `retailPrice` | — |
 | Rate Code | snapshot, display only | Product.rateCode | `rateCode` | never used in math |
 | T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | — |
-| Qty (ctn) | editable | Order qty | `cartonQty` | TBC (OQ-6) |
+| Qty (ctn) | editable | Order qty (units) | `cartonQty` | TBC (OQ-6) |
 | Qty (pcs) | editable / derived | — | `pieceQty` | TBC (OQ-6) |
-| Total Weight | derived | Product.weightKg | `totalWeightKg` | TBC (OQ-4) |
+| Total Weight | derived | Product.weightKg (per unit) | `totalWeightKg` | qty × unit weight (qty basis TBC with OQ-6) |
 | Value excl. tax | derived | — | `valueExclTax` | **TBC** |
 | GST rate | editable | Product.defaultTaxRate | `taxRate` | — |
 | GST amount | derived | — | `taxAmount` | **TBC** |
@@ -44,7 +44,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | Special discount | editable | 0 | `specialDiscount` | **TBC** |
 | Total trade offer | derived | — | `tradeOffer` | **TBC** |
 | Gross invoice value | derived | — | `grossValue` | **TBC** |
-| (hidden) Cost | snapshot | Product.costPrice | `unitCost`, `costTotal` | TBC (OQ-4) |
+| (hidden) Cost | snapshot | Product.costPrice (per unit) | `unitCost`, `costTotal` | qty × unit cost (qty basis TBC with OQ-6) |
 
 ## 4. Totals / footer
 
@@ -86,4 +86,3 @@ For each: the rule + one worked example from a real invoice.
 10. Payable value
 11. Qty ctn vs Qty pcs — relationship; can loose pieces be sold? (OQ-6)
 12. Rounding
-13. Cancellation of a confirmed invoice (OQ-3)
