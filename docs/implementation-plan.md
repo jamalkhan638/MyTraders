@@ -19,8 +19,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Auth: login, refresh rotation, logout, me; JwtAuthGuard, RolesGuard (default deny), throttling
 - ☑ CLI `create-organization` (org + first Admin) and dev seed
 - ☑ `apps/web`: Vite + React + Tailwind + shadcn setup, theme tokens, router, QueryClient, API client with refresh, login page, AdminLayout, BookerLayout, role-based redirect
-- ☐ Organization settings page
-- ◐ Users — read-only `GET /users`, `GET /users/:id` done (first tenant-isolated resource); create / edit / deactivate + UI todo
+- ☑ Organization settings page (`GET/PATCH /organization/settings`; company, logo URL, currency, timezone, tax default, invoice/order numbering)
+- ☑ Users / Order Booker management (list with search/filters/pagination, create, edit, password reset, activate/deactivate; Order Bookers page)
 - ◐ CI: root scripts `pnpm lint | typecheck | test | test:e2e` done; hosted CI workflow todo
 
 ## Phase 2 — Master data

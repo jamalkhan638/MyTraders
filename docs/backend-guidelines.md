@@ -69,10 +69,11 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /auth/refresh` | cookie | rotate refresh token |
 | `POST /auth/logout` | any | revoke refresh family |
 | `GET /auth/me` | any | current user + organization basics |
-| `GET/PATCH /organization/settings` | ADMIN | |
+| `GET/PATCH /organization/settings` | ADMIN | ✅ Phase 1. `nextInvoiceNumber` may only increase (422 otherwise) |
 | `GET /health` | public | liveness + DB check |
-| `GET /users`, `GET /users/:id` | ADMIN | ✅ Phase 1 (read-only) |
-| `POST /users`, `PATCH /users/:id` | ADMIN | create booker/admin, deactivate |
+| `GET /users?page&pageSize&q&role&status`, `GET /users/:id` | ADMIN | ✅ Phase 1, paginated |
+| `POST /users` | ADMIN | ✅ creates an **ORDER_BOOKER** (role/org never from client); 409 if email taken |
+| `PATCH /users/:id` | ADMIN | ✅ Order Booker accounts only (403 for Admins): name, email, phone, `isActive`, `password` reset; deactivate/reset revokes sessions |
 | `GET/POST /areas`, `PATCH /areas/:id` | ADMIN (GET also BOOKER, scoped) | |
 | `GET/POST /shop-channels`, `PATCH /shop-channels/:id` | ADMIN | |
 | `GET/POST /product-categories`, `PATCH …/:id` | ADMIN | |

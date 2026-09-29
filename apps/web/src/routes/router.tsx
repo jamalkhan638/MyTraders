@@ -8,6 +8,8 @@ import { BookerPlaceholderPage } from '@/features/booker/pages/BookerPlaceholder
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
+import { OrganizationSettingsPage } from '@/features/settings/pages/OrganizationSettingsPage';
+import { OrderBookersPage } from '@/features/users/pages/OrderBookersPage';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } from './guards';
 import { NotFoundPage } from './NotFoundPage';
 
@@ -18,8 +20,6 @@ const adminPlaceholders = [
   { path: 'products', title: 'Products', phase: 'Phase 2' },
   { path: 'expenses', title: 'Expenses', phase: 'Phase 6' },
   { path: 'reports', title: 'Reports', phase: 'Phase 7' },
-  { path: 'order-bookers', title: 'Order Bookers', phase: 'Phase 1 (Users)' },
-  { path: 'settings', title: 'Settings', phase: 'Phase 1 (Organization settings)' },
 ];
 
 export const router = createBrowserRouter([
@@ -38,6 +38,8 @@ export const router = createBrowserRouter([
             element: <AdminLayout />,
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
+              { path: '/order-bookers', element: <OrderBookersPage /> },
+              { path: '/settings', element: <OrganizationSettingsPage /> },
               ...adminPlaceholders.map(({ path, title, phase }) => ({
                 path: `/${path}`,
                 element: <ComingSoonPage title={title} phase={phase} />,

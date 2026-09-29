@@ -17,6 +17,7 @@ import './common/types/auth-context';
 import { type Env, validateEnv } from './config/env';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -74,6 +75,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     TenantModule,
     AuthModule,
+    OrganizationsModule,
     UsersModule,
   ],
   controllers: [HealthController],

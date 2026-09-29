@@ -11,6 +11,8 @@ export interface AuthContextValue {
   /** Called after a successful login response. */
   signIn: (session: AuthSessionResponse) => void;
   signOut: () => Promise<void>;
+  /** Re-reads /auth/me, e.g. after the organization name changed. */
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

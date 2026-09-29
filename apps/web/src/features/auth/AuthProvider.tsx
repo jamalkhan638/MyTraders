@@ -40,9 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient]);
 
+  const refreshUser = useCallback(async () => {
+    const user = await authApi.me();
+    setState({ status: 'authenticated', user });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ state, signIn, signOut }),
-    [state, signIn, signOut],
+    () => ({ state, signIn, signOut, refreshUser }),
+    [state, signIn, signOut, refreshUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

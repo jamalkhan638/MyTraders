@@ -34,6 +34,8 @@ Expenses are recorded separately by Admin and reduce profit.
 
 ### 4.1 Organization settings
 Company name, address, town/city, phone, NTN, STRN, logo, currency (default `PKR`), timezone (default `Asia/Karachi`), invoice number prefix + padding, order number prefix, default tax rate, product categories, shop channels, expense categories.
+- Logo is a URL to an image for now (D-20); file upload comes later.
+- **Next invoice number** can be set (e.g. to continue the paper invoice book) but only moved **forward**, so a number is never issued twice (D-18).
 Currency is an organization setting — it is never hard-coded in the domain model.
 
 ### 4.2 Users
@@ -41,6 +43,8 @@ Currency is an organization setting — it is never hard-coded in the domain mod
 - Login = **email + password**. No 2FA, no public sign-up in the MVP.
 - Email is unique **across the whole platform** (so login needs no company code).
 - Admin can deactivate a user; a deactivated user loses access immediately.
+- MVP user management (D-19): the Admin lists all users of the organization and creates / edits / activates / deactivates **Order Booker** accounts (role is always `ORDER_BOOKER`, organization is always the Admin's). Admin accounts are not editable from the app yet; further Admins are created with the CLI.
+- Deactivating a booker or resetting their password signs them out everywhere immediately.
 - MVP: organizations and their first Admin are created by a seed/CLI script (Super Admin UI comes later).
 
 ### 4.3 Areas
@@ -169,6 +173,9 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-15 | One product = one unit as added by Admin (e.g. one carton); prices, cost and weight are per that unit | Owner answer |
 | D-16 | Admin can cancel a confirmed invoice; cancellation automatically reverses the ledger debit | Owner answer |
 | D-17 | Order Booker sees both Trade Price and Retail Price | Owner answer |
+| D-18 | Admin may set the next invoice number, only forward (never lower than the current counter) | Phase 1 implementation |
+| D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
+| D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
 
 ## 6. Open questions
 

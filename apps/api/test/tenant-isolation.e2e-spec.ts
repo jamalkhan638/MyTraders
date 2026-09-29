@@ -47,7 +47,7 @@ describe('Tenant isolation (e2e)', () => {
         .get('/api/users')
         .set('Authorization', `Bearer ${tokenB}`)
         .expect(200);
-      const ids = (res: request.Response) => res.body.map((u: { id: string }) => u.id).sort();
+      const ids = (res: request.Response) => res.body.items.map((u: { id: string }) => u.id).sort();
 
       expect(ids(resA)).toEqual([adminA.id, bookerA.id].sort());
       expect(ids(resB)).toEqual([adminB.id, bookerB.id].sort());
@@ -85,9 +85,9 @@ describe('Tenant isolation (e2e)', () => {
         .get(`/api/users?organizationId=${orgB.id}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
-      expect(res.body.every((u: { id: string }) => [adminA.id, bookerA.id].includes(u.id))).toBe(
-        true,
-      );
+      expect(
+        res.body.items.every((u: { id: string }) => [adminA.id, bookerA.id].includes(u.id)),
+      ).toBe(true);
     });
   });
 
