@@ -1,0 +1,101 @@
+// Source of truth for the design: docs/database-design.md
+// Phase 1 contains only the platform foundation tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  ORDER_BOOKER
+}
+
+enum CounterKey {
+  ORDER
+  INVOICE
+}
+
+model Organization {
+  id                  String             @id @default(uuid(7)) @db.Uuid
+  name                String
+  status              OrganizationStatus @default(TRIAL)
+  // settings (1:1, kept on the row for simplicity)
+  address             String?
+  town                String?
+  phone               String?
+  ntn                 String?
+  strn                String?
+  logoUrl             String?
+  currency            String             @default("PKR") @db.Char(3)
+  timezone            String             @default("Asia/Karachi")
+  invoicePrefix       String             @default("INV-")
+  invoiceNumberDigits Int                @default(6)
+  orderPrefix         String             @default("ORD-")
+  orderNumberDigits   Int                @default(6)
+  defaultTaxRate      Decimal            @default(0) @db.Decimal(7, 4)
+  createdAt           DateTime           @default(now()) @db.Timestamptz
+  updatedAt           DateTime           @updatedAt @db.Timestamptz
+
+  users    User[]
+  counters OrganizationCounter[]
+}
+
+/// organizationId is null only for SUPER_ADMIN (enforced by a CHECK constraint in the migration).
+model User {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String?   @db.Uuid
+  /// stored lower-cased; globally unique (login needs no company code)
+  email          String    @unique
+  passwordHash   String
+  name           String
+  phone          String?
+  role           UserRole
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime? @db.Timestamptz
+  createdAt      DateTime  @default(now()) @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @db.Timestamptz
+
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  refreshTokens RefreshToken[]
+
+  @@index([organizationId, role])
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @db.Uuid
+  familyId     String    @db.Uuid
+  /// sha256 of the opaque token; the raw token is never stored
+  tokenHash    String    @unique
+  expiresAt    DateTime  @db.Timestamptz
+  revokedAt    DateTime? @db.Timestamptz
+  replacedById String?   @db.Uuid
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model OrganizationCounter {
+  organizationId String     @db.Uuid
+  key            CounterKey
+  nextValue      Int        @default(1)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, key])
+}

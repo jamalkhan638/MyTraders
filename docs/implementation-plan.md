@@ -11,17 +11,17 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Owner review of docs
 
 ## Phase 1 — Platform foundation
-- ☐ Monorepo: pnpm workspaces, Turborepo, `packages/config`, `packages/shared-types`
-- ☐ `docker-compose.yml` with Postgres (dev + test DBs)
-- ☐ `apps/api`: NestJS bootstrap, config (zod env), pino logging, helmet, global exception filter, Swagger
-- ☐ Prisma setup, base schema (Organization, User, RefreshToken, OrganizationCounter), first migration
-- ☐ Tenant context (nestjs-cls) + tenant-scoped Prisma client extension + isolation test harness
-- ☐ Auth: login, refresh rotation, logout, me; JwtAuthGuard, RolesGuard (default deny), throttling
-- ☐ CLI `create-organization` (org + first Admin) and dev seed
-- ☐ `apps/web`: Vite + React + Tailwind + shadcn setup, theme tokens, router, QueryClient, API client with refresh, login page, AdminLayout, BookerLayout, role-based redirect
+- ☑ Monorepo: pnpm workspaces, Turborepo, `packages/config`, `packages/shared-types`
+- ☑ `docker-compose.yml` with Postgres (dev + test DBs)
+- ☑ `apps/api`: NestJS bootstrap, config (zod env), pino logging, helmet, global exception filter, Swagger
+- ☑ Prisma setup, base schema (Organization, User, RefreshToken, OrganizationCounter), first migration
+- ☑ Tenant context (nestjs-cls) + tenant-scoped Prisma client extension + isolation test harness
+- ☑ Auth: login, refresh rotation, logout, me; JwtAuthGuard, RolesGuard (default deny), throttling
+- ☑ CLI `create-organization` (org + first Admin) and dev seed
+- ☑ `apps/web`: Vite + React + Tailwind + shadcn setup, theme tokens, router, QueryClient, API client with refresh, login page, AdminLayout, BookerLayout, role-based redirect
 - ☐ Organization settings page
-- ☐ Users (Admin creates Order Bookers / Admins, deactivate)
-- ☐ CI script: lint, typecheck, unit + e2e tests
+- ◐ Users — read-only `GET /users`, `GET /users/:id` done (first tenant-isolated resource); create / edit / deactivate + UI todo
+- ◐ CI: root scripts `pnpm lint | typecheck | test | test:e2e` done; hosted CI workflow todo
 
 ## Phase 2 — Master data
 - ☐ Areas (table + dialog)

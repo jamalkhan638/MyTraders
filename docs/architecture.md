@@ -47,7 +47,10 @@ docker-compose.yml     local PostgreSQL (dev + test databases)
 | Exports | exceljs (Excel), pdfmake (PDF) — generated on the backend |
 | Invoice print | Print-optimized invoice page (browser print / save as PDF) |
 | DB | PostgreSQL 16 |
-| Tests | api: Jest + supertest against a real Postgres test DB; web + shared: Vitest |
+| Tests | api: Jest + supertest against a real Postgres test DB (`mytraders_test`; migrations applied with `prisma migrate deploy`, tables truncated per test file); web + shared: Vitest (added when the first frontend logic needs it) |
+
+### Pinned versions
+The stack is pinned to the majors documented here (NestJS 11, Prisma 6, TypeScript 5.9, Vite 7, React Router 7, zod 4, Tailwind 4) even where newer majors exist, so upgrades are deliberate, separate changes.
 
 ## 4. Authentication
 
@@ -57,7 +60,11 @@ docker-compose.yml     local PostgreSQL (dev + test databases)
 - Access token claims: `sub` (userId), `org` (organizationId or null), `role`.
 - On every authenticated request the guard loads the user (`isActive`, role, organization status). Deactivated users or suspended organizations are rejected immediately (cheap indexed lookup; acceptable at MVP scale).
 - Login rate-limited (throttler).
-- Frontend: on 401 the API client performs a single-flight `POST /auth/refresh` and retries once; on failure → login page.
+- Frontend: on 401 the API client performs a single-flight `POST /auth/refresh` and retries once; on failure → login page. Refresh is also serialized **across browser tabs** with the Web Locks API, because sending an already-rotated refresh token twice is treated as theft.
+- On page load the session is restored by calling `POST /auth/refresh` (the access token lives only in memory).
+- Refresh cookie: `mt_refresh`, `Path=/api/auth`. Refresh sessions are sliding: each rotation issues a new 30-day token.
+- `organizationId`/`role` used for authorization always come from the **database row loaded by the guard**, not from the token claims; a token whose claims no longer match (role changed, user moved) is rejected.
+- `User` has DB CHECK constraints: only `SUPER_ADMIN` has `organizationId = NULL`; emails are stored lower-case.
 
 ## 5. Multi-tenancy
 
@@ -73,6 +80,7 @@ Rules:
 4. Cross-entity references are validated inside the tenant: e.g. creating a shop with `areaId` first loads the area through the tenant client; not found → 404/422. This prevents linking to another tenant's IDs.
 5. A raw unscoped Prisma client exists only for: auth (login lookup), counters inside transactions, platform (Super Admin) module, seeds. Its use is limited to those modules and reviewed.
 6. **Every module ships tenant-isolation e2e tests** (Org A token cannot read/update Org B record by ID).
+   Implementation: `apps/api/src/prisma/tenant-scope.ts` (`TENANT_MODELS` must list every tenant-owned model; models not listed are unreachable through the tenant client — default deny). The Organization row itself is reachable only as `id = current organization`.
 7. Future defense-in-depth: PostgreSQL Row-Level Security. Not in MVP.
 
 Responses for another tenant's IDs are **404** (not 403) so existence is not leaked.

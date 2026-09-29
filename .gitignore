@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.env.test.local
+apps/web/dev-dist/
+.DS_Store

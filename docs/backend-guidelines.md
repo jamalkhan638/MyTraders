@@ -41,6 +41,8 @@ apps/api/
     create-organization.ts  # CLI: create org + first admin
 ```
 
+A startup check (`RouteAccessCheck`) refuses to boot the app if any route lacks `@Public()` or `@Roles(...)`; `@AnyRole()` means any signed-in user.
+
 Each module: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.e2e-spec.ts`, optional `*.service.spec.ts`.
 
 ## 2. Rules
@@ -68,7 +70,9 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /auth/logout` | any | revoke refresh family |
 | `GET /auth/me` | any | current user + organization basics |
 | `GET/PATCH /organization/settings` | ADMIN | |
-| `GET/POST /users`, `PATCH /users/:id` | ADMIN | create booker/admin, deactivate |
+| `GET /health` | public | liveness + DB check |
+| `GET /users`, `GET /users/:id` | ADMIN | ✅ Phase 1 (read-only) |
+| `POST /users`, `PATCH /users/:id` | ADMIN | create booker/admin, deactivate |
 | `GET/POST /areas`, `PATCH /areas/:id` | ADMIN (GET also BOOKER, scoped) | |
 | `GET/POST /shop-channels`, `PATCH /shop-channels/:id` | ADMIN | |
 | `GET/POST /product-categories`, `PATCH …/:id` | ADMIN | |
