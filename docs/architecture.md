@@ -1,0 +1,121 @@
+# Architecture
+
+## 1. Overview
+
+```
+┌─────────────────────────┐        HTTPS / JSON (REST)        ┌──────────────────────────┐
+│ apps/web                │ ───────────────────────────────▶ │ apps/api                 │
+│ React + Vite (PWA)      │   Authorization: Bearer <access>  │ NestJS                   │
+│ Admin desktop UI        │   refresh cookie (httpOnly)       │ Auth · Tenancy · Modules │
+│ Order Booker mobile UI  │ ◀─────────────────────────────── │ Prisma                   │
+└─────────────────────────┘                                   └────────────┬─────────────┘
+            ▲                                                              │
+            │  imports zod schemas, enums, calculators                     ▼
+┌─────────────────────────┐                                   ┌──────────────────────────┐
+│ packages/shared-types   │ ◀──────── also imported by api ── │ PostgreSQL               │
+└─────────────────────────┘                                   └──────────────────────────┘
+```
+
+One web app serves both roles; the layout switches by role (Admin sidebar layout vs Order Booker bottom-nav layout).
+
+## 2. Monorepo
+
+pnpm workspaces + Turborepo.
+
+```
+apps/
+  web/                 React 19 + Vite + TS
+  api/                 NestJS + Prisma
+packages/
+  shared-types/        zod schemas (request/response contracts), enums, pure calculators (Decimal)
+  config/              shared tsconfig bases, eslint, prettier
+docs/                  this documentation (source of truth)
+docker-compose.yml     local PostgreSQL (dev + test databases)
+```
+
+- A `packages/ui` package is **not** created yet: shadcn/ui components live in `apps/web/src/components/ui` until a second consumer exists.
+- `shared-types` is the single place for API contracts. The backend validates requests with the **same zod schemas** (via `nestjs-zod`), and Swagger is generated from them. This avoids maintaining class-validator DTOs and frontend schemas separately.
+- Invoice / profit calculators are pure functions in `shared-types` so the frontend shows the same numbers the backend will compute. The backend always recomputes.
+
+## 3. Technology
+
+| Layer | Choice |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router, TanStack Query, TanStack Table, React Hook Form, Zod, Tailwind CSS v4, shadcn/ui, lucide-react, sonner, vite-plugin-pwa |
+| Backend | NestJS 11, TypeScript, Prisma 6, nestjs-zod, @nestjs/swagger, nestjs-cls (request context), nestjs-pino (logging), argon2, @nestjs/jwt, @nestjs/throttler, helmet |
+| Money | `decimal.js` in code, `numeric` in Postgres |
+| Exports | exceljs (Excel), pdfmake (PDF) — generated on the backend |
+| Invoice print | Print-optimized invoice page (browser print / save as PDF) |
+| DB | PostgreSQL 16 |
+| Tests | api: Jest + supertest against a real Postgres test DB; web + shared: Vitest |
+
+## 4. Authentication
+
+- Email + password. Passwords hashed with **argon2id**.
+- **Access token**: JWT, 15 min, sent as `Authorization: Bearer`. Kept **in memory** on the frontend (not localStorage).
+- **Refresh token**: random 256-bit opaque value, 30 days, in an `httpOnly; Secure; SameSite=Strict; Path=/api/auth` cookie. Stored **hashed** in `RefreshToken`. Rotated on every refresh; reuse of a rotated token revokes the whole token family (theft detection).
+- Access token claims: `sub` (userId), `org` (organizationId or null), `role`.
+- On every authenticated request the guard loads the user (`isActive`, role, organization status). Deactivated users or suspended organizations are rejected immediately (cheap indexed lookup; acceptable at MVP scale).
+- Login rate-limited (throttler).
+- Frontend: on 401 the API client performs a single-flight `POST /auth/refresh` and retries once; on failure → login page.
+
+## 5. Multi-tenancy
+
+Model: **shared database, shared schema, `organizationId` column on every tenant-owned table.**
+
+Rules:
+1. `organizationId` is **never** accepted from the client. It comes only from the authenticated user.
+2. A request-scoped **TenantContext** (nestjs-cls / AsyncLocalStorage) holds `organizationId`, `userId`, `role`, set by the auth guard.
+3. A **tenant-scoped Prisma client** (Prisma client extension) is the only client services use for tenant models. It:
+   - adds `organizationId = ctx.organizationId` to `where` on `findFirst / findMany / count / aggregate / groupBy / updateMany / deleteMany`;
+   - sets `organizationId` on `create / createMany`;
+   - **forbids** `findUnique / update / delete / upsert` on tenant models (these cannot be scoped safely) — services use `findFirst` / `updateMany` with the tenant filter, then check the affected count (0 → 404).
+4. Cross-entity references are validated inside the tenant: e.g. creating a shop with `areaId` first loads the area through the tenant client; not found → 404/422. This prevents linking to another tenant's IDs.
+5. A raw unscoped Prisma client exists only for: auth (login lookup), counters inside transactions, platform (Super Admin) module, seeds. Its use is limited to those modules and reviewed.
+6. **Every module ships tenant-isolation e2e tests** (Org A token cannot read/update Org B record by ID).
+7. Future defense-in-depth: PostgreSQL Row-Level Security. Not in MVP.
+
+Responses for another tenant's IDs are **404** (not 403) so existence is not leaked.
+
+## 6. Financial integrity
+
+- Money columns: `numeric(14,2)`. Rates: `numeric(7,4)` (percent). Quantities & weights: `numeric(12,3)`.
+- Arithmetic in `decimal.js`; values cross the API as **strings** (e.g. `"2114.06"`), never JS numbers.
+- The backend is the authority for invoice totals, ledger balances and profit. Client-sent totals are ignored.
+- Critical operations run in a single DB transaction (`prisma.$transaction`, interactive):
+  - Confirm invoice (number allocation, invoice, items, ledger, order status, optional payment).
+  - Record payment (lock shop row `SELECT … FOR UPDATE`, compute balance, reject overpayment, insert entry).
+- Ledger is append-only. Corrections are new entries, never edits/deletes.
+
+## 7. Sequential numbering (invoices, orders)
+
+Table `OrganizationCounter(organizationId, key, nextValue)`.
+Inside the confirm transaction:
+```sql
+UPDATE "OrganizationCounter"
+   SET "nextValue" = "nextValue" + 1
+ WHERE "organizationId" = $1 AND "key" = 'INVOICE'
+RETURNING "nextValue" - 1 AS value;
+```
+The row lock serializes concurrent confirmations per organization; if the transaction rolls back, the increment rolls back too → **no duplicates, no gaps**. `@@unique([organizationId, invoiceNumber])` is the final safety net. Formatted as `prefix + zero-padded value` from organization settings (first customer: `M-` + 8 digits).
+
+## 8. Dates & time
+
+- Timestamps: `timestamptz` (UTC).
+- Business dates (invoice date, expense date, ledger entry date): Postgres `date`, chosen in the organization's timezone.
+- "This month" ranges are computed in the organization's timezone.
+
+## 9. Error handling & logging
+
+- Global exception filter → consistent body `{ statusCode, error, message, details? }`.
+- Prisma `P2002` (unique) → 409, `P2025` (not found) → 404.
+- Zod validation errors → 400 with field paths.
+- nestjs-pino JSON logs with request id, userId, organizationId. Passwords/tokens are redacted.
+
+## 10. API
+
+REST, JSON, prefix `/api`, Swagger at `/api/docs` (dev only). Pagination: `?page=&pageSize=` → `{ items, total, page, pageSize }`. See [backend-guidelines.md](./backend-guidelines.md) for the endpoint list.
+
+## 11. Deployment (later)
+
+Single Docker image per app; managed PostgreSQL with daily backups; web served as static files behind the same domain as the API (`/api`) so the refresh cookie can be `SameSite=Strict`.
