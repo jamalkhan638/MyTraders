@@ -20,7 +20,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 
 | Section | Fields | Source |
 |---|---|---|
-| Shop information | Name, Address, NTN, STRN, CNIC, Contact Person, Channel | Shop — **snapshotted** |
+| Shop information | Name, Address, NTN, STRN, CNIC, Contact Person, Channel (= shop category) | Shop — **snapshotted** |
 | Distributor information | Name, Address, NTN, STRN, Phone, Town | Organization settings — **snapshotted** |
 | Invoice | Invoice Number, Invoice Date | Generated / chosen by Admin (default today, org timezone) |
 

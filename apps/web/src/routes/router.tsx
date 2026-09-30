@@ -10,6 +10,7 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
 import { AreasPage } from '@/features/areas/pages/AreasPage';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
+import { ShopCategoriesPage } from '@/features/shop-categories/pages/ShopCategoriesPage';
 import { OrganizationSettingsPage } from '@/features/settings/pages/OrganizationSettingsPage';
 import { OrderBookersPage } from '@/features/users/pages/OrderBookersPage';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } from './guards';
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <OrganizationSettingsPage /> },
                   { path: 'areas', element: <AreasPage /> },
+                  { path: 'shop-categories', element: <ShopCategoriesPage /> },
                 ],
               },
               ...adminPlaceholders.map(({ path, title, phase }) => ({

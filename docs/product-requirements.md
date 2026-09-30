@@ -33,7 +33,7 @@ Expenses are recorded separately by Admin and reduce profit.
 ## 4. Modules and rules
 
 ### 4.1 Organization settings
-Company name, address, town/city, phone, NTN, STRN, logo, currency (default `PKR`), timezone (default `Asia/Karachi`), invoice number prefix + padding, order number prefix, default tax rate, product categories, shop channels, expense categories.
+Company name, address, town/city, phone, NTN, STRN, logo, currency (default `PKR`), timezone (default `Asia/Karachi`), invoice number prefix + padding, order number prefix, default tax rate, shop categories, expense categories.
 - Logo is a URL to an image for now (D-20); file upload comes later.
 - **Next invoice number** can be set (e.g. to continue the paper invoice book) but only moved **forward**, so a number is never issued twice (D-18).
 Currency is an organization setting — it is never hard-coded in the domain model.
@@ -53,8 +53,14 @@ Currency is an organization setting — it is never hard-coded in the domain mod
 - Areas are never deleted — deactivate instead (history such as shops keeps pointing to them).
 - UI: table + small dialog for add/edit.
 
+### 4.3a Shop Categories (shop types)
+- Admin-only list used to group shops, e.g. Convenience Store, General Store, Supermarket, Wholesale.
+- List, search, add, edit, activate/deactivate; never deleted.
+- Name required (max 100 chars, extra spaces removed); unique **within the organization** (case/space-insensitive); another organization may use the same name.
+- UI: Settings → Shop Categories; table + small dialog (same pattern as Areas).
+
 ### 4.4 Shops
-Fields: name (required), contact person / owner, phone, address, area (required), assigned Order Booker (optional, one), channel (optional, from configurable list e.g. *Convenience Store*), NTN, STRN, CNIC (all optional), active flag.
+Fields: name (required), contact person / owner, phone, address, area (required), assigned Order Booker (optional, one), shop category / shop type (optional, from the configurable Shop Categories list, e.g. *Convenience Store*, *General Store*, *Supermarket*, *Wholesale*; printed as "Channel" on invoices), NTN, STRN, CNIC (all optional), active flag.
 
 - Desktop table columns: Shop, Area, Order Booker, Outstanding Balance, Last Invoice, Status, Actions.
 - Filters: search, area, order booker, status, credit status (has balance / zero).
@@ -79,7 +85,6 @@ Product master (defaults, editable any time):
 |---|---|
 | Product Code | Optional, unique per organization when set |
 | Name | Required |
-| Category | Optional, configurable |
 | Rate Code | **Display only**, never used in calculations |
 | Retail Price (R.P) | Default, per unit incl. tax |
 | Trade Price (T.P) | Default, per unit excl. FED |
@@ -166,7 +171,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-7 | Cost price is entered per product by Admin, snapshotted per invoice item | Owner answer |
 | D-8 | Rate Code is display-only | Owner answer |
 | D-9 | Previous balance printed as "Credit Balance"; ledger debits only this invoice's own amount | Owner answer |
-| D-10 | Shop NTN / STRN / CNIC / contact / channel are optional | Owner answer |
+| D-10 | Shop NTN / STRN / CNIC / contact / shop category (channel) are optional | Owner answer |
 | D-11 | No partner split; show Net Profit only | Owner answer |
 | D-12 | English UI only | Owner answer |
 | D-13 | GST / tax rates are data (product default + per-invoice snapshot) | Master spec |
@@ -177,6 +182,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-18 | Admin may set the next invoice number, only forward (never lower than the current counter) | Phase 1 implementation |
 | D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
 | D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
+| D-21 | **Product Categories removed from the MVP** — products have no category entity. **Shop Categories** (shop types, e.g. Convenience Store, General Store, Supermarket, Wholesale) are kept; they replace the earlier "shop channel" list and are printed as "Channel" on invoices | Owner decision (Phase 2) |
 
 ## 6. Open questions
 

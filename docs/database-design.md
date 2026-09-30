@@ -17,9 +17,9 @@
 
 ```
 Organization ─┬─< User (ADMIN | ORDER_BOOKER)          SUPER_ADMIN has organizationId = null
-              ├─< Area ─────────────< Shop >──── ShopChannel
+              ├─< Area ─────────────< Shop >──── ShopCategory (optional)
               │                        │  └───── User (assignedOrderBooker, optional)
-              ├─< ProductCategory ─< Product
+              ├─< Product
               ├─< Order ─< OrderItem >── Product
               │     └── (0..1) Invoice
               ├─< Invoice ─< InvoiceItem >── Product
@@ -118,12 +118,14 @@ model Area {
   @@unique([organizationId, nameNormalized])
 }
 
-model ShopChannel {            // e.g. Convenience Store, Wholesale
-  id             String  @id @default(uuid(7)) @db.Uuid
-  organizationId String  @db.Uuid
+model ShopCategory {           // shop type, e.g. Convenience Store, Wholesale (D-21)
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @db.Uuid
   name           String
   nameNormalized String
-  isActive       Boolean @default(true)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
   @@unique([organizationId, nameNormalized])
 }
 
@@ -137,7 +139,7 @@ model Shop {
   ntn                   String?
   strn                  String?
   cnic                  String?
-  channelId             String?  @db.Uuid
+  categoryId            String?  @db.Uuid              // ShopCategory
   areaId                String   @db.Uuid
   assignedOrderBookerId String?  @db.Uuid
   isActive              Boolean  @default(true)
@@ -148,20 +150,11 @@ model Shop {
   @@index([organizationId, name])
 }
 
-model ProductCategory {
-  id             String @id @default(uuid(7)) @db.Uuid
-  organizationId String @db.Uuid
-  name           String
-  nameNormalized String
-  @@unique([organizationId, nameNormalized])
-}
-
 model Product {
   id              String   @id @default(uuid(7)) @db.Uuid
   organizationId  String   @db.Uuid
   code            String?                              // unique per org when set
   name            String
-  categoryId      String?  @db.Uuid
   rateCode        String?                              // display only
   retailPrice     Decimal  @db.Decimal(14, 2)          // R.P per unit (D-15)
   tradePrice      Decimal  @db.Decimal(14, 2)          // T.P per unit
@@ -209,7 +202,7 @@ model Invoice {
   shopId               String        @db.Uuid
   orderId              String?       @unique @db.Uuid  // an order is invoiced at most once
   status               InvoiceStatus @default(CONFIRMED)
-  shopSnapshot         Json          // name, address, ntn, strn, cnic, contactPerson, channel
+  shopSnapshot         Json          // name, address, ntn, strn, cnic, contactPerson, category (printed as "Channel")
   organizationSnapshot Json          // name, address, ntn, strn, phone, town, currency
   // totals (formulas: invoice-specification.md — TBC)
   totalWeightKg        Decimal       @db.Decimal(12, 3)

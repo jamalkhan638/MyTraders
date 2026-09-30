@@ -25,9 +25,8 @@ apps/api/
       organizations/        # settings (+ platform later)
       users/
       areas/
-      shop-channels/
+      shop-categories/
       products/
-      product-categories/
       shops/
       orders/
       invoices/
@@ -77,8 +76,8 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /areas?page&pageSize&q&status`, `GET /areas/:id` | ADMIN | ✅ Phase 2, paginated, sorted by name |
 | `POST /areas`, `PATCH /areas/:id` | ADMIN | ✅ `name` cleaned (trim, single spaces); duplicate in org → 409; `isActive` to (de)activate; no delete |
 | Booker area list for the My Shops filter | BOOKER | Phase 3 (areas of assigned shops only) |
-| `GET/POST /shop-channels`, `PATCH /shop-channels/:id` | ADMIN | |
-| `GET/POST /product-categories`, `PATCH …/:id` | ADMIN | |
+| `GET /shop-categories?page&pageSize&q&status`, `GET /shop-categories/:id` | ADMIN | ✅ Phase 2, same pattern as Areas |
+| `POST /shop-categories`, `PATCH /shop-categories/:id` | ADMIN | ✅ duplicate name in org → 409; `isActive` to (de)activate; no delete |
 | `GET/POST /products`, `GET/PATCH /products/:id` | ADMIN (GET also BOOKER, no cost) | |
 | `GET/POST /shops`, `GET/PATCH /shops/:id` | ADMIN (GET also BOOKER, assigned only) | list includes balance & last invoice |
 | `GET /shops/export?format=xlsx\|pdf&<filters>` | ADMIN | exports current filter |

@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 const TABS = [
   { label: 'Organization', to: '/settings', end: true },
   { label: 'Areas', to: '/settings/areas', end: false },
+  { label: 'Shop Categories', to: '/settings/shop-categories', end: false },
 ];
 
-/** Settings section with tabs (docs/frontend-guidelines.md §5: Settings → Organization, Areas, …). */
+/** Settings section with tabs (docs/frontend-guidelines.md §5: Settings → Organization, Areas, Shop Categories, …). */
 export function SettingsLayout() {
   return (
     <>

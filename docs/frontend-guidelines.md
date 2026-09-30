@@ -64,9 +64,9 @@ Every list has loading skeleton, empty state, error state. Destructive/financial
 
 ## 5. Navigation
 
-**Admin (desktop sidebar)**: Dashboard · Sales (Orders, Invoices) · Shops · Products · Expenses · Reports · Order Bookers · Settings (Organization, Areas, Channels, Product Categories, Expense Categories, Users).
+**Admin (desktop sidebar)**: Dashboard · Sales (Orders, Invoices) · Shops · Products · Expenses · Reports · Order Bookers · Settings (Organization, Areas, Shop Categories, Expense Categories). Order Bookers have their own sidebar entry.
 
-Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implemented: Organization (`/settings`), Areas (`/settings/areas`).
+Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implemented: Organization (`/settings`), Areas (`/settings/areas`), Shop Categories (`/settings/shop-categories`).
 
 **Order Booker (mobile bottom nav)**: Home · My Shops · My Orders · Profile.
 
