@@ -49,7 +49,8 @@ Currency is an organization setting — it is never hard-coded in the domain mod
 
 ### 4.3 Areas
 - List, search, add, edit, activate/deactivate.
-- Name required; unique **within the organization** (case/space-insensitive); not unique across organizations.
+- Name required (max 100 chars, extra spaces removed); unique **within the organization** (case/space-insensitive); not unique across organizations.
+- Areas are never deleted — deactivate instead (history such as shops keeps pointing to them).
 - UI: table + small dialog for add/edit.
 
 ### 4.4 Shops

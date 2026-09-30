@@ -24,7 +24,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ◐ CI: root scripts `pnpm lint | typecheck | test | test:e2e` done; hosted CI workflow todo
 
 ## Phase 2 — Master data
-- ☐ Areas (table + dialog)
+- ☑ Areas (table + dialog) — Settings → Areas; `GET/POST /areas`, `GET/PATCH /areas/:id`
 - ☐ Shop channels, product categories (settings lists)
 - ☐ Products (table + drawer)
 - ☐ Shops (table, filters, drawer, assign booker) + ShopLedgerEntry table + balance column

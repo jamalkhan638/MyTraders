@@ -53,3 +53,13 @@ export function isValidTimeZone(value: string): boolean {
     return false;
   }
 }
+
+/** Display form of a name: trimmed, inner whitespace collapsed to single spaces. */
+export function cleanName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+/** Comparison key for "unique per organization" names: cleaned and lower-cased. */
+export function normalizeName(value: string): string {
+  return cleanName(value).toLowerCase();
+}

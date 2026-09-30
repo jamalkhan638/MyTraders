@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { OrganizationSettingsForm } from '../components/OrganizationSettingsForm';
@@ -8,10 +7,6 @@ export function OrganizationSettingsPage() {
   const settings = useOrganizationSettings();
   return (
     <div className="max-w-4xl">
-      <PageHeader
-        title="Settings"
-        description="Company details, currency, timezone and document numbering."
-      />
       {settings.isPending ? (
         <Card>
           <CardContent className="space-y-3">

@@ -12,7 +12,7 @@ import { formatDateTime } from '@/lib/format/date';
 import { OrderBookerFormSheet } from '../components/OrderBookerFormSheet';
 import { ToggleActiveDialog } from '../components/ToggleActiveDialog';
 import { UserRoleBadge, UserStatusBadge } from '../components/UserStatusBadge';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useUsers } from '../hooks/useUsers';
 
 const PAGE_SIZE = 20;

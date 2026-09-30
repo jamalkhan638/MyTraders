@@ -74,7 +74,9 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /users?page&pageSize&q&role&status`, `GET /users/:id` | ADMIN | ✅ Phase 1, paginated |
 | `POST /users` | ADMIN | ✅ creates an **ORDER_BOOKER** (role/org never from client); 409 if email taken |
 | `PATCH /users/:id` | ADMIN | ✅ Order Booker accounts only (403 for Admins): name, email, phone, `isActive`, `password` reset; deactivate/reset revokes sessions |
-| `GET/POST /areas`, `PATCH /areas/:id` | ADMIN (GET also BOOKER, scoped) | |
+| `GET /areas?page&pageSize&q&status`, `GET /areas/:id` | ADMIN | ✅ Phase 2, paginated, sorted by name |
+| `POST /areas`, `PATCH /areas/:id` | ADMIN | ✅ `name` cleaned (trim, single spaces); duplicate in org → 409; `isActive` to (de)activate; no delete |
+| Booker area list for the My Shops filter | BOOKER | Phase 3 (areas of assigned shops only) |
 | `GET/POST /shop-channels`, `PATCH /shop-channels/:id` | ADMIN | |
 | `GET/POST /product-categories`, `PATCH …/:id` | ADMIN | |
 | `GET/POST /products`, `GET/PATCH /products/:id` | ADMIN (GET also BOOKER, no cost) | |

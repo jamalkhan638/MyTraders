@@ -11,7 +11,7 @@ Every request is checked for: authenticated → user active → organization not
 | Users: create / edit / deactivate | ✅ | ❌ |
 | Own profile / change own password | ✅ | ✅ |
 | Areas: manage | ✅ | ❌ |
-| Areas: list (for filter) | ✅ | ✅ only areas of assigned shops |
+| Areas: list (for filter) | ✅ | ✅ only areas of assigned shops (endpoint arrives with the booker My Shops screen, Phase 3) |
 | Products: manage | ✅ | ❌ |
 | Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** |
 | Shops: manage / assign booker | ✅ | ❌ |

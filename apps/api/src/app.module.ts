@@ -15,6 +15,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { TenantModule } from './common/tenant/tenant.module';
 import './common/types/auth-context';
 import { type Env, validateEnv } from './config/env';
+import { AreasModule } from './modules/areas/areas.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
@@ -77,6 +78,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     OrganizationsModule,
     UsersModule,
+    AreasModule,
   ],
   controllers: [HealthController],
   providers: [

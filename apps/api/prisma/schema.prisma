@@ -50,6 +50,7 @@ model Organization {
 
   users    User[]
   counters OrganizationCounter[]
+  areas    Area[]
 }
 
 /// organizationId is null only for SUPER_ADMIN (enforced by a CHECK constraint in the migration).
@@ -98,4 +99,21 @@ model OrganizationCounter {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@id([organizationId, key])
+}
+
+/// Market area (e.g. Saddar). Name unique per organization, case/space-insensitive via nameNormalized.
+model Area {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @db.Uuid
+  /// display name, trimmed with single spaces
+  name           String
+  /// lower-cased name used for uniqueness (set by the service)
+  nameNormalized String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, nameNormalized])
 }

@@ -7,6 +7,7 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 export const TENANT_MODELS: ReadonlySet<string> = new Set<Prisma.ModelName>([
   'User',
   'OrganizationCounter',
+  'Area',
 ]);
 
 /** The Organization row itself: readable/updatable only for the current organization. */

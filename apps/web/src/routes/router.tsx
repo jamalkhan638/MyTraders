@@ -8,6 +8,8 @@ import { BookerPlaceholderPage } from '@/features/booker/pages/BookerPlaceholder
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
+import { AreasPage } from '@/features/areas/pages/AreasPage';
+import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { OrganizationSettingsPage } from '@/features/settings/pages/OrganizationSettingsPage';
 import { OrderBookersPage } from '@/features/users/pages/OrderBookersPage';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } from './guards';
@@ -39,7 +41,14 @@ export const router = createBrowserRouter([
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
               { path: '/order-bookers', element: <OrderBookersPage /> },
-              { path: '/settings', element: <OrganizationSettingsPage /> },
+              {
+                path: '/settings',
+                element: <SettingsLayout />,
+                children: [
+                  { index: true, element: <OrganizationSettingsPage /> },
+                  { path: 'areas', element: <AreasPage /> },
+                ],
+              },
               ...adminPlaceholders.map(({ path, title, phase }) => ({
                 path: `/${path}`,
                 element: <ComingSoonPage title={title} phase={phase} />,
