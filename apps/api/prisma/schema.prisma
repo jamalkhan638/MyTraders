@@ -61,6 +61,7 @@ model Organization {
   areas          Area[]
   shopCategories ShopCategory[]
   products       Product[]
+  shops          Shop[]
 }
 
 /// organizationId is null only for SUPER_ADMIN (enforced by a CHECK constraint in the migration).
@@ -80,6 +81,7 @@ model User {
 
   organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   refreshTokens RefreshToken[]
+  assignedShops Shop[]
 
   @@index([organizationId, role])
 }
@@ -124,6 +126,7 @@ model Area {
   updatedAt      DateTime @updatedAt @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shops        Shop[]
 
   @@unique([organizationId, nameNormalized])
 }
@@ -142,6 +145,7 @@ model ShopCategory {
   updatedAt      DateTime @updatedAt @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shops        Shop[]
 
   @@unique([organizationId, nameNormalized])
 }
@@ -176,4 +180,38 @@ model Product {
 
   @@unique([organizationId, codeNormalized])
   @@index([organizationId, name])
+}
+
+/// Customer shop. Area/category/booker are validated inside the same organization by the service
+/// (docs D-23). There is deliberately NO credit/balance column: the outstanding balance will
+/// always be computed from ledger entries (Phase 5).
+model Shop {
+  id                    String   @id @default(uuid(7)) @db.Uuid
+  organizationId        String   @db.Uuid
+  /// display name, trimmed with single spaces; not unique
+  name                  String
+  /// owner / contact person
+  contactPerson         String?
+  phone                 String?
+  address               String?
+  ntn                   String?
+  strn                  String?
+  cnic                  String?
+  areaId                String   @db.Uuid
+  categoryId            String?  @db.Uuid
+  assignedOrderBookerId String?  @db.Uuid
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now()) @db.Timestamptz
+  updatedAt             DateTime @updatedAt @db.Timestamptz
+
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area                Area          @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  category            ShopCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignedOrderBooker User?         @relation(fields: [assignedOrderBookerId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, name])
+  @@index([organizationId, areaId])
+  @@index([organizationId, categoryId])
+  /// used by the Order Booker "My Shops" list (Phase 3)
+  @@index([organizationId, assignedOrderBookerId])
 }

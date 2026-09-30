@@ -62,11 +62,21 @@ Currency is an organization setting — it is never hard-coded in the domain mod
 ### 4.4 Shops
 Fields: name (required), contact person / owner, phone, address, area (required), assigned Order Booker (optional, one), shop category / shop type (optional, from the configurable Shop Categories list, e.g. *Convenience Store*, *General Store*, *Supermarket*, *Wholesale*; printed as "Channel" on invoices), NTN, STRN, CNIC (all optional), active flag.
 
-- Desktop table columns: Shop, Area, Order Booker, Outstanding Balance, Last Invoice, Status, Actions.
-- Filters: search, area, order booker, status, credit status (has balance / zero).
-- **Export the currently filtered list** to Excel and PDF.
-- Shop details is a dedicated page: info, outstanding balance, invoice history (open any invoice), ledger history, *Add Credit*, *Receive Payment*.
+- Validation (D-23):
+  - Name required (max 150, extra spaces removed); shop names are **not** unique (two shops may share a name).
+  - Area required; must be an **active** Area of the same organization.
+  - Shop Category optional; must be an **active** category of the same organization.
+  - Assigned Order Booker optional; must be an **active `ORDER_BOOKER`** of the same organization (an Admin cannot be assigned).
+  - These checks run on create and whenever the value changes; editing other fields of a shop whose area/category/booker was later deactivated is still allowed.
+  - A foreign id from another organization is rejected exactly like a non-existent id (422 on that field) — nothing about the other organization is revealed.
+  - Phone max 40 (digits, spaces, + - ( )); CNIC max 20 (digits and dashes); NTN/STRN max 40; address max 300.
+- Desktop table columns (Phase 2): Shop, Area, Shop Category, Order Booker, Phone, Status, Actions. Outstanding Balance and Last Invoice columns are added with the ledger/invoices (Phases 4–5).
+- Filters: search (name, contact person, phone), area, shop category, order booker (incl. "Unassigned"), status. Credit-status filter comes with the ledger.
+- **Export the currently filtered list** to Excel and PDF (later in Phase 2).
+- Shop details is a dedicated page: info, area, category, order booker, contact/tax info, status. Outstanding balance, invoice history (open any invoice), ledger history, *Add Credit*, *Receive Payment* are placeholders until Phases 4–5.
+- **No credit/balance column on Shop** — the balance will always be computed from the ledger.
 - Shops that have history are deactivated, never hard-deleted.
+- The Order Booker "My Shops" view (Phase 3) lists only shops whose `assignedOrderBookerId` is the signed-in booker; the backend list already supports filtering by order booker and the table is indexed for it.
 
 ### 4.5 Shop credit (ledger)
 - The outstanding balance is **never a mutable number**. It is always `Σ debit − Σ credit` over the shop's ledger entries.
@@ -187,6 +197,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
 | D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
 | D-22 | Products carry **no tax rate**; tax is calculated at invoice time. Product Name, Retail, Trade and Cost Price are required; Code, Rate Code, Weight, Unit, Pieces per Carton optional | Owner decision (Phase 2) |
+| D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-21 | **Product Categories removed from the MVP** — products have no category entity. **Shop Categories** (shop types, e.g. Convenience Store, General Store, Supermarket, Wholesale) are kept; they replace the earlier "shop channel" list and are printed as "Channel" on invoices | Owner decision (Phase 2) |
 
 ## 6. Open questions

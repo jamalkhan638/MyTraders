@@ -50,7 +50,12 @@ export function toErrorBody(exception: unknown): ApiErrorBody {
       const raw = (response as { message: unknown }).message;
       message = Array.isArray(raw) ? raw.join(', ') : String(raw);
     }
-    return { ...base(status), message };
+    // Business-rule errors may carry field-level details, e.g. { path: 'areaId', message }.
+    const details =
+      response && typeof response === 'object' && 'details' in response
+        ? (response as { details: ApiErrorBody['details'] }).details
+        : undefined;
+    return details ? { ...base(status), message, details } : { ...base(status), message };
   }
 
   if (exception instanceof Prisma.PrismaClientKnownRequestError) {

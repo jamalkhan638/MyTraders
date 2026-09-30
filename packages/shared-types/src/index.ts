@@ -7,3 +7,4 @@ export * from './users';
 export * from './areas';
 export * from './shop-categories';
 export * from './products';
+export * from './shops';

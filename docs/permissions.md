@@ -16,7 +16,7 @@ Every request is checked for: authenticated → user active → organization not
 | Products: manage | ✅ | ❌ |
 | Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** (endpoint arrives with Book Order, Phase 3) |
 | Shops: manage / assign booker | ✅ | ❌ |
-| Shops: list / view | ✅ all | ✅ **assigned shops only** (incl. outstanding balance) |
+| Shops: list / view | ✅ all | ✅ **assigned shops only** (incl. outstanding balance) — Phase 3 |
 | Orders: create | ✅ | ✅ only for assigned, active shops |
 | Orders: list / view | ✅ all | ✅ own orders only |
 | Orders: cancel | ✅ any pending | ✅ own pending only |

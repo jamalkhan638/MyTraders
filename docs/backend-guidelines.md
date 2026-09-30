@@ -81,7 +81,9 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /products?page&pageSize&q&status`, `GET /products/:id` | ADMIN | ✅ Phase 2; `q` matches name or code |
 | `POST /products`, `PATCH /products/:id` | ADMIN | ✅ prices as decimal strings; duplicate code in org → 409; `isActive` to (de)activate; no delete |
 | Booker product list (no cost price) | BOOKER | Phase 3, with Book Order |
-| `GET/POST /shops`, `GET/PATCH /shops/:id` | ADMIN (GET also BOOKER, assigned only) | list includes balance & last invoice |
+| `GET /shops?page&pageSize&q&areaId&categoryId&orderBookerId&status`, `GET /shops/:id` | ADMIN | ✅ Phase 2; `orderBookerId=unassigned` for shops without a booker; balance & last invoice added in Phases 4–5 |
+| `POST /shops`, `PATCH /shops/:id` | ADMIN | ✅ area/category/booker validated in the organization (422 on the field); `isActive`; no delete |
+| Booker "My Shops" (assigned shops only) | BOOKER | Phase 3 — reuses the shops list scoped to `assignedOrderBookerId = current user` |
 | `GET /shops/export?format=xlsx\|pdf&<filters>` | ADMIN | exports current filter |
 | `GET /shops/:id/ledger` | ADMIN | paginated history + balance |
 | `POST /shops/:id/payments` | ADMIN | rejects overpayment |

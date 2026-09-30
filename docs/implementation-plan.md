@@ -27,8 +27,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Areas (table + dialog) — Settings → Areas; `GET/POST /areas`, `GET/PATCH /areas/:id`
 - ☑ Shop Categories (shop types) — Settings → Shop Categories; `GET/POST /shop-categories`, `GET/PATCH /shop-categories/:id`. Product Categories removed from the MVP (D-21)
 - ☑ Products (table + drawer) — `GET/POST /products`, `GET/PATCH /products/:id`; no tax rate on products (D-22)
-- ☐ Shops (table, filters, drawer, assign booker) + ShopLedgerEntry table + balance column
-- ☐ Shop details page (info, balance, ledger, Add Credit)
+- ☑ Shops (table, filters, drawer, assign booker; FK validation in organization, D-23) — `GET/POST /shops`, `GET/PATCH /shops/:id`
+- ◐ Shop details page — ☑ info/assignment/tax + placeholders; balance, ledger, Add Credit in Phase 5
 - ☐ Shops export Excel / PDF (filtered)
 
 ## Phase 3 — Order Booker flow
@@ -45,6 +45,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Cancellation with automatic ledger reversal (D-16)
 
 ## Phase 5 — Ledger & payments
+- ☐ ShopLedgerEntry table; shop balance (list column, details card, credit-status filter), Add Credit
 - ☐ Receive Payment (overpayment rejected, row lock)
 - ☐ Ledger history on shop page, invoice links
 - ☐ Credit report

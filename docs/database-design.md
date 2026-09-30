@@ -132,22 +132,24 @@ model ShopCategory {           // shop type, e.g. Convenience Store, Wholesale (
 model Shop {
   id                    String   @id @default(uuid(7)) @db.Uuid
   organizationId        String   @db.Uuid
-  name                  String
-  contactPerson         String?
+  name                  String                                 // required, not unique
+  contactPerson         String?                                // owner / contact person
   phone                 String?
   address               String?
   ntn                   String?
   strn                  String?
   cnic                  String?
-  categoryId            String?  @db.Uuid              // ShopCategory
-  areaId                String   @db.Uuid
-  assignedOrderBookerId String?  @db.Uuid
+  areaId                String   @db.Uuid                      // Area (same organization, validated)
+  categoryId            String?  @db.Uuid                      // ShopCategory (same organization, validated)
+  assignedOrderBookerId String?  @db.Uuid                      // User with role ORDER_BOOKER (same organization)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now()) @db.Timestamptz
   updatedAt             DateTime @updatedAt @db.Timestamptz
-  @@index([organizationId, areaId])
-  @@index([organizationId, assignedOrderBookerId])
+  // NO credit/balance column: balance = Σ ShopLedgerEntry (Phase 5)
   @@index([organizationId, name])
+  @@index([organizationId, areaId])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, assignedOrderBookerId])            // booker "My Shops" (Phase 3)
 }
 
 model Product {
