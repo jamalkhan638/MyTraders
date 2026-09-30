@@ -151,23 +151,25 @@ model Shop {
 }
 
 model Product {
-  id              String   @id @default(uuid(7)) @db.Uuid
-  organizationId  String   @db.Uuid
-  code            String?                              // unique per org when set
-  name            String
-  rateCode        String?                              // display only
-  retailPrice     Decimal  @db.Decimal(14, 2)          // R.P per unit (D-15)
-  tradePrice      Decimal  @db.Decimal(14, 2)          // T.P per unit
-  costPrice       Decimal  @db.Decimal(14, 2)          // company invoice price per unit
-  piecesPerCarton Int      @default(1)                 // informational
-  weightKg        Decimal  @db.Decimal(12, 3)          // per unit
-  defaultTaxRate  Decimal  @default(0) @db.Decimal(7, 4)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now()) @db.Timestamptz
-  updatedAt       DateTime @updatedAt @db.Timestamptz
-  @@unique([organizationId, code])                     // Postgres allows many NULLs
+  id              String       @id @default(uuid(7)) @db.Uuid
+  organizationId  String       @db.Uuid
+  name            String                                    // required
+  code            String?                                   // optional
+  codeNormalized  String?                                   // lower-cased code; unique per org when set
+  rateCode        String?                                   // display only
+  retailPrice     Decimal      @db.Decimal(14, 2)           // R.P per unit (D-15), required
+  tradePrice      Decimal      @db.Decimal(14, 2)           // T.P per unit, required
+  costPrice       Decimal      @db.Decimal(14, 2)           // company invoice price per unit, required
+  weight          Decimal?     @db.Decimal(12, 3)           // per unit, in `unit`
+  unit            ProductUnit?                              // KG | GRAM | LITER | ML
+  piecesPerCarton Int?                                      // informational
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @db.Timestamptz
+  @@unique([organizationId, codeNormalized])                // Postgres allows many NULLs
   @@index([organizationId, name])
 }
+// enum ProductUnit { KG GRAM LITER ML }   — no tax rate on products (D-22)
 
 model Order {
   id             String      @id @default(uuid(7)) @db.Uuid

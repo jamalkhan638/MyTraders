@@ -37,7 +37,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | Qty (pcs) | editable / derived | — | `pieceQty` | TBC (OQ-6) |
 | Total Weight | derived | Product.weightKg (per unit) | `totalWeightKg` | qty × unit weight (qty basis TBC with OQ-6) |
 | Value excl. tax | derived | — | `valueExclTax` | **TBC** |
-| GST rate | editable | Product.defaultTaxRate | `taxRate` | — |
+| GST rate | editable | TBC with the invoice formulas (products carry no tax rate, D-22) | `taxRate` | — |
 | GST amount | derived | — | `taxAmount` | **TBC** |
 | TO rate | editable | 0 | `toRate` | — |
 | ATO rate | editable | 0 | `atoRate` | — |

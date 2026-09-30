@@ -26,7 +26,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 ## Phase 2 — Master data
 - ☑ Areas (table + dialog) — Settings → Areas; `GET/POST /areas`, `GET/PATCH /areas/:id`
 - ☑ Shop Categories (shop types) — Settings → Shop Categories; `GET/POST /shop-categories`, `GET/PATCH /shop-categories/:id`. Product Categories removed from the MVP (D-21)
-- ☐ Products (table + drawer)
+- ☑ Products (table + drawer) — `GET/POST /products`, `GET/PATCH /products/:id`; no tax rate on products (D-22)
 - ☐ Shops (table, filters, drawer, assign booker) + ShopLedgerEntry table + balance column
 - ☐ Shop details page (info, balance, ledger, Add Credit)
 - ☐ Shops export Excel / PDF (filtered)

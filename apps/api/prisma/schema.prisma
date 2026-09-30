@@ -22,6 +22,14 @@ enum UserRole {
   ORDER_BOOKER
 }
 
+/// Unit of a product's weight/size value (docs D-22).
+enum ProductUnit {
+  KG
+  GRAM
+  LITER
+  ML
+}
+
 enum CounterKey {
   ORDER
   INVOICE
@@ -52,6 +60,7 @@ model Organization {
   counters       OrganizationCounter[]
   areas          Area[]
   shopCategories ShopCategory[]
+  products       Product[]
 }
 
 /// organizationId is null only for SUPER_ADMIN (enforced by a CHECK constraint in the migration).
@@ -135,4 +144,36 @@ model ShopCategory {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, nameNormalized])
+}
+
+/// Sellable unit as added by the Admin (e.g. one carton, D-15). Holds defaults only: invoices
+/// snapshot the values actually used. No tax rate on products (D-22).
+model Product {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  organizationId  String       @db.Uuid
+  /// display name, trimmed with single spaces
+  name            String
+  code            String?
+  /// lower-cased code used for per-organization uniqueness (set by the service)
+  codeNormalized  String?
+  /// display only, never used in calculations
+  rateCode        String?
+  /// R.P per unit incl. tax
+  retailPrice     Decimal      @db.Decimal(14, 2)
+  /// T.P per unit excl. FED
+  tradePrice      Decimal      @db.Decimal(14, 2)
+  /// what the distributor pays the company per unit (for profit)
+  costPrice       Decimal      @db.Decimal(14, 2)
+  /// per unit, expressed in `unit`
+  weight          Decimal?     @db.Decimal(12, 3)
+  unit            ProductUnit?
+  piecesPerCarton Int?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, codeNormalized])
+  @@index([organizationId, name])
 }

@@ -83,16 +83,20 @@ Product master (defaults, editable any time):
 
 | Field | Notes |
 |---|---|
-| Product Code | Optional, unique per organization when set |
-| Name | Required |
-| Rate Code | **Display only**, never used in calculations |
-| Retail Price (R.P) | Default, per unit incl. tax |
-| Trade Price (T.P) | Default, per unit excl. FED |
-| Cost Price | Per unit; what the distributor is invoiced by the company. Used for profit. |
-| Pieces per Carton | Optional, informational (e.g. 5 for a 1×5 pouch carton); default 1 |
-| Weight (kg) | Per unit, entered by Admin; Total Weight = qty × weight; Tons = kg ÷ 1000 |
-| Default Tax Rate (%) | Data-driven, never hard-coded 18% |
+| Name | **Required** (max 150 chars, extra spaces removed) |
+| Product Code | Optional; unique per organization when set (case-insensitive) |
+| Rate Code | Optional; **display only**, never used in calculations |
+| Retail Price (R.P) | **Required**; per unit incl. tax; ≥ 0, max 2 decimals |
+| Trade Price (T.P) | **Required**; per unit excl. FED; ≥ 0, max 2 decimals |
+| Cost Price | **Required**; per unit; what the distributor is invoiced by the company. Used for profit. |
+| Weight | Optional; per unit, > 0, max 3 decimals |
+| Unit | Optional; unit of the weight value: KG, Gram, Liter, ML. Shown as "Weight/Unit", e.g. "4.5 KG" |
+| Pieces per Carton | Optional; whole number ≥ 1, informational (e.g. 5 for a 1×5 pouch carton) |
 | Active | Inactive products cannot be ordered/invoiced |
+
+**No tax rate on products (D-22).** Tax (GST, FED, further tax…) is calculated only when an invoice is generated, with the owner's formulas; the invoice item snapshots the rates and amounts actually used.
+
+Weight totals: `Total Weight = qty × weight`; Tons = kg ÷ 1000 (grams converted to kg). Converting Liter/ML products to tons is **OQ-7**.
 
 When a product is selected on an invoice, its defaults auto-fill the invoice row. Admin can override values **on that invoice only** without changing the product master.
 
@@ -174,7 +178,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-10 | Shop NTN / STRN / CNIC / contact / shop category (channel) are optional | Owner answer |
 | D-11 | No partner split; show Net Profit only | Owner answer |
 | D-12 | English UI only | Owner answer |
-| D-13 | GST / tax rates are data (product default + per-invoice snapshot) | Master spec |
+| D-13 | GST / tax rates are data (never hard-coded); the invoice snapshots the rates actually used | Master spec, amended by D-22 |
 | D-14 | Invoice formulas are **not assumed**; they are confirmed by the owner before the invoice module | Owner instruction |
 | D-15 | One product = one unit as added by Admin (e.g. one carton); prices, cost and weight are per that unit | Owner answer |
 | D-16 | Admin can cancel a confirmed invoice; cancellation automatically reverses the ledger debit | Owner answer |
@@ -182,6 +186,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-18 | Admin may set the next invoice number, only forward (never lower than the current counter) | Phase 1 implementation |
 | D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
 | D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
+| D-22 | Products carry **no tax rate**; tax is calculated at invoice time. Product Name, Retail, Trade and Cost Price are required; Code, Rate Code, Weight, Unit, Pieces per Carton optional | Owner decision (Phase 2) |
 | D-21 | **Product Categories removed from the MVP** — products have no category entity. **Shop Categories** (shop types, e.g. Convenience Store, General Store, Supermarket, Wholesale) are kept; they replace the earlier "shop channel" list and are printed as "Channel" on invoices | Owner decision (Phase 2) |
 
 ## 6. Open questions
@@ -190,5 +195,6 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 |---|---|---|
 | OQ-1 | Exact invoice formulas: R.P, T.P, value excl. tax, GST, FED, TO, ATO, special discount, total trade offer, gross value, further tax, due payment / credit balance, payable value, rounding | Invoice module |
 | OQ-2 | Are Sales / Profit based on value **excl. tax** or incl. tax? | Dashboard / Profit |
+| OQ-7 | How should Liter / ML products count toward "tons sold" (e.g. a kg-per-liter factor, or shown separately in liters)? | Dashboard weight card |
 | OQ-5 | How is the booker's estimated order total calculated? Default until confirmed: Σ qty × Trade Price, labelled "Estimated" | Orders module (non-blocking) |
 | OQ-6 | Can Admin invoice loose pieces (invoice has both Qty ctn and Qty pcs columns)? | Invoice module |

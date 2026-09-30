@@ -1,6 +1,7 @@
-import { OrganizationStatus, UserRole } from '@mytraders/shared-types';
+import { OrganizationStatus, ProductUnit, UserRole } from '@mytraders/shared-types';
 import {
   OrganizationStatus as PrismaOrganizationStatus,
+  ProductUnit as PrismaProductUnit,
   UserRole as PrismaUserRole,
 } from '@prisma/client';
 
@@ -10,5 +11,6 @@ describe('shared enums', () => {
     expect(Object.values(OrganizationStatus).sort()).toEqual(
       Object.values(PrismaOrganizationStatus).sort(),
     );
+    expect(Object.values(ProductUnit).sort()).toEqual(Object.values(PrismaProductUnit).sort());
   });
 });

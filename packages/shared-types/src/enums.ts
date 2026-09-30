@@ -15,3 +15,19 @@ export const OrganizationStatus = {
   SUSPENDED: 'SUSPENDED',
 } as const;
 export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];
+
+/** Unit of a product's weight/size value (docs D-22). */
+export const ProductUnit = {
+  KG: 'KG',
+  GRAM: 'GRAM',
+  LITER: 'LITER',
+  ML: 'ML',
+} as const;
+export type ProductUnit = (typeof ProductUnit)[keyof typeof ProductUnit];
+
+export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
+  KG: 'KG',
+  GRAM: 'Gram',
+  LITER: 'Liter',
+  ML: 'ML',
+};

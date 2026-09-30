@@ -7,6 +7,7 @@ import { BookerHomePage } from '@/features/booker/pages/BookerHomePage';
 import { BookerPlaceholderPage } from '@/features/booker/pages/BookerPlaceholderPage';
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
+import { ProductsPage } from '@/features/products/pages/ProductsPage';
 import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
 import { AreasPage } from '@/features/areas/pages/AreasPage';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
@@ -20,7 +21,6 @@ const adminPlaceholders = [
   { path: 'orders', title: 'Orders', phase: 'Phase 3' },
   { path: 'invoices', title: 'Invoices', phase: 'Phase 4' },
   { path: 'shops', title: 'Shops', phase: 'Phase 2' },
-  { path: 'products', title: 'Products', phase: 'Phase 2' },
   { path: 'expenses', title: 'Expenses', phase: 'Phase 6' },
   { path: 'reports', title: 'Reports', phase: 'Phase 7' },
 ];
@@ -41,6 +41,7 @@ export const router = createBrowserRouter([
             element: <AdminLayout />,
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
+              { path: '/products', element: <ProductsPage /> },
               { path: '/order-bookers', element: <OrderBookersPage /> },
               {
                 path: '/settings',

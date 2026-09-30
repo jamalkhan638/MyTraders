@@ -14,7 +14,7 @@ Every request is checked for: authenticated → user active → organization not
 | Shop Categories: manage | ✅ | ❌ |
 | Areas: list (for filter) | ✅ | ✅ only areas of assigned shops (endpoint arrives with the booker My Shops screen, Phase 3) |
 | Products: manage | ✅ | ❌ |
-| Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** |
+| Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** (endpoint arrives with Book Order, Phase 3) |
 | Shops: manage / assign booker | ✅ | ❌ |
 | Shops: list / view | ✅ all | ✅ **assigned shops only** (incl. outstanding balance) |
 | Orders: create | ✅ | ✅ only for assigned, active shops |
