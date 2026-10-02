@@ -32,10 +32,10 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Shops export Excel / PDF (filtered)
 
 ## Phase 3 — Order Booker flow
-- ☐ Booker: My Shops (assigned only, area filter, balance)
-- ☐ Booker: Book Order (units, trade + retail price, estimated total = Σ qty × T.P until OQ-5 confirmed)
-- ☐ Booker: My Orders, cancel own pending
-- ☐ Admin: Orders list + Pending Orders (polling)
+- ☑ Booker: My Shops (assigned active shops, area filter, search; balance in Phase 5) — `GET /booker/shops|areas`
+- ☑ Booker: Book Order (products + whole quantities only, no prices — D-24; draft kept on the phone) — `GET /booker/products`, `POST /orders`
+- ☑ Booker: My Orders, order details, cancel own pending
+- ☑ Admin: Orders list (search/filters/pagination, pending polling), order details, cancel, Generate Invoice entry point (`/invoices/new?orderId=` placeholder until Phase 4)
 
 ## Phase 4 — Invoices ⛔ needs OQ-1, OQ-6 (owner will provide formulas)
 - ☐ Shared invoice calculator + unit tests from real invoices

@@ -12,12 +12,12 @@ Every request is checked for: authenticated → user active → organization not
 | Own profile / change own password | ✅ | ✅ |
 | Areas: manage | ✅ | ❌ |
 | Shop Categories: manage | ✅ | ❌ |
-| Areas: list (for filter) | ✅ | ✅ only areas of assigned shops (endpoint arrives with the booker My Shops screen, Phase 3) |
+| Areas: list (for filter) | ✅ | ✅ only areas of their assigned active shops (`GET /booker/areas`) |
 | Products: manage | ✅ | ❌ |
-| Products: list active (name, code, trade price, retail price, weight) | ✅ | ✅ **without cost price** (endpoint arrives with Book Order, Phase 3) |
+| Products: list active (name, code, weight/unit, pieces per carton) | ✅ | ✅ **no prices at all** — D-24 (`GET /booker/products`) |
 | Shops: manage / assign booker | ✅ | ❌ |
-| Shops: list / view | ✅ all | ✅ **assigned shops only** (incl. outstanding balance) — Phase 3 |
-| Orders: create | ✅ | ✅ only for assigned, active shops |
+| Shops: list / view | ✅ all | ✅ **assigned active shops only** (`GET /booker/shops`); balance added in Phase 5 |
+| Orders: create | ❌ (Admins invoice directly) | ✅ only for their assigned, active shops, active products |
 | Orders: list / view | ✅ all | ✅ own orders only |
 | Orders: cancel | ✅ any pending | ✅ own pending only |
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
@@ -32,8 +32,9 @@ Every request is checked for: authenticated → user active → organization not
 
 ## 2. Field-level rules
 
-- `costPrice`, `unitCost`, `costTotal`, profit figures are **never** serialized to an Order Booker. Booker endpoints use separate response schemas that do not contain these fields.
-- Order Booker order creation accepts `shopId` + `[productId, quantity]` only. Any price fields sent are ignored.
+- **No price of any kind** (cost, trade, retail), tax, discount, payment, credit or profit is ever serialized to an Order Booker (D-24). Booker endpoints (`/booker/*`, `/orders`) use response schemas that do not contain these fields; tests assert it.
+- Order Booker order creation accepts `shopId` + `[productId, quantity]` + optional `notes` only. Any other field sent (price, discount, status, order number, `organizationId`, `orderBookerId`) is dropped by validation.
+- The order's organization and booker always come from the session; a booker's order list/detail is always limited to `orderBookerId = current user` (another booker's order id → 404).
 
 ## 3. Implementation
 

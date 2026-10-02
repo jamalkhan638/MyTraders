@@ -176,9 +176,9 @@ model Product {
 model Order {
   id             String      @id @default(uuid(7)) @db.Uuid
   organizationId String      @db.Uuid
-  orderNumber    String
+  orderNumber    String                                 // prefix + zero-padded counter, server-generated
   shopId         String      @db.Uuid
-  orderBookerId  String      @db.Uuid
+  orderBookerId  String      @db.Uuid                   // always the signed-in booker
   status         OrderStatus @default(PENDING)
   notes          String?
   cancelledAt    DateTime?   @db.Timestamptz
@@ -188,14 +188,15 @@ model Order {
   @@unique([organizationId, orderNumber])
   @@index([organizationId, status, createdAt])
   @@index([organizationId, orderBookerId, createdAt])
+  @@index([organizationId, shopId])
 }
 
-model OrderItem {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  orderId   String  @db.Uuid
-  productId String  @db.Uuid
-  quantity  Decimal @db.Decimal(12, 3)                 // units as added by Admin, e.g. cartons (D-4, D-15)
-  @@unique([orderId, productId])
+model OrderItem {               // reachable only through its Order (not a tenant model itself)
+  id        String @id @default(uuid(7)) @db.Uuid
+  orderId   String @db.Uuid     // onDelete: Cascade
+  productId String @db.Uuid
+  quantity  Int                 // whole units, e.g. cartons (D-15, D-25); CHECK quantity > 0
+  @@unique([orderId, productId])  // a product appears once per order
 }
 
 model Invoice {

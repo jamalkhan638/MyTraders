@@ -11,6 +11,7 @@ export const TENANT_MODELS: ReadonlySet<string> = new Set<Prisma.ModelName>([
   'ShopCategory',
   'Product',
   'Shop',
+  'Order',
 ]);
 
 /** The Organization row itself: readable/updatable only for the current organization. */

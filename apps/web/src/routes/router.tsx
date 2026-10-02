@@ -4,7 +4,13 @@ import { BookerLayout } from '@/components/layout/BookerLayout';
 import { ComingSoonPage } from '@/components/layout/ComingSoonPage';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { BookerHomePage } from '@/features/booker/pages/BookerHomePage';
-import { BookerPlaceholderPage } from '@/features/booker/pages/BookerPlaceholderPage';
+import { BookerOrderDetailsPage } from '@/features/booker/pages/BookerOrderDetailsPage';
+import { BookerOrdersPage } from '@/features/booker/pages/BookerOrdersPage';
+import { BookerShopsPage } from '@/features/booker/pages/BookerShopsPage';
+import { BookOrderPage } from '@/features/booker/pages/BookOrderPage';
+import { NewInvoicePlaceholderPage } from '@/features/invoices/pages/NewInvoicePlaceholderPage';
+import { OrderDetailsPage } from '@/features/orders/pages/OrderDetailsPage';
+import { OrdersPage } from '@/features/orders/pages/OrdersPage';
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { ProductsPage } from '@/features/products/pages/ProductsPage';
@@ -20,7 +26,6 @@ import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } f
 import { NotFoundPage } from './NotFoundPage';
 
 const adminPlaceholders = [
-  { path: 'orders', title: 'Orders', phase: 'Phase 3' },
   { path: 'invoices', title: 'Invoices', phase: 'Phase 4' },
   { path: 'expenses', title: 'Expenses', phase: 'Phase 6' },
   { path: 'reports', title: 'Reports', phase: 'Phase 7' },
@@ -42,6 +47,9 @@ export const router = createBrowserRouter([
             element: <AdminLayout />,
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
+              { path: '/orders', element: <OrdersPage /> },
+              { path: '/orders/:id', element: <OrderDetailsPage /> },
+              { path: '/invoices/new', element: <NewInvoicePlaceholderPage /> },
               { path: '/shops', element: <ShopsPage /> },
               { path: '/shops/:id', element: <ShopDetailsPage /> },
               { path: '/products', element: <ProductsPage /> },
@@ -71,8 +79,10 @@ export const router = createBrowserRouter([
             element: <BookerLayout />,
             children: [
               { index: true, element: <BookerHomePage /> },
-              { path: 'shops', element: <BookerPlaceholderPage title="My Shops" /> },
-              { path: 'orders', element: <BookerPlaceholderPage title="My Orders" /> },
+              { path: 'shops', element: <BookerShopsPage /> },
+              { path: 'shops/:shopId/order', element: <BookOrderPage /> },
+              { path: 'orders', element: <BookerOrdersPage /> },
+              { path: 'orders/:id', element: <BookerOrderDetailsPage /> },
               { path: 'profile', element: <BookerProfilePage /> },
             ],
           },

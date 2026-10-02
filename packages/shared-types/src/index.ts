@@ -8,3 +8,5 @@ export * from './areas';
 export * from './shop-categories';
 export * from './products';
 export * from './shops';
+export * from './orders';
+export * from './booker';
