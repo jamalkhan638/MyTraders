@@ -102,7 +102,7 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /expenses?page&pageSize&from&to&categoryId&q&status`, `GET /expenses/:id` | ADMIN | ✅ Phase 6; list carries `totalAmount` = Σ for the filters |
 | `POST /expenses`, `PATCH /expenses/:id`, `POST /expenses/:id/void` | ADMIN | ✅ active category of the org, amount > 0, no future date; edit only while ACTIVE; void with reason (never delete) |
 | `GET /expenses/summary?from&to` | ADMIN | ✅ Σ ACTIVE expenses by category; default current month (org tz) — Dashboard / Net Profit |
-| `GET /profit/summary?from&to` | ADMIN | ✅ D-33: Σ (Grand Total − totalCost) of CONFIRMED invoices by invoice date; Net = Gross − active expenses; default current month |
+| `GET /profit/summary?from&to` | ADMIN | ✅ D-33: Σ (Payable Value − totalCost) of CONFIRMED invoices by invoice date (Due Payment never counts); Net = Gross − active expenses; default current month |
 | `GET/POST /expense-categories`, `GET/PATCH /expense-categories/:id` | ADMIN | ✅ Phase 6; unique name per org; deactivate, never delete |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |

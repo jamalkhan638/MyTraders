@@ -20,7 +20,7 @@ export class ProfitController {
   @ApiOkResponse({
     type: ProfitSummaryDto,
     description:
-      'Gross Profit = Σ (Grand Total − cost) of confirmed invoices; Net = Gross − expenses. Default: current month',
+      'Gross Profit = Σ (Payable Value − cost) of confirmed invoices; Net = Gross − expenses. Default: current month',
   })
   summary(@Query() query: ProfitQueryDto) {
     return this.profit.summary(query);

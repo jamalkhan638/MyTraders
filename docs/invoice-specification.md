@@ -135,4 +135,4 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 
 ## 9. Profit (D-33)
 
-`Invoice Profit = Grand Total (Σ Gross Value) − totalCost (Σ line cost snapshots)`. Gross Profit sums it over confirmed, non-cancelled invoices; Net Profit subtracts active expenses. GST is not removed at this stage (future review); tax paid is an expense. See product-requirements §4.11.
+`Invoice Profit = Payable Value (Grand Total + Advance Tax + Further Tax − ADT discount) − totalCost (Σ line cost snapshots)`. Due Payment never counts. Gross Profit sums it over confirmed, non-cancelled invoices; Net Profit subtracts active expenses. GST is not removed at this stage (future review); tax paid is an expense. See product-requirements §4.11.

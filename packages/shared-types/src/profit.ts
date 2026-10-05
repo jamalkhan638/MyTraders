@@ -4,9 +4,10 @@ import { businessDateSchema } from './invoices';
 /**
  * Profit (docs/product-requirements.md §4.11, D-33) — MVP rule confirmed by the owner:
  *
- *   Invoice Profit = Gross Invoice Value (Grand Total = Σ line Gross Value)
+ *   Invoice Profit = Payable Value (Grand Total + Advance Tax + Further Tax − ADT discount)
  *                    − Product Cost (Σ line cost snapshot: TIN Qty Pcs × Invoice/Cost Price,
  *                                    POUCH Qty Ctn × Invoice/Cost Price)
+ *   Due Payment (previous credit) is never part of profit.
  *   Gross Profit   = Σ Invoice Profit of CONFIRMED (not cancelled) invoices dated in the period
  *   Net Profit     = Gross Profit − Expenses (Σ ACTIVE expenses dated in the period)
  *
@@ -23,8 +24,8 @@ export const profitSummarySchema = z.object({
   from: z.string(),
   to: z.string(),
   invoiceCount: z.number().int(),
-  /** Σ Gross Invoice Value (Grand Total) of confirmed invoices */
-  grossInvoiceValue: z.string(),
+  /** Σ Payable Value of confirmed invoices (never includes Due Payment) */
+  payableValue: z.string(),
   /** Σ product cost snapshots of those invoices */
   productCost: z.string(),
   grossProfit: z.string(),

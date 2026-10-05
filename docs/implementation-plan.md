@@ -66,7 +66,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 ## Phase 6 — Expenses & dashboard
 - ☑ Expense categories (Settings), Expenses (table + dialog, filters, period total, edit, void) — D-32
 - ☑ Expense totals by date range / current month (`GET /expenses/summary`) for Dashboard and Net Profit
-- ☑ Profit service (D-33): `GET /profit/summary?from&to` — Gross Profit from invoice snapshots, Net Profit = Gross − Expenses
+- ☑ Profit service (D-33): `GET /profit/summary?from&to` — Gross Profit = Σ (Payable Value − cost snapshot), Net Profit = Gross − Expenses
 - ☐ Future review: tax treatment inside profit
 - ☐ `GET /dashboard/summary` + Dashboard page (cards + latest pending orders)
 
