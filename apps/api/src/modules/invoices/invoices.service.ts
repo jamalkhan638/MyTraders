@@ -96,7 +96,7 @@ const SHOP_FIELDS = {
   strn: true,
   cnic: true,
   isActive: true,
-  area: { select: { name: true } },
+  area: { select: { id: true, name: true } },
   category: { select: { name: true } },
 } as const satisfies Prisma.ShopSelect;
 
@@ -282,6 +282,7 @@ export class InvoicesService {
           shopCnic: shop.cnic,
           shopCategory: shop.category?.name ?? null,
           shopArea: shop.area.name,
+          shopAreaId: shop.area.id,
           distributorName: org.name,
           distributorAddress: org.address,
           distributorTown: org.town,

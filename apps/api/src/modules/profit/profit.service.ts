@@ -57,12 +57,20 @@ export class ProfitService {
 
   /**
    * Sales totals of the invoices matching a filter: Σ Payable Value, Σ cost snapshots, Gross
-   * Profit (Payable Value − Product Cost, D-33) and Σ Grand Total (the part made of product lines).
+   * Profit (Payable Value − Product Cost, D-33), and the parts of Payable Value — Σ Grand Total
+   * (the product lines) and the invoice-level Advance Tax, Further Tax and ADT discount.
    */
   async sales(filter: SalesFilter) {
     const sums = await this.db.client.invoice.aggregate({
       where: salesWhere(filter),
-      _sum: { payableValue: true, totalCost: true, grandTotal: true },
+      _sum: {
+        payableValue: true,
+        totalCost: true,
+        grandTotal: true,
+        advanceTax: true,
+        furtherTax: true,
+        adtDiscount: true,
+      },
       _count: { _all: true },
     });
     const payable = sums._sum.payableValue ?? zero;
@@ -73,10 +81,11 @@ export class ProfitService {
       productCost: money(cost),
       grossProfit: money(payable.minus(cost)),
       grandTotal: money(sums._sum.grandTotal),
+      advanceTax: money(sums._sum.advanceTax),
+      furtherTax: money(sums._sum.furtherTax),
+      adtDiscount: money(sums._sum.adtDiscount),
     };
   }
-
-  // ---- sales views (Sales = Σ Payable Value of CONFIRMED invoices, the same base as profit) ----
 
   /** Sales per calendar month for `months` months ending with the month of `to`, oldest first. */
   async salesByMonth(to: string, months: number): Promise<{ month: string; sales: string }[]> {

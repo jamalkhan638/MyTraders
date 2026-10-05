@@ -47,7 +47,9 @@ const INVOICE_ROW_FIELDS = {
   furtherTax: true,
   adtDiscount: true,
   payableValue: true,
-  shop: { select: { area: REF } },
+  /** area snapshot taken when the invoice was confirmed (D-37) */
+  shopAreaId: true,
+  shopArea: true,
   order: { select: { orderBooker: REF } },
 } as const satisfies Prisma.InvoiceSelect;
 
@@ -99,7 +101,7 @@ export class ReportsService {
         invoiceNumber: r.invoiceNumber,
         invoiceDate: isoDate(r.invoiceDate),
         shop: { id: r.shopId, name: r.shopName },
-        area: r.shop.area,
+        area: { id: r.shopAreaId, name: r.shopArea },
         orderBooker: r.order?.orderBooker ?? null,
         payableValue: money(r.payableValue),
         weightKg: weights.get(r.id) ?? '0.000',
@@ -154,7 +156,7 @@ export class ReportsService {
         invoiceDate: isoDate(r.invoiceDate),
         status: r.status,
         shop: { id: r.shopId, name: r.shopName },
-        area: r.shop.area,
+        area: { id: r.shopAreaId, name: r.shopArea },
         orderBooker: r.order?.orderBooker ?? null,
         grandTotal: money(r.grandTotal),
         advanceTax: optional(r.advanceTax),
@@ -228,6 +230,8 @@ export class ReportsService {
       byProduct ? this.profit.sales(filter) : null,
     ]);
     const weightKg = sum(rows.map((r) => r.weightKg));
+    // Product Profit Subtotal; invoice-level amounts are never split by product (D-37).
+    const profit = money(sum(rows.map((r) => r.profit)));
     const units = (unit: string) =>
       rows.filter((r) => r.quantityUnit === unit).reduce((acc, r) => acc + r.quantity, 0);
     return {
@@ -242,13 +246,16 @@ export class ReportsService {
         weightTons: weightKg.dividedBy(1000).toFixed(3),
         salesValue: money(sum(rows.map((r) => r.salesValue))),
         productCost: money(sum(rows.map((r) => r.productCost))),
-        profit: money(sum(rows.map((r) => r.profit))),
+        profit,
       },
-      invoiceLevel: sales && {
-        grandTotal: sales.grandTotal,
-        adjustments: money(new Decimal(sales.payableValue).minus(sales.grandTotal)),
-        payableValue: sales.payableValue,
+      reconciliation: sales && {
+        productProfit: profit,
+        advanceTax: sales.advanceTax,
+        furtherTax: sales.furtherTax,
+        adtDiscount: sales.adtDiscount,
         grossProfit: sales.grossProfit,
+        payableValue: sales.payableValue,
+        productCost: sales.productCost,
       },
     };
   }

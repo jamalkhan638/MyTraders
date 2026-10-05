@@ -41,7 +41,7 @@ export function ProductSalesReportPage() {
   const data = report.data;
   const summary = describeFilters([
     ['Period', `${formatBusinessDate(p.from)} – ${formatBusinessDate(p.to)}`],
-    ['Area', optionLabel(lookups.areas, areaId)],
+    ['Area (when invoiced)', optionLabel(lookups.areas, areaId)],
     ['Shop', optionLabel(shops, p.get('shopId'))],
     ['Order booker', optionLabel(lookups.bookers, p.get('orderBookerId'))],
     ['Product', optionLabel(products, p.get('productId'))],
@@ -138,28 +138,15 @@ export function ProductSalesReportPage() {
         d.totals.productCost,
         d.totals.profit,
       ],
-      ...(d.invoiceLevel
+      ...(d.reconciliation
         ? [
-            [
-              'Invoice-level advance tax + further tax − ADT discount',
-              '',
-              '',
-              '',
-              '',
-              '',
-              d.invoiceLevel.adjustments,
-            ],
-            [
-              'Payable value',
-              '',
-              '',
-              '',
-              '',
-              '',
-              d.invoiceLevel.payableValue,
-              d.totals.productCost,
-              d.invoiceLevel.grossProfit,
-            ],
+            [],
+            ['Reconciliation (invoice-level amounts are not split by product)'],
+            ['Product profit subtotal', d.reconciliation.productProfit],
+            ['+ Advance tax', d.reconciliation.advanceTax],
+            ['+ Further tax', d.reconciliation.furtherTax],
+            ['- Invoice-level ADT / special discount', d.reconciliation.adtDiscount],
+            ['= Gross profit (Profit report)', d.reconciliation.grossProfit],
           ]
         : []),
     ]);
@@ -167,7 +154,7 @@ export function ProductSalesReportPage() {
   return (
     <ReportView
       title="Product sales report"
-      description="From confirmed invoice lines: TIN quantity in pieces, POUCH in cartons. Sales value = line gross value; cost = cost snapshot."
+      description="From confirmed invoice lines: TIN quantity in pieces, POUCH in cartons. Profit per product = line gross value − line cost snapshot."
       summary={summary}
       query={report}
       onCsv={data && (() => csv(data))}
@@ -189,7 +176,7 @@ export function ProductSalesReportPage() {
             onChange={(v) => p.set({ type: v })}
           />
           <SelectFilter
-            label="Area"
+            label="Area (when invoiced)"
             value={areaId}
             options={lookups.areas}
             onChange={(v) => p.set({ areaId: v, shopId: '' })}
@@ -219,28 +206,51 @@ export function ProductSalesReportPage() {
             minWidth={900}
             empty="No products sold in this period."
           />
-          {data.invoiceLevel && (
-            <div
-              className="mt-3 rounded-md border bg-card px-4 py-3 text-sm"
-              data-testid="product-reconciliation"
-            >
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-muted-foreground">
-                  Invoice-level Advance Tax + Further Tax − ADT discount (not split by product)
-                </span>
-                <span className="tabular-nums">{formatAmount(data.invoiceLevel.adjustments)}</span>
-              </div>
-              <div className="mt-1 flex flex-wrap justify-between gap-2 font-medium">
-                <span>
-                  Payable value {formatAmount(data.invoiceLevel.payableValue)} − product cost ={' '}
-                  gross profit
-                </span>
-                <span className="tabular-nums">{formatAmount(data.invoiceLevel.grossProfit)}</span>
-              </div>
-            </div>
-          )}
+          {data.reconciliation && <Reconciliation r={data.reconciliation} />}
         </>
       )}
     </ReportView>
+  );
+}
+
+/**
+ * Invoice-level amounts belong to the invoice as a whole and are never split across products
+ * (D-37); they are added here so the result equals the Profit report's Gross Profit.
+ */
+function Reconciliation({ r }: { r: NonNullable<ProductSalesReport['reconciliation']> }) {
+  const lines: [string, string, string][] = [
+    ['Product profit subtotal', '', r.productProfit],
+    ['Advance tax', '+', r.advanceTax],
+    ['Further tax', '+', r.furtherTax],
+    ['Invoice-level ADT / special discount', '−', r.adtDiscount],
+  ];
+  return (
+    <div
+      className="mt-3 rounded-md border bg-card px-4 py-3 text-sm sm:ml-auto sm:max-w-md"
+      data-testid="product-reconciliation"
+    >
+      <div className="mb-1 text-xs text-muted-foreground">
+        Invoice-level amounts are not split by product
+      </div>
+      <dl className="tabular-nums">
+        {lines.map(([label, sign, value]) => (
+          <div key={label} className="flex justify-between gap-3 py-0.5">
+            <dt className="text-muted-foreground">
+              {sign && <span className="inline-block w-3">{sign}</span>}
+              {label}
+            </dt>
+            <dd>{formatAmount(value)}</dd>
+          </div>
+        ))}
+        <div className="mt-1 flex justify-between gap-3 border-t pt-1.5 font-semibold">
+          <dt>= Gross profit</dt>
+          <dd data-testid="reconciliation-gross-profit">{formatAmount(r.grossProfit)}</dd>
+        </div>
+      </dl>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Matches the Profit report: Payable value {formatAmount(r.payableValue)} − product cost{' '}
+        {formatAmount(r.productCost)}
+      </div>
+    </div>
   );
 }

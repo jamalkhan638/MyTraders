@@ -105,7 +105,7 @@ Owner's example: 100,000 + 2,000 + 1,000 − 3,000 = **100,000**. A discount lar
 
 | Section | Fields | Stored on Invoice |
 |---|---|---|
-| Shop information | Name, Address, Phone, Contact Person, NTN, STRN, CNIC, Channel (= shop category), Area | `shop*` columns, snapshotted on confirm |
+| Shop information | Name, Address, Phone, Contact Person, NTN, STRN, CNIC, Channel (= shop category), Area | `shop*` columns, snapshotted on confirm; the area also as `shopAreaId` (the area at confirm time, for historical area reports — D-37) |
 | Distributor information | Name, Address, Town / City, Phone, NTN, STRN; currency | `distributor*` columns + `currency`, snapshotted |
 | Invoice | Invoice Number, Invoice Date (Admin-chosen, default today in the org timezone) | `invoiceNumber`, `invoiceDate` |
 
@@ -132,7 +132,7 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 6. Invoice date is editable (default today) with no restriction on past / future dates.
 7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.
 8. ~~Ledger debit = Grand Total~~ — confirmed by the owner as **Payable Value** (D-31).
-9. **Product sales report (D-36):** per-product sales value = Σ line Gross Value and per-product profit = Σ (line Gross Value − line cost). Invoice-level Advance Tax, Further Tax and ADT discount are **not split across products** (no pro-rata allocation); the report shows them as one separate line that reconciles to Payable Value and Gross Profit.
+9. ~~Product sales report~~ — **confirmed by the owner (D-37):** Product Line Profit = Line Gross Value − Line Cost snapshot; Advance Tax, Further Tax and invoice-level ADT / Special Discount are never prorated across products; the report reconciles them separately: Product Profit Subtotal + Advance Tax + Further Tax − ADT = Gross Profit (= Profit report).
 
 ## 9. Profit (D-33)
 

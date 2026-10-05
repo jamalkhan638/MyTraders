@@ -73,9 +73,10 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ `GET /reports/{sales,invoices,shop-credit,product-sales,expenses,profit,shops}` — composed from Profit / Shop Ledger / Expenses services; one sales definition (`salesWhere`) shared with profit and the dashboard
 - ☑ Reports pages (index + 7 tabs): filters in the URL (period, area, shop, product, order booker, status, search), server totals, CSV (Excel) download, print / PDF layout, mobile scrolling tables
 - ☑ Tenant-isolation and permission tests (`test/reports.e2e-spec.ts`)
-- ☐ Owner review: product-level profit excludes invoice-level Advance Tax / Further Tax / ADT discount (shown as a separate reconciling line)
+- ☑ Product Sales reconciliation (D-37): no proration; Product Profit Subtotal + Advance Tax + Further Tax − ADT = Gross Profit (= Profit report)
+- ☑ Historical area (D-37): `Invoice.shopAreaId` snapshot on confirm (back-filled), used by Sales / Invoice / Product Sales reports; tests prove a moved shop keeps its old invoices in the old area
 - ☐ Real `.xlsx` and server-generated PDF exports
-- ☐ Searchable shop / product pickers in report filters (the dropdowns list the first 100)
+- ☐ Server-backed searchable Shop / Product pickers for report filters (dropdowns list the first 100 — needed as the catalogue grows)
 
 ## Phase 8 — PWA & polish
 - ☐ PWA manifest/icons, app-shell caching, order draft persistence

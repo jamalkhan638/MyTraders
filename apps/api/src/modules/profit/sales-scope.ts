@@ -16,7 +16,9 @@ const asDate = (value: string) => new Date(`${value}T00:00:00Z`);
 /**
  * The one definition of a sale (D-31, D-33, D-34): a CONFIRMED invoice (cancelled invoices are
  * excluded) dated in [from, to]. Used by profit, the dashboard and every sales report, so they
- * always agree. Area = the shop's area; order booker = the booker of the linked order.
+ * always agree. Area = the area snapshot taken when the invoice was confirmed (D-37), so a shop moved
+ * to another area later keeps its old sales in the old area; order booker = the booker of the
+ * linked order.
  */
 export function salesWhere(filter: SalesFilter): Prisma.InvoiceWhereInput {
   return {
@@ -30,7 +32,7 @@ export function invoiceFilters(filter: SalesFilter): Prisma.InvoiceWhereInput {
   return {
     invoiceDate: { gte: asDate(filter.from), lte: asDate(filter.to) },
     ...(filter.shopId ? { shopId: filter.shopId } : {}),
-    ...(filter.areaId ? { shop: { areaId: filter.areaId } } : {}),
+    ...(filter.areaId ? { shopAreaId: filter.areaId } : {}),
     ...(filter.orderBookerId === DIRECT_SALE
       ? { orderId: null }
       : filter.orderBookerId

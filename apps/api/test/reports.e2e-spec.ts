@@ -387,29 +387,61 @@ describe('Reports (e2e)', () => {
       });
     });
 
-    it('reconciles with Payable Value and the Profit report through invoice-level amounts', async () => {
+    it('never prorates invoice-level amounts: product profit subtotal + taxes − ADT = gross profit', async () => {
       const res = await report('product-sales').expect(200);
-      expect(res.body.invoiceLevel).toEqual({
-        grandTotal: '8300.50',
-        adjustments: '-50.50', // + 99.50 advance tax + 50 further tax − 200 ADT discount
+      // product lines only: Σ (line gross value − line cost)
+      expect(res.body.totals.profit).toBe('1290.50');
+      expect(res.body.reconciliation).toEqual({
+        productProfit: '1290.50',
+        advanceTax: '99.50',
+        furtherTax: '50.00',
+        adtDiscount: '200.00',
+        grossProfit: '1240.00', // 1,290.50 + 99.50 + 50 − 200
         payableValue: '8250.00',
-        grossProfit: '1240.00',
+        productCost: '7010.00',
       });
+      const r = res.body.reconciliation;
+      const cents = (v: string) => Math.round(Number(v) * 100);
+      expect(
+        cents(r.productProfit) + cents(r.advanceTax) + cents(r.furtherTax) - cents(r.adtDiscount),
+      ).toBe(cents(r.grossProfit));
+      // exactly the Profit report for the same period
       const profit = await report('profit').expect(200);
-      expect(res.body.invoiceLevel.grossProfit).toBe(profit.body.summary.grossProfit);
+      expect(r.grossProfit).toBe(profit.body.summary.grossProfit);
+      expect(r.payableValue).toBe(profit.body.summary.payableValue);
+      expect(r.productCost).toBe(profit.body.summary.productCost);
+      // no product row carries any part of the invoice-level amounts
+      const tin = res.body.rows.find(
+        (row: { type: string; quantity: number }) => row.quantity === 2 && row.type === 'TIN',
+      );
+      expect(tin).toMatchObject({ salesValue: '5000.00', profit: '1000.00' });
+    });
+
+    it('reconciles for a narrower filter too (same invoices as the profit figures)', async () => {
+      const res = await report('product-sales', `?from=${previousMonthStart}&to=${monthEnd}`);
+      const profit = await report('profit', `?from=${previousMonthStart}&to=${monthEnd}`);
+      expect(res.body.reconciliation.grossProfit).toBe(profit.body.summary.grossProfit);
+      const area = await report('product-sales', `?areaId=${cantt.id}`).expect(200);
+      // Cantt Mart: 2,200 − 2,000 cost = 200 ; + 50 further tax − 200 ADT = 50 = 2,050 − 2,000
+      expect(area.body.reconciliation).toMatchObject({
+        productProfit: '200.00',
+        furtherTax: '50.00',
+        adtDiscount: '200.00',
+        grossProfit: '50.00',
+      });
     });
 
     it('filters by product, type and area', async () => {
       const product = await report('product-sales', `?productId=${tin.id}`).expect(200);
       expect(product.body.rows).toHaveLength(1);
-      expect(product.body.invoiceLevel).toBeNull();
+      expect(product.body.reconciliation).toBeNull();
       const type = await report('product-sales', '?type=POUCH').expect(200);
       expect(type.body.rows.map((r: { type: string }) => r.type)).toEqual(['POUCH']);
       const area = await report('product-sales', `?areaId=${cantt.id}`).expect(200);
       expect(area.body.rows).toEqual([
         expect.objectContaining({ quantity: 2, quantityUnit: 'CARTON', salesValue: '2200.00' }),
       ]);
-      expect(area.body.invoiceLevel.payableValue).toBe('2050.00');
+      expect(area.body.reconciliation.payableValue).toBe('2050.00');
     });
   });
 
@@ -551,6 +583,82 @@ describe('Reports (e2e)', () => {
       expect(res.body.totals.invoiceCount).toBe(0);
       const shops = await report('shops', `?organizationId=${orgAId}`, adminBToken).expect(200);
       expect(shops.body.rows).toEqual([]);
+    });
+  });
+
+  // Runs last: it moves a shop to another area.
+  describe('historical area (D-37)', () => {
+    let canttInvoiceId: string;
+
+    beforeAll(async () => {
+      const invoices = await report('invoices', `?shopId=${canttMart.id}`).expect(200);
+      canttInvoiceId = invoices.body.rows[0].id;
+      // Cantt Mart moves from Cantt to Saddar
+      await http()
+        .patch(`/api/shops/${canttMart.id}`)
+        .set(auth(adminToken))
+        .send({ areaId: saddar.id })
+        .expect(200);
+    });
+
+    it('invoices snapshot the area id when confirmed', async () => {
+      const row = await t.prisma.invoice.findUniqueOrThrow({ where: { id: canttInvoiceId } });
+      expect(row).toMatchObject({ shopAreaId: cantt.id, shopArea: 'Cantt' });
+    });
+
+    it('old sales stay in the old area in the Sales report', async () => {
+      const old = await report('sales', `?areaId=${cantt.id}`).expect(200);
+      expect(old.body.totals).toMatchObject({ invoiceCount: 1, payableValue: '2050.00' });
+      expect(old.body.rows[0]).toMatchObject({
+        shop: { id: canttMart.id },
+        area: { id: cantt.id, name: 'Cantt' },
+      });
+      const now = await report('sales', `?areaId=${saddar.id}`).expect(200);
+      expect(now.body.totals.payableValue).toBe('6200.00');
+    });
+
+    it('old invoices keep their area in the Invoice and Product Sales reports', async () => {
+      const invoices = await report('invoices', `?areaId=${cantt.id}&status=CONFIRMED`).expect(200);
+      expect(invoices.body.rows.map((r: Id) => r.id)).toEqual([canttInvoiceId]);
+      expect(invoices.body.rows[0].area).toEqual({ id: cantt.id, name: 'Cantt' });
+      const all = await report('invoices', `?areaId=${cantt.id}`).expect(200);
+      // + the cancelled Idle Shop invoice, which was always in Cantt
+      expect(all.body.rows).toHaveLength(2);
+      expect(all.body.totals.payableValue).toBe('2050.00');
+      const products = await report('product-sales', `?areaId=${cantt.id}`).expect(200);
+      expect(products.body.rows).toEqual([
+        expect.objectContaining({ quantity: 2, quantityUnit: 'CARTON', salesValue: '2200.00' }),
+      ]);
+      const details = await http()
+        .get(`/api/invoices/${canttInvoiceId}`)
+        .set(auth(adminToken))
+        .expect(200);
+      expect(details.body.shopSnapshot.area).toBe('Cantt');
+    });
+
+    it('new invoices after the move belong to the new area', async () => {
+      await post('invoices', {
+        shopId: canttMart.id,
+        invoiceDate: monthStart,
+        items: [line(pouch, 1, '1100')],
+      }).expect(201);
+      const now = await report('sales', `?areaId=${saddar.id}`).expect(200);
+      expect(now.body.totals.payableValue).toBe('7300.00');
+      const old = await report('sales', `?areaId=${cantt.id}`).expect(200);
+      expect(old.body.totals.payableValue).toBe('2050.00');
+      const products = await report('product-sales', `?areaId=${saddar.id}`).expect(200);
+      expect(products.body.rows.find((r: { type: string }) => r.type === 'POUCH')).toMatchObject({
+        quantity: 2,
+      }); // Ideal's 1 ctn + the new 1 ctn; the old 2 ctn stay in Cantt
+    });
+
+    it('current-state reports (Shop list, Shop credit) use the shop’s area today', async () => {
+      const list = await report('shops', `?areaId=${saddar.id}`).expect(200);
+      expect(list.body.rows.map((r: { shop: Id }) => r.shop.id)).toContain(canttMart.id);
+      const credit = await report('shop-credit', `?areaId=${cantt.id}`).expect(200);
+      expect(credit.body.rows).toEqual([]);
+      const creditNow = await report('shop-credit', `?areaId=${saddar.id}`).expect(200);
+      expect(creditNow.body.rows.map((r: { shop: Id }) => r.shop.id)).toContain(canttMart.id);
     });
   });
 });

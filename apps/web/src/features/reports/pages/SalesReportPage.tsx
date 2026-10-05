@@ -33,7 +33,7 @@ export function SalesReportPage() {
   const data = report.data;
   const summary = describeFilters([
     ['Period', `${formatBusinessDate(p.from)} – ${formatBusinessDate(p.to)}`],
-    ['Area', optionLabel(lookups.areas, areaId)],
+    ['Area (when invoiced)', optionLabel(lookups.areas, areaId)],
     ['Shop', optionLabel(shops, p.get('shopId'))],
     ['Order booker', optionLabel(lookups.bookers, p.get('orderBookerId'))],
   ]);
@@ -114,7 +114,7 @@ export function SalesReportPage() {
   return (
     <ReportView
       title="Sales report"
-      description="Payable Value of confirmed invoices — cancelled invoices are excluded. Weight counts liquids at 1 L = 1 kg."
+      description="Payable Value of confirmed invoices — cancelled invoices are excluded. Area = the shop’s area when invoiced. Weight counts liquids at 1 L = 1 kg."
       summary={summary}
       query={report}
       onCsv={data && (() => csv(data))}
@@ -124,7 +124,7 @@ export function SalesReportPage() {
         <FilterBar>
           <DateRangeFilter from={p.from} to={p.to} onChange={(r) => p.set(r)} />
           <SelectFilter
-            label="Area"
+            label="Area (when invoiced)"
             value={areaId}
             options={lookups.areas}
             onChange={(v) => p.set({ areaId: v, shopId: '' })}

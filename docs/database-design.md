@@ -219,6 +219,7 @@ model Invoice {                                   // append-only (DB triggers): 
   // shop snapshot ("Shop information")
   shopName String; shopAddress String?; shopPhone String?; shopContactPerson String?
   shopNtn String?; shopStrn String?; shopCnic String?; shopCategory String? /* "Channel" */; shopArea String
+  shopAreaId         String        @db.Uuid  // FK Area: the shop's area when confirmed — historical reports (D-37)
   // distributor snapshot ("Distributor information")
   distributorName String; distributorAddress String?; distributorTown String?; distributorPhone String?
   distributorNtn String?; distributorStrn String?; currency String @db.Char(3)
@@ -243,6 +244,7 @@ model Invoice {                                   // append-only (DB triggers): 
   @@index([organizationId, invoiceDate])
   @@index([organizationId, shopId, invoiceDate])
   @@index([organizationId, status, invoiceDate])
+  @@index([organizationId, shopAreaId, invoiceDate])   // area-wise sales reports
   // CHECK: amounts >= 0; status = CANCELLED ⇔ cancelledAt, cancelledById, cancelReason set
 }
 

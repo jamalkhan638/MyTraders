@@ -203,6 +203,8 @@ model Area {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   shops        Shop[]
+  /// invoices whose shop was in this area when they were confirmed (historical reporting)
+  invoices     Invoice[]
 
   @@unique([organizationId, nameNormalized])
 }
@@ -375,6 +377,9 @@ model Invoice {
   /// shop category, printed as "Channel"
   shopCategory      String?
   shopArea          String
+  /// the shop's area when the invoice was confirmed — historical sales reports filter / group by
+  /// this, so moving a shop to another area later never moves its old invoices (D-37)
+  shopAreaId        String  @db.Uuid
 
   // distributor as printed ("Distributor information"), snapshotted on confirm
   distributorName    String
@@ -415,6 +420,7 @@ model Invoice {
 
   organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   shop          Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  area          Area              @relation(fields: [shopAreaId], references: [id], onDelete: Restrict)
   order         Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
   createdBy     User              @relation("CreatedInvoices", fields: [createdById], references: [id], onDelete: Restrict)
   cancelledBy   User?             @relation("CancelledInvoices", fields: [cancelledById], references: [id], onDelete: Restrict)
@@ -425,6 +431,7 @@ model Invoice {
   @@index([organizationId, invoiceDate])
   @@index([organizationId, shopId, invoiceDate])
   @@index([organizationId, status, invoiceDate])
+  @@index([organizationId, shopAreaId, invoiceDate])
 }
 
 /// One row of an invoice: the product as it was, the quantities and every calculated value.

@@ -181,7 +181,7 @@ export const productSalesReportSchema = z.object({
       salesValue: z.string(),
       /** Σ line cost snapshots */
       productCost: z.string(),
-      /** salesValue − productCost */
+      /** Product Line Profit = salesValue − productCost (invoice-level amounts excluded, D-37) */
       profit: z.string(),
     }),
   ),
@@ -196,16 +196,26 @@ export const productSalesReportSchema = z.object({
     profit: z.string(),
   }),
   /**
-   * Invoice-level amounts that belong to no product, for the same invoices (only when no product
-   * or type filter is set): Payable Value = Σ line Gross Value + (Advance Tax + Further Tax − ADT
-   * discount). Profit then matches the Profit report: Payable Value − Product Cost.
+   * Invoice-level amounts belong to the invoice as a whole and are never allocated to products
+   * (D-37 — no proration). They are shown separately so the report reconciles exactly with the
+   * Profit report for the same invoices:
+   *
+   *   Product Profit Subtotal (Σ row profit = Σ line Gross Value − Σ line cost snapshot)
+   *   + Advance Tax + Further Tax − invoice-level ADT / Special Discount
+   *   = Gross Profit (= Payable Value − Product Cost)
+   *
+   * null when a product or type filter is set (invoice-level amounts cannot be narrowed to a
+   * product).
    */
-  invoiceLevel: z
+  reconciliation: z
     .object({
-      grandTotal: z.string(),
-      adjustments: z.string(),
-      payableValue: z.string(),
+      productProfit: z.string(),
+      advanceTax: z.string(),
+      furtherTax: z.string(),
+      adtDiscount: z.string(),
       grossProfit: z.string(),
+      payableValue: z.string(),
+      productCost: z.string(),
     })
     .nullable(),
 });

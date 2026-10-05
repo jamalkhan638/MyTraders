@@ -42,7 +42,7 @@ export function InvoiceReportPage() {
   const data = report.data;
   const summary = describeFilters([
     ['Period', `${formatBusinessDate(p.from)} – ${formatBusinessDate(p.to)}`],
-    ['Area', optionLabel(lookups.areas, areaId)],
+    ['Area (when invoiced)', optionLabel(lookups.areas, areaId)],
     ['Shop', optionLabel(shops, p.get('shopId'))],
     ['Order booker', optionLabel(lookups.bookers, p.get('orderBookerId'))],
     ['Status', optionLabel(STATUS_OPTIONS, p.get('status'))],
@@ -163,7 +163,7 @@ export function InvoiceReportPage() {
         <FilterBar>
           <DateRangeFilter from={p.from} to={p.to} onChange={(r) => p.set(r)} />
           <SelectFilter
-            label="Area"
+            label="Area (when invoiced)"
             value={areaId}
             options={lookups.areas}
             onChange={(v) => p.set({ areaId: v, shopId: '' })}
