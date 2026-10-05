@@ -93,3 +93,8 @@ Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolute
 - **Shop details**: a prominent *Current outstanding* card (from `GET /shops/:id`, which carries the ledger balance) with *Record payment* and *Adjust credit* dialogs (`features/ledger/components`), then the *Ledger / credit history* table (server running balance) and the separate *Invoice history*.
 - **Finance → Area Ledger** (`/finance/area-ledger?areaId&date`): area select, date with previous / next / today, shop search, "only shops with a balance"; Previous / Invoices-adj. / Payment / Remaining / Last payment per shop; totals row from the server; per-row *Payment* opens the same `RecordPaymentDialog` with the sheet's date. Print (A4 portrait) and CSV download (opens in Excel; built from the server's decimal strings).
 - Every ledger posting (payment, adjustment, invoice confirm / cancel) invalidates ledger, shop and invoice-draft queries (`invalidateBalances`), so Shop Details, the shop list, the area sheet and Due Payment always show the server's numbers.
+
+## 9. Expenses
+
+- **Expenses** page (`/expenses`, Admin): filters (date range + This month / Last month, category, Active / Voided, search), a **Total expenses** card showing the server's `totalAmount` for the filters, table / mobile cards, *Add expense* and *Edit* in `ExpenseFormDialog`, *Void* in `VoidExpenseDialog` (reason required).
+- **Settings → Expense Categories**: same table + dialog + activate / deactivate pattern as Shop Categories.

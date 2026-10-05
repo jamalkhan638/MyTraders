@@ -99,8 +99,10 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /invoices` | ADMIN | ✅ inputs only (`shopId`, optional `orderId`, `invoiceDate`, rows, optional invoice-level values); totals/number/status/payableValue sent by the client are ignored (Payable Value is calculated, D-31); 422 per field (`items.N.field`), 409 order not PENDING |
 | `GET /invoices?page&pageSize&q&shopId&status`, `GET /invoices/:id` | ADMIN | ✅ from snapshots only |
 | `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled or if the reversal would make the shop's balance negative; linked order stays INVOICED; INVOICE_REVERSAL credit of the original debit in the same transaction |
-| `GET/POST /expenses`, `PATCH /expenses/:id` | ADMIN | |
-| `GET/POST /expense-categories`, `PATCH …/:id` | ADMIN | |
+| `GET /expenses?page&pageSize&from&to&categoryId&q&status`, `GET /expenses/:id` | ADMIN | ✅ Phase 6; list carries `totalAmount` = Σ for the filters |
+| `POST /expenses`, `PATCH /expenses/:id`, `POST /expenses/:id/void` | ADMIN | ✅ active category of the org, amount > 0, no future date; edit only while ACTIVE; void with reason (never delete) |
+| `GET /expenses/summary?from&to` | ADMIN | ✅ Σ ACTIVE expenses by category; default current month (org tz) — Dashboard / Net Profit |
+| `GET/POST /expense-categories`, `GET/PATCH /expense-categories/:id` | ADMIN | ✅ Phase 6; unique name per org; deactivate, never delete |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |
 

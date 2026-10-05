@@ -12,3 +12,5 @@ export * from './orders';
 export * from './booker';
 export * from './invoices';
 export * from './ledger';
+export * from './expense-categories';
+export * from './expenses';

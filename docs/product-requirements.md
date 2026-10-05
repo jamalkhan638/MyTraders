@@ -182,18 +182,21 @@ Full detail and formulas in [invoice-specification.md](./invoice-specification.m
 - Printable layout (A4 landscape) from the invoice view: browser print / save as PDF.
 - Shop details lists the shop's invoice history (number, date, grand total, status → open the invoice).
 
-### 4.10 Expenses
-- Admin-only. Categories configurable (seeded: Fuel, Salary, Vehicle Maintenance, Loading / Unloading, Rent, Electricity, Miscellaneous).
-- Fields: date, category, description, amount.
-- Table with period filter and period total; small dialog for add/edit.
-- No partner splitting.
+### 4.10 Expenses — D-32
+- **Admin-only** (Order Bookers and Super Admin get 403; the screens are not in their apps). **No partner splitting** — partners do not manage or see expenses in the MVP.
+- **Expense Categories** (Settings → Expense Categories), per organization, same pattern as Areas / Shop Categories: list, add, rename, activate / deactivate (never deleted). Name required, unique per organization (case- and space-insensitive), the same name is allowed in another organization. New organizations start with Fuel, Salary, Vehicle Maintenance, Loading / Unloading, Rent, Electricity, Office Expense, Miscellaneous.
+- **Expense**: category (an **active** category of the organization), amount (> 0, 2 decimals, numeric), date (backdating allowed, **no future dates**), description and reference / bill no. (optional). Created by / updated by are recorded.
+- **Edit** any field while the expense is active; a changed category must be active, keeping a since-deactivated category is allowed.
+- **Void** instead of delete: the Admin gives a reason; the expense stays in history (Voided filter) and **no longer counts in any total**. Voided expenses cannot be edited; expenses are never deleted (DB trigger).
+- **Expenses page**: table (Date, Category, Description + reference, Amount, Created By, Actions), filters (date range with *This month* / *Last month*, category, search in description / reference, Active / Voided), and **Total expenses** = the server's Σ for the current filters (not just the page). Add / Edit in a small dialog. Mobile: cards.
+- **Totals for later**: `GET /expenses/summary?from&to` → Σ active expenses in the period (both dates inclusive) by category; without dates it is the current month in the organization timezone (**This Month Expenses** for the Dashboard). This is the Expenses term of Net Profit.
 
 ### 4.11 Profit
 ```
 Sales         = Σ confirmed invoice sales in period          (base TBC — OQ-2)
 COGS          = Σ invoice item cost snapshots in period
 Gross Profit  = Sales − COGS
-Expenses      = Σ expenses dated in period
+Expenses      = Σ ACTIVE expenses dated in period          (GET /expenses/summary, D-32)
 Net Profit    = Gross Profit − Expenses
 ```
 - A credit sale is still a sale. Cancelled invoices are excluded.
@@ -248,6 +251,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-29 | **Invoice formulas** (owner): TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs display only); Value Excl Tax = qty × Trade Price; GST = Value × rate / 100 (rate snapshotted, default from product); TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + line Special Discount; Gross = Value Incl GST − Trade Offer; Grand Total = Σ Gross; Advance Tax / Further Tax / ADT discount optional and hidden when blank (Payable Value: see D-31); Due Payment = previous credit from the ledger, editable snapshot that never changes the ledger; Decimal ROUND_HALF_UP to 2 decimals; Retail Price display only; Invoice/Cost Price profit only | Owner decision (Phase 4) |
 | D-30 | **Shop Ledger is the single source of truth** for credit: balance = Σ debit − Σ credit; INVOICE debit (Grand Total, in the confirm transaction, once per invoice), PAYMENT credit (≤ current balance), MANUAL_ADJUSTMENT increase/decrease with reason (decrease not below zero), INVOICE_REVERSAL credit on cancel (exact debit, once); append-only; Area Ledger is a computed collection sheet (opening / payments / closing per shop and date), no stored area balances | Owner decision (Phase 5) |
 | D-31 | **Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount** (blank = 0), calculated and stored by the server, always printed; it is the invoice's ledger debit. Due Payment never affects Payable Value or the ledger. Payments / decreases: no future dates, backdating allowed, limited by the balance on their date and never making a later balance negative. Invoice cancellation refused if it would make the current balance negative (no advance balances in the MVP). Area Ledger exports: CSV + browser print / PDF. Later: credit-status filter (Dashboard/Reports), Credit Report (Reports), payment during invoice creation (not required) | Owner decision (Phase 5 review) |
+| D-32 | Expenses are Admin-only, per organization, with configurable Expense Categories (unique name per organization, deactivate not delete, defaults seeded); amount > 0, no future dates, active category required; editable while active; **voided with a reason instead of deleted** and then excluded from all totals; no partner splitting; Σ by date range (default current month) is the Expenses term of Net Profit | Owner decision (Phase 6) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

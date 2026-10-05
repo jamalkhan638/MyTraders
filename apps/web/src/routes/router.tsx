@@ -23,15 +23,14 @@ import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
 import { AreasPage } from '@/features/areas/pages/AreasPage';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { ShopCategoriesPage } from '@/features/shop-categories/pages/ShopCategoriesPage';
+import { ExpenseCategoriesPage } from '@/features/expense-categories/pages/ExpenseCategoriesPage';
+import { ExpensesPage } from '@/features/expenses/pages/ExpensesPage';
 import { OrganizationSettingsPage } from '@/features/settings/pages/OrganizationSettingsPage';
 import { OrderBookersPage } from '@/features/users/pages/OrderBookersPage';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } from './guards';
 import { NotFoundPage } from './NotFoundPage';
 
-const adminPlaceholders = [
-  { path: 'expenses', title: 'Expenses', phase: 'Phase 6' },
-  { path: 'reports', title: 'Reports', phase: 'Phase 7' },
-];
+const adminPlaceholders = [{ path: 'reports', title: 'Reports', phase: 'Phase 7' }];
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +55,7 @@ export const router = createBrowserRouter([
               { path: '/invoices/:id', element: <InvoiceDetailsPage /> },
               { path: '/shops/:shopId/invoices/new', element: <InvoiceFormPage /> },
               { path: '/finance/area-ledger', element: <AreaLedgerPage /> },
+              { path: '/expenses', element: <ExpensesPage /> },
               { path: '/shops', element: <ShopsPage /> },
               { path: '/shops/:id', element: <ShopDetailsPage /> },
               { path: '/products', element: <ProductsPage /> },
@@ -67,6 +67,7 @@ export const router = createBrowserRouter([
                   { index: true, element: <OrganizationSettingsPage /> },
                   { path: 'areas', element: <AreasPage /> },
                   { path: 'shop-categories', element: <ShopCategoriesPage /> },
+                  { path: 'expense-categories', element: <ExpenseCategoriesPage /> },
                 ],
               },
               ...adminPlaceholders.map(({ path, title, phase }) => ({

@@ -1,4 +1,5 @@
 import { type OrganizationStatus, type PrismaClient, type UserRole } from '@prisma/client';
+import { DEFAULT_EXPENSE_CATEGORIES, normalizeName } from '@mytraders/shared-types';
 import * as argon2 from 'argon2';
 
 export interface CreateOrganizationInput {
@@ -11,7 +12,7 @@ export interface CreateOrganizationInput {
   admin: { name: string; email: string; password: string };
 }
 
-/** Creates an organization, its first Admin and its number counters in one transaction. */
+/** Creates an organization, its first Admin, number counters and default expense categories in one transaction. */
 export async function createOrganizationWithAdmin(
   prisma: PrismaClient,
   input: CreateOrganizationInput,
@@ -33,6 +34,13 @@ export async function createOrganizationWithAdmin(
         { organizationId: organization.id, key: 'ORDER' },
         { organizationId: organization.id, key: 'INVOICE' },
       ],
+    });
+    await tx.expenseCategory.createMany({
+      data: DEFAULT_EXPENSE_CATEGORIES.map((name) => ({
+        organizationId: organization.id,
+        name,
+        nameNormalized: normalizeName(name),
+      })),
     });
     const admin = await tx.user.create({
       data: {

@@ -312,26 +312,32 @@ model ShopLedgerEntry {                           // append-only; the source of 
   //        invoiceId; PAYMENT ⇒ credit + paymentId; MANUAL_ADJUSTMENT ⇒ no links, notes required
 }
 
-model ExpenseCategory {
-  id             String  @id @default(uuid(7)) @db.Uuid
-  organizationId String  @db.Uuid
+model ExpenseCategory {                           // tenant model; never deleted (deactivate)
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @db.Uuid
   name           String
-  nameNormalized String
-  isActive       Boolean @default(true)
+  nameNormalized String                          // lower-cased, single spaces
+  isActive       Boolean  @default(true)
+  createdAt / updatedAt
   @@unique([organizationId, nameNormalized])
 }
 
-model Expense {
-  id             String   @id @default(uuid(7)) @db.Uuid
-  organizationId String   @db.Uuid
-  categoryId     String   @db.Uuid
-  amount         Decimal  @db.Decimal(14, 2)
-  expenseDate    DateTime @db.Date
+model Expense {                                   // tenant model; never deleted (DB trigger) — voided
+  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId String        @db.Uuid
+  categoryId     String        @db.Uuid
+  amount         Decimal       @db.Decimal(14, 2)  // CHECK > 0
+  expenseDate    DateTime      @db.Date            // business date, not in the future
   description    String?
-  createdById    String   @db.Uuid
-  createdAt      DateTime @default(now()) @db.Timestamptz
-  updatedAt      DateTime @updatedAt @db.Timestamptz
-  @@index([organizationId, expenseDate])
+  reference      String?                           // bill / voucher no.
+  status         ExpenseStatus @default(ACTIVE)    // ACTIVE | VOIDED — only ACTIVE counts in totals
+  createdById    String        @db.Uuid
+  updatedById    String?       @db.Uuid
+  voidedAt       DateTime?     @db.Timestamptz
+  voidedById     String?       @db.Uuid
+  voidReason     String?                           // CHECK: VOIDED ⇔ voidedAt, voidedById, voidReason set
+  createdAt / updatedAt
+  @@index([organizationId, status, expenseDate])
   @@index([organizationId, categoryId, expenseDate])
 }
 

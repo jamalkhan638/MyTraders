@@ -25,7 +25,7 @@ Every request is checked for: authenticated → user active → organization not
 | Invoices: cancel with reason (ledger reversal credit) | ✅ | ❌ |
 | Ledger: record payment / adjust credit (shop details or area ledger) | ✅ | ❌ |
 | Ledger: view history, area ledger, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
-| Expenses & categories | ✅ | ❌ |
+| Expenses & categories (add, edit, void; categories add / rename / deactivate) | ✅ | ❌ (no partner access in the MVP) |
 | Dashboard / profit / reports / exports | ✅ | ❌ |
 
 `SUPER_ADMIN` (later): platform module only (organizations, status, usage). Has no organization and cannot use tenant endpoints.

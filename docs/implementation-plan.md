@@ -64,7 +64,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - Payment during invoice creation — not required (payments are recorded from Shop Details and the Area Ledger)
 
 ## Phase 6 — Expenses & dashboard
-- ☐ Expense categories, Expenses (table + dialog, period total)
+- ☑ Expense categories (Settings), Expenses (table + dialog, filters, period total, edit, void) — D-32
+- ☑ Expense totals by date range / current month (`GET /expenses/summary`) for Dashboard and Net Profit
 - ⛔ Profit service (needs **OQ-2**: sales base excl./incl. tax)
 - ☐ `GET /dashboard/summary` + Dashboard page (cards + latest pending orders)
 

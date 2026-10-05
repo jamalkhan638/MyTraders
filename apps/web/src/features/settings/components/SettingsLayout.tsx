@@ -6,6 +6,7 @@ const TABS = [
   { label: 'Organization', to: '/settings', end: true },
   { label: 'Areas', to: '/settings/areas', end: false },
   { label: 'Shop Categories', to: '/settings/shop-categories', end: false },
+  { label: 'Expense Categories', to: '/settings/expense-categories', end: false },
 ];
 
 /** Settings section with tabs (docs/frontend-guidelines.md §5: Settings → Organization, Areas, Shop Categories, …). */
