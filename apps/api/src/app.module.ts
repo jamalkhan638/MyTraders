@@ -24,6 +24,7 @@ import { BookerModule } from './modules/booker/booker.module';
 import { ExpenseCategoriesModule } from './modules/expense-categories/expense-categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { ProfitModule } from './modules/profit/profit.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ShopsModule } from './modules/shops/shops.module';
@@ -96,6 +97,7 @@ import { PrismaModule } from './prisma/prisma.module';
     LedgerModule,
     ExpenseCategoriesModule,
     ExpensesModule,
+    ProfitModule,
     BookerModule,
   ],
   controllers: [HealthController],

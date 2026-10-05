@@ -132,3 +132,7 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 6. Invoice date is editable (default today) with no restriction on past / future dates.
 7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.
 8. ~~Ledger debit = Grand Total~~ — confirmed by the owner as **Payable Value** (D-31).
+
+## 9. Profit (D-33)
+
+`Invoice Profit = Grand Total (Σ Gross Value) − totalCost (Σ line cost snapshots)`. Gross Profit sums it over confirmed, non-cancelled invoices; Net Profit subtracts active expenses. GST is not removed at this stage (future review); tax paid is an expense. See product-requirements §4.11.

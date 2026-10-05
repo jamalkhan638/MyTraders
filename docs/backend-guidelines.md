@@ -102,6 +102,7 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /expenses?page&pageSize&from&to&categoryId&q&status`, `GET /expenses/:id` | ADMIN | ✅ Phase 6; list carries `totalAmount` = Σ for the filters |
 | `POST /expenses`, `PATCH /expenses/:id`, `POST /expenses/:id/void` | ADMIN | ✅ active category of the org, amount > 0, no future date; edit only while ACTIVE; void with reason (never delete) |
 | `GET /expenses/summary?from&to` | ADMIN | ✅ Σ ACTIVE expenses by category; default current month (org tz) — Dashboard / Net Profit |
+| `GET /profit/summary?from&to` | ADMIN | ✅ D-33: Σ (Grand Total − totalCost) of CONFIRMED invoices by invoice date; Net = Gross − active expenses; default current month |
 | `GET/POST /expense-categories`, `GET/PATCH /expense-categories/:id` | ADMIN | ✅ Phase 6; unique name per org; deactivate, never delete |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |
@@ -135,6 +136,6 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds one debit; payment credit reduces; overpayment rejected; concurrent payments can't overdraw (row lock); adjustments; running balance with backdated entries; reversal once on cancel; Due Payment prefill and no ledger change from it; area sheet opening/payments/closing incl. same-day invoices/adjustments, filters, totals; append-only triggers; tenant isolation; permissions.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
-- **Profit**: sales, COGS, gross, expenses, net for a period; cancelled invoices excluded.
+- **Profit**: D-33 rule from the owner's numbers; cancelled invoices and voided expenses excluded; cost snapshot survives product cost changes; negative net; tenant isolation; Admin only.
 
 e2e tests run against a dedicated Postgres test database (docker-compose), reset per test file.

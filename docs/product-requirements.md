@@ -184,24 +184,29 @@ Full detail and formulas in [invoice-specification.md](./invoice-specification.m
 
 ### 4.10 Expenses — D-32
 - **Admin-only** (Order Bookers and Super Admin get 403; the screens are not in their apps). **No partner splitting** — partners do not manage or see expenses in the MVP.
-- **Expense Categories** (Settings → Expense Categories), per organization, same pattern as Areas / Shop Categories: list, add, rename, activate / deactivate (never deleted). Name required, unique per organization (case- and space-insensitive), the same name is allowed in another organization. New organizations start with Fuel, Salary, Vehicle Maintenance, Loading / Unloading, Rent, Electricity, Office Expense, Miscellaneous.
+- **Expense Categories** (Settings → Expense Categories), per organization, same pattern as Areas / Shop Categories: list, add, rename, activate / deactivate (never deleted). Name required, unique per organization (case- and space-insensitive), the same name is allowed in another organization. New organizations start with Fuel, Salary, Vehicle Maintenance, Loading / Unloading, Rent, Electricity, Office Expense, Tax / Government Tax, Miscellaneous.
 - **Expense**: category (an **active** category of the organization), amount (> 0, 2 decimals, numeric), date (backdating allowed, **no future dates**), description and reference / bill no. (optional). Created by / updated by are recorded.
 - **Edit** any field while the expense is active; a changed category must be active, keeping a since-deactivated category is allowed.
 - **Void** instead of delete: the Admin gives a reason; the expense stays in history (Voided filter) and **no longer counts in any total**. Voided expenses cannot be edited; expenses are never deleted (DB trigger).
 - **Expenses page**: table (Date, Category, Description + reference, Amount, Created By, Actions), filters (date range with *This month* / *Last month*, category, search in description / reference, Active / Voided), and **Total expenses** = the server's Σ for the current filters (not just the page). Add / Edit in a small dialog. Mobile: cards.
 - **Totals for later**: `GET /expenses/summary?from&to` → Σ active expenses in the period (both dates inclusive) by category; without dates it is the current month in the organization timezone (**This Month Expenses** for the Dashboard). This is the Expenses term of Net Profit.
 
-### 4.11 Profit
+### 4.11 Profit — D-33 (MVP rule, owner-confirmed)
 ```
-Sales         = Σ confirmed invoice sales in period          (base TBC — OQ-2)
-COGS          = Σ invoice item cost snapshots in period
-Gross Profit  = Sales − COGS
-Expenses      = Σ ACTIVE expenses dated in period          (GET /expenses/summary, D-32)
-Net Profit    = Gross Profit − Expenses
+Invoice Profit = Gross Invoice Value (Grand Total = Σ line Gross Value) − Product Cost
+Product Cost   = Σ line cost snapshots: TIN  Qty Pcs × Invoice/Cost Price
+                                        POUCH Qty Ctn × Invoice/Cost Price   (historical snapshot)
+Gross Profit   = Σ Invoice Profit of CONFIRMED (non-cancelled) invoices dated in the period
+Expenses       = Σ ACTIVE expenses dated in the period            (GET /expenses/summary, D-32)
+Net Profit     = Gross Profit − Expenses                          (GET /profit/summary)
 ```
-- A credit sale is still a sale. Cancelled invoices are excluded.
+- GST / tax is **not** separately removed from profit at this stage. Tax actually paid by the distributor is recorded as an **Expense** (category *Tax / Government Tax*) and reduces Net Profit through the normal expense total.
+- Invoice-level Advance Tax, Further Tax and ADT discount change the Payable Value (D-31) but are not part of the profit rule above.
+- Cost always comes from the invoice item snapshot — later product cost changes never change past profit.
+- A credit sale is still a sale. Cancelled invoices and voided expenses are excluded. Net Profit can be negative.
 - Cash Collected, Sales and Market Credit are **separate** numbers and are never mixed.
 - Partner split is **not** shown. Only Net Profit.
+- **Future business-rule review:** tax treatment inside profit (e.g. excluding GST from sales), and whether invoice-level Advance / Further Tax and ADT discount should affect profit.
 
 ### 4.12 Dashboard (Admin)
 1. Pending Orders (clickable → pending list) + latest pending orders list with "Create Invoice" action
@@ -252,6 +257,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-30 | **Shop Ledger is the single source of truth** for credit: balance = Σ debit − Σ credit; INVOICE debit (Grand Total, in the confirm transaction, once per invoice), PAYMENT credit (≤ current balance), MANUAL_ADJUSTMENT increase/decrease with reason (decrease not below zero), INVOICE_REVERSAL credit on cancel (exact debit, once); append-only; Area Ledger is a computed collection sheet (opening / payments / closing per shop and date), no stored area balances | Owner decision (Phase 5) |
 | D-31 | **Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount** (blank = 0), calculated and stored by the server, always printed; it is the invoice's ledger debit. Due Payment never affects Payable Value or the ledger. Payments / decreases: no future dates, backdating allowed, limited by the balance on their date and never making a later balance negative. Invoice cancellation refused if it would make the current balance negative (no advance balances in the MVP). Area Ledger exports: CSV + browser print / PDF. Later: credit-status filter (Dashboard/Reports), Credit Report (Reports), payment during invoice creation (not required) | Owner decision (Phase 5 review) |
 | D-32 | Expenses are Admin-only, per organization, with configurable Expense Categories (unique name per organization, deactivate not delete, defaults seeded); amount > 0, no future dates, active category required; editable while active; **voided with a reason instead of deleted** and then excluded from all totals; no partner splitting; Σ by date range (default current month) is the Expenses term of Net Profit | Owner decision (Phase 6) |
+| D-33 | **Profit (MVP)**: Invoice Profit = Gross Invoice Value (Grand Total) − Product Cost (historical cost snapshot: TIN Qty Pcs × cost, POUCH Qty Ctn × cost); Gross Profit = Σ over confirmed, non-cancelled invoices; Net Profit = Gross Profit − Expenses. GST not separately removed; tax paid is recorded as an Expense (*Tax / Government Tax*, added to the default categories). Tax treatment inside profit = future business-rule review | Owner decision (Phase 6) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |
@@ -262,7 +268,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | # | Question | Blocks |
 |---|---|---|
 | OQ-1 | ~~Exact invoice formulas~~ — answered by D-29 (see invoice-specification.md; §8 lists implementation choices awaiting review) | closed |
-| OQ-2 | Are Sales / Profit based on value **excl. tax** or incl. tax? | Dashboard / Profit |
+| OQ-2 | ~~Sales base for profit~~ — answered by D-33 (Gross Invoice Value − cost snapshot); tax treatment inside profit is a future review | closed |
 | OQ-7 | How should Liter / ML products count toward "tons sold" (e.g. a kg-per-liter factor, or shown separately in liters)? | Dashboard weight card |
 | OQ-5 | ~~Booker estimated order total~~ — not applicable: bookers see no prices (D-24) | closed |
 | OQ-6 | ~~Qty ctn vs Qty pcs~~ — answered by D-26 / D-28 / D-29 (a TIN has no Qty Ctn on the invoice) | closed |

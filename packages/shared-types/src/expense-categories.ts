@@ -56,5 +56,6 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   'Rent',
   'Electricity',
   'Office Expense',
+  'Tax / Government Tax',
   'Miscellaneous',
 ] as const;
