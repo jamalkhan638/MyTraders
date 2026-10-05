@@ -23,29 +23,32 @@ Organization ─┬─< User (ADMIN | ORDER_BOOKER)          SUPER_ADMIN has org
               ├─< Order ─< OrderItem >── Product
               │     └── (0..1) Invoice
               ├─< Invoice ─< InvoiceItem >── Product
-              ├─< ShopLedgerEntry >── Shop, (Invoice)
+              ├─< ShopLedgerEntry >── Shop, (Invoice), (Payment)
+              ├─< Payment >── Shop
               ├─< ExpenseCategory ─< Expense
               └─< OrganizationCounter
 User ─< RefreshToken
 ```
 
-## 3. Ledger convention
+## 3. Ledger convention (D-30)
 
-`ShopLedgerEntry` has two non-negative columns, exactly one of which is > 0 (DB `CHECK`):
+`ShopLedgerEntry` has two non-negative columns, `debitAmount` and `creditAmount`, exactly one of which is > 0 (DB `CHECK`). **Debit = the shop owes more; credit = the shop owes less.**
 
-| Type | Column | Effect |
-|---|---|---|
-| `INVOICE` | debit | shop owes more (invoice's own amount) |
-| `PAYMENT` | credit | shop owes less |
-| `MANUAL_ADJUSTMENT` | debit or credit | *Add Credit* (debit) — e.g. old khata; reduce (credit) with note |
-| `INVOICE_CANCELLATION` | credit | reverses a cancelled invoice's debit (D-16) |
+| Type | Side | Link | Created by |
+|---|---|---|---|
+| `INVOICE` | debit | `invoiceId` | invoice confirmation (Grand Total), same transaction |
+| `PAYMENT` | credit | `paymentId` (1:1 `Payment`) | Record Payment |
+| `MANUAL_ADJUSTMENT` | debit (increase) or credit (decrease) | — (`notes` = reason, required) | Adjust Credit |
+| `INVOICE_REVERSAL` | credit | `invoiceId` | invoice cancellation (exact original debit) |
 
 ```
-Outstanding balance (shop) = Σ debit − Σ credit
-Total Market Credit        = Σ debit − Σ credit   over all shops of the organization
-Cash Collected (period)    = Σ credit of type PAYMENT with entryDate in period
+Outstanding balance (shop) = Σ debitAmount − Σ creditAmount
+Total Market Credit        = Σ debitAmount − Σ creditAmount   over all shops of the organization
+Running balance            = SUM(debit − credit) OVER (ORDER BY transactionDate, createdAt, id)
+Area sheet (date D)        = opening (< D), day debits / other credits / payments (= D), closing (≤ D)
+Cash Collected (period)    = Σ creditAmount of type PAYMENT with transactionDate in period
 ```
-Balances are computed with indexed `SUM` queries. A cached balance column can be added later if needed; the ledger stays the source of truth.
+Balances are computed with indexed `SUM` / `GROUP BY` queries (`@@index([organizationId, shopId, transactionDate, createdAt, id])`). There is no balance column; a cache could be added later, the ledger stays the source of truth. `@@unique([invoiceId, type])` → one debit and at most one reversal per invoice; `paymentId @unique`. Append-only triggers on `ShopLedgerEntry` and `Payment`.
 
 ## 4. Draft Prisma schema
 
@@ -54,7 +57,8 @@ enum OrganizationStatus { TRIAL ACTIVE SUSPENDED }
 enum UserRole          { SUPER_ADMIN ADMIN ORDER_BOOKER }
 enum OrderStatus       { PENDING INVOICED CANCELLED }
 enum InvoiceStatus     { CONFIRMED CANCELLED }
-enum LedgerEntryType   { INVOICE PAYMENT MANUAL_ADJUSTMENT INVOICE_CANCELLATION }
+enum LedgerEntryType   { INVOICE PAYMENT MANUAL_ADJUSTMENT INVOICE_REVERSAL }
+enum PaymentMethod     { CASH BANK_TRANSFER CHEQUE OTHER }
 enum CounterKey        { ORDER INVOICE }
 
 model Organization {
@@ -145,7 +149,7 @@ model Shop {
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now()) @db.Timestamptz
   updatedAt             DateTime @updatedAt @db.Timestamptz
-  // NO credit/balance column: balance = Σ ShopLedgerEntry (Phase 5)
+  // NO credit/balance column: balance = Σ ShopLedgerEntry (D-30)
   @@index([organizationId, name])
   @@index([organizationId, areaId])
   @@index([organizationId, categoryId])
@@ -272,21 +276,39 @@ model InvoiceItem {                               // tenant model; append-only (
   // CHECK: TIN ⇒ qtyCtn IS NULL AND qtyPcs ≥ 1; POUCH ⇒ qtyCtn ≥ 1; all amounts ≥ 0; 0 ≤ gstRate ≤ 100
 }
 
-model ShopLedgerEntry {
-  id             String          @id @default(uuid(7)) @db.Uuid
-  organizationId String          @db.Uuid
-  shopId         String          @db.Uuid
-  type           LedgerEntryType
-  debit          Decimal         @default(0) @db.Decimal(14, 2)
-  credit         Decimal         @default(0) @db.Decimal(14, 2)
-  entryDate      DateTime        @db.Date
-  invoiceId      String?         @db.Uuid
+model Payment {                                   // append-only
+  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId String        @db.Uuid
+  shopId         String        @db.Uuid
+  amount         Decimal       @db.Decimal(14, 2)     // CHECK > 0
+  paymentDate    DateTime      @db.Date
+  method         PaymentMethod @default(CASH)         // CASH | BANK_TRANSFER | CHEQUE | OTHER
+  reference      String?                              // receipt / cheque no.
   notes          String?
-  createdById    String          @db.Uuid
-  createdAt      DateTime        @default(now()) @db.Timestamptz
-  @@index([organizationId, shopId, entryDate])
-  @@index([organizationId, type, entryDate])
-  // raw SQL migration: CHECK (debit >= 0 AND credit >= 0 AND (debit = 0) <> (credit = 0))
+  createdById    String        @db.Uuid
+  createdAt      DateTime      @default(now()) @db.Timestamptz
+  @@index([organizationId, shopId, paymentDate])
+  @@index([organizationId, paymentDate])
+}
+
+model ShopLedgerEntry {                           // append-only; the source of truth for credit
+  id              String          @id @default(uuid(7)) @db.Uuid
+  organizationId  String          @db.Uuid
+  shopId          String          @db.Uuid
+  type            LedgerEntryType // INVOICE | PAYMENT | MANUAL_ADJUSTMENT | INVOICE_REVERSAL
+  debitAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  creditAmount    Decimal         @default(0) @db.Decimal(14, 2)
+  transactionDate DateTime        @db.Date
+  invoiceId       String?         @db.Uuid
+  paymentId       String?         @unique @db.Uuid
+  notes           String?
+  createdById     String          @db.Uuid
+  createdAt       DateTime        @default(now()) @db.Timestamptz
+  @@unique([invoiceId, type])
+  @@index([organizationId, shopId, transactionDate, createdAt, id])
+  @@index([organizationId, type, transactionDate])
+  // CHECK: amounts ≥ 0, exactly one side > 0; INVOICE ⇒ debit + invoiceId; INVOICE_REVERSAL ⇒ credit +
+  //        invoiceId; PAYMENT ⇒ credit + paymentId; MANUAL_ADJUSTMENT ⇒ no links, notes required
 }
 
 model ExpenseCategory {
@@ -326,7 +348,7 @@ Relation fields (`@relation`) are omitted above for readability; all FKs are rea
 
 - **Snapshots on Invoice/InvoiceItem**: product/shop/org edits never alter historical invoices or profit (spec §14, §25, §26).
 - **`orderId @unique` on Invoice**: DB-level guarantee an order is invoiced once.
-- **`grandTotal` vs `duePayment`**: the ledger (Phase 5) debits only the invoice's own amount; `duePayment` (previous credit) is a printed snapshot the ledger never reads (D-9, D-29). There is no credit column on Shop.
+- **`grandTotal` vs `duePayment`**: the ledger debits only the invoice's own amount; `duePayment` (previous credit) is a printed snapshot the ledger never reads (D-9, D-29). There is no credit column on Shop.
 - **Append-only triggers**: `Invoice` rows cannot be deleted and only accept CONFIRMED → CANCELLED (cancel fields); `InvoiceItem` rows cannot be updated or deleted.
 - **`organizationId` on InvoiceItem**: product-sales reports aggregate items without joining through invoices, and tenant scoping stays uniform.
 - **No `Payment` table**: payments are ledger entries — one source of truth for cash collected and balances.

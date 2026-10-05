@@ -30,11 +30,11 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Product invoice rules (D-26): Type TIN/POUCH, Invoice/Cost Price, Default Tax Rate, Weight Unit + Basis, POUCH requires Pieces per Carton; data-preserving migration; type filter
 - ☑ Rate Code removed from products (D-27)
 - ☑ Shops (table, filters, drawer, assign booker; FK validation in organization, D-23) — `GET/POST /shops`, `GET/PATCH /shops/:id`
-- ◐ Shop details page — ☑ info/assignment/tax + placeholders; balance, ledger, Add Credit in Phase 5
+- ☑ Shop details page — info/assignment/tax, outstanding, ledger history, payments, adjustments, invoice history
 - ☐ Shops export Excel / PDF (filtered)
 
 ## Phase 3 — Order Booker flow
-- ☑ Booker: My Shops (assigned active shops, area filter, search; balance in Phase 5) — `GET /booker/shops|areas`
+- ☑ Booker: My Shops (assigned active shops, area filter, search; no balance — D-24) — `GET /booker/shops|areas`
 - ☑ Booker: Book Order (products + whole quantities only, no prices — D-24; draft kept on the phone) — `GET /booker/products`, `POST /orders`
 - ☑ Order quantity by product type (D-28): `Qty (Pcs)` for TIN, `Qty (Ctn)` for POUCH; `OrderItem.quantityUnit` stored by the server; totals per unit
 - ☑ Booker: My Orders, order details, cancel own pending
@@ -45,16 +45,21 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ `GET /invoices/draft`, `POST /invoices/preview`, `POST /invoices` (unified; optional `orderId`), numbering, shop/distributor/product snapshots, order → INVOICED — one transaction; append-only DB triggers
 - ☑ Invoice form (direct from shop + prefilled from order), product picker, live preview
 - ☑ Invoices list, invoice view / print layout (A4 landscape), shop invoice history, order → invoice link
-- ◐ Cancellation — ☑ reason, user, time, order stays INVOICED; ☐ ledger reversal in Phase 5 via `ShopLedgerPort`
-- ☐ Ledger debit on confirm and Due Payment prefill — Phase 5 (`ShopLedgerPort`)
+- ☑ Cancellation — reason, user, time, order stays INVOICED, ledger reversal (Phase 5)
+- ☑ Ledger debit on confirm and Due Payment prefill (Phase 5)
 - ☐ Optional paid-amount-at-invoice-time — Phase 5 (payments)
 - ☐ Server-generated PDF file (browser save-as-PDF works now)
 
-## Phase 5 — Ledger & payments
-- ☐ ShopLedgerEntry table; shop balance (list column, details card, credit-status filter), Add Credit
-- ☐ Receive Payment (overpayment rejected, row lock)
-- ☐ Ledger history on shop page, invoice links
-- ☐ Credit report
+## Phase 5 — Ledger & payments (D-30)
+- ☑ `ShopLedgerEntry` + `Payment` (append-only triggers, CHECKs, one debit / one reversal per invoice); back-fill of earlier invoices
+- ☑ Invoice confirm → INVOICE debit; cancel → INVOICE_REVERSAL credit; Due Payment prefilled from the ledger
+- ☑ Record Payment (row lock, overpayment rejected, no future dates); Adjust Credit (increase / decrease with reason)
+- ☑ Shop details: current outstanding, ledger history with running balance; shop list Outstanding column (grouped query)
+- ☑ Finance → Area Ledger: opening / payments / closing per shop and date, filters, totals, payment entry, print, CSV
+- ☑ Total Market Credit service + `GET /ledger/market-credit` (for the Dashboard)
+- ☐ Shop list credit-status filter; Credit report (Phase 7)
+- ☐ Server-generated XLSX / PDF for the area sheet (browser print + CSV today)
+- ☐ Optional paid-amount-at-invoice-time
 
 ## Phase 6 — Expenses & dashboard
 - ☐ Expense categories, Expenses (table + dialog, period total)

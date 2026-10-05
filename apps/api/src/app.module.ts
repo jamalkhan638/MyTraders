@@ -22,6 +22,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { ProductsModule } from './modules/products/products.module';
 import { BookerModule } from './modules/booker/booker.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ShopsModule } from './modules/shops/shops.module';
 import { ShopCategoriesModule } from './modules/shop-categories/shop-categories.module';
@@ -90,6 +91,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ShopsModule,
     OrdersModule,
     InvoicesModule,
+    LedgerModule,
     BookerModule,
   ],
   controllers: [HealthController],

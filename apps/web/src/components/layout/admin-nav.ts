@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpenText,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -31,6 +32,10 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Orders', to: '/orders', icon: ClipboardList },
       { label: 'Invoices', to: '/invoices', icon: FileText },
     ],
+  },
+  {
+    label: 'Finance',
+    items: [{ label: 'Area Ledger', to: '/finance/area-ledger', icon: BookOpenText }],
   },
   {
     items: [

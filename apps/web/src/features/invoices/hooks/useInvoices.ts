@@ -1,5 +1,6 @@
 import { type CreateInvoiceInput, type ListInvoicesQueryInput } from '@mytraders/shared-types';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateBalances } from '@/features/ledger/hooks/useLedger';
 import { ordersKeys } from '@/features/orders/hooks/useOrders';
 import { invoicesApi } from '../api/invoices.api';
 
@@ -47,6 +48,8 @@ export function useCreateInvoice() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: invoicesKeys.all }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.all }),
+        // the invoice debit changed the shop's balance (D-30)
+        invalidateBalances(queryClient),
       ]);
     },
   });
@@ -58,7 +61,11 @@ export function useCancelInvoice() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) => invoicesApi.cancel(id, reason),
     onSuccess: (invoice) => {
       queryClient.setQueryData(invoicesKeys.detail(invoice.id), invoice);
-      return queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: invoicesKeys.all }),
+        // the reversal credit changed the shop's balance
+        invalidateBalances(queryClient),
+      ]);
     },
   });
 }

@@ -42,6 +42,25 @@ enum QuantityUnit {
   CARTON
 }
 
+/// What a shop ledger entry records (D-30). Debit = the shop owes more; credit = owes less.
+enum LedgerEntryType {
+  /// debit: a confirmed invoice (its Grand Total)
+  INVOICE
+  /// credit: money received from the shop
+  PAYMENT
+  /// debit (increase) or credit (decrease): an Admin correction with a reason
+  MANUAL_ADJUSTMENT
+  /// credit: reverses a cancelled invoice's debit, exact same amount
+  INVOICE_REVERSAL
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
 /// What a product's weight refers to.
 enum InvoiceStatus {
   CONFIRMED
@@ -100,6 +119,8 @@ model Organization {
   orders         Order[]
   invoices       Invoice[]
   invoiceItems   InvoiceItem[]
+  ledgerEntries  ShopLedgerEntry[]
+  payments       Payment[]
 }
 
 /// organizationId is null only for SUPER_ADMIN (enforced by a CHECK constraint in the migration).
@@ -117,13 +138,15 @@ model User {
   createdAt      DateTime  @default(now()) @db.Timestamptz
   updatedAt      DateTime  @updatedAt @db.Timestamptz
 
-  organization      Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization      Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   refreshTokens     RefreshToken[]
   assignedShops     Shop[]
-  bookedOrders      Order[]        @relation("BookedOrders")
-  cancelledOrders   Order[]        @relation("CancelledOrders")
-  createdInvoices   Invoice[]      @relation("CreatedInvoices")
-  cancelledInvoices Invoice[]      @relation("CancelledInvoices")
+  bookedOrders      Order[]           @relation("BookedOrders")
+  cancelledOrders   Order[]           @relation("CancelledOrders")
+  createdInvoices   Invoice[]         @relation("CreatedInvoices")
+  cancelledInvoices Invoice[]         @relation("CancelledInvoices")
+  ledgerEntries     ShopLedgerEntry[]
+  payments          Payment[]
 
   @@index([organizationId, role])
 }
@@ -254,12 +277,14 @@ model Shop {
   createdAt             DateTime @default(now()) @db.Timestamptz
   updatedAt             DateTime @updatedAt @db.Timestamptz
 
-  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  area                Area          @relation(fields: [areaId], references: [id], onDelete: Restrict)
-  category            ShopCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  assignedOrderBooker User?         @relation(fields: [assignedOrderBookerId], references: [id], onDelete: Restrict)
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area                Area              @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  category            ShopCategory?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignedOrderBooker User?             @relation(fields: [assignedOrderBookerId], references: [id], onDelete: Restrict)
   orders              Order[]
   invoices            Invoice[]
+  ledgerEntries       ShopLedgerEntry[]
+  payments            Payment[]
 
   @@index([organizationId, name])
   @@index([organizationId, areaId])
@@ -376,12 +401,13 @@ model Invoice {
   createdAt     DateTime  @default(now()) @db.Timestamptz
   updatedAt     DateTime  @updatedAt @db.Timestamptz
 
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Restrict)
-  order        Order?        @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  createdBy    User          @relation("CreatedInvoices", fields: [createdById], references: [id], onDelete: Restrict)
-  cancelledBy  User?         @relation("CancelledInvoices", fields: [cancelledById], references: [id], onDelete: Restrict)
-  items        InvoiceItem[]
+  organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shop          Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  order         Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy     User              @relation("CreatedInvoices", fields: [createdById], references: [id], onDelete: Restrict)
+  cancelledBy   User?             @relation("CancelledInvoices", fields: [cancelledById], references: [id], onDelete: Restrict)
+  items         InvoiceItem[]
+  ledgerEntries ShopLedgerEntry[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, invoiceDate])
@@ -437,4 +463,57 @@ model InvoiceItem {
 
   @@unique([invoiceId, lineNo])
   @@index([organizationId, productId])
+}
+
+/// Money received from a shop. Every payment has exactly one PAYMENT ledger credit. Append-only.
+model Payment {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId String        @db.Uuid
+  shopId         String        @db.Uuid
+  amount         Decimal       @db.Decimal(14, 2)
+  paymentDate    DateTime      @db.Date
+  method         PaymentMethod @default(CASH)
+  /// receipt / cheque / transfer reference
+  reference      String?
+  notes          String?
+  createdById    String        @db.Uuid
+  createdAt      DateTime      @default(now()) @db.Timestamptz
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shop         Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  createdBy    User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  ledgerEntry  ShopLedgerEntry?
+
+  @@index([organizationId, shopId, paymentDate])
+  @@index([organizationId, paymentDate])
+}
+
+/// The single source of truth for shop credit (D-30). Balance = Σ debitAmount − Σ creditAmount.
+/// Append-only; exactly one of debitAmount / creditAmount is > 0.
+model ShopLedgerEntry {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  organizationId  String          @db.Uuid
+  shopId          String          @db.Uuid
+  type            LedgerEntryType
+  debitAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  creditAmount    Decimal         @default(0) @db.Decimal(14, 2)
+  /// business date (organization timezone); running balances order by (transactionDate, createdAt, id)
+  transactionDate DateTime        @db.Date
+  invoiceId       String?         @db.Uuid
+  /// set for PAYMENT entries; one entry per payment
+  paymentId       String?         @unique @db.Uuid
+  notes           String?
+  createdById     String          @db.Uuid
+  createdAt       DateTime        @default(now()) @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shop         Shop         @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  /// one INVOICE debit and at most one INVOICE_REVERSAL per invoice
+  @@unique([invoiceId, type])
+  @@index([organizationId, shopId, transactionDate, createdAt, id])
+  @@index([organizationId, type, transactionDate])
 }

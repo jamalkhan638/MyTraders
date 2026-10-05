@@ -85,9 +85,11 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /shops`, `PATCH /shops/:id` | ADMIN | ✅ area/category/booker validated in the organization (422 on the field); `isActive`; no delete |
 | Booker "My Shops" (assigned shops only) | BOOKER | Phase 3 — reuses the shops list scoped to `assignedOrderBookerId = current user` |
 | `GET /shops/export?format=xlsx\|pdf&<filters>` | ADMIN | exports current filter |
-| `GET /shops/:id/ledger` | ADMIN | paginated history + balance |
-| `POST /shops/:id/payments` | ADMIN | rejects overpayment |
-| `POST /shops/:id/adjustments` | ADMIN | Add Credit / reduce, note required |
+| `GET /shops/:id/ledger?page&pageSize` | ADMIN | ✅ Phase 5; balance + history newest first with server running balance |
+| `POST /shops/:id/payments` | ADMIN | ✅ `{ amount, paymentDate, method, reference?, notes? }`; shop row lock; 422 above current balance or future date |
+| `POST /shops/:id/adjustments` | ADMIN | ✅ `{ direction: INCREASE\|DECREASE, amount, adjustmentDate, reason }`; decrease not below zero |
+| `GET /ledger/areas/:areaId?date&q&outstandingOnly` | ADMIN | ✅ area collection sheet computed from ledger entries (one SQL aggregate) |
+| `GET /ledger/market-credit` | ADMIN | ✅ Σ outstanding of all shops (Dashboard later) |
 | `GET /orders?page&pageSize&q&areaId&orderBookerId&status`, `GET /orders/:id` | ADMIN all / BOOKER own | ✅ Phase 3; booker filters are forced to their own orders; another booker's order → 404 |
 | `POST /orders` | BOOKER | ✅ `{ shopId, items: [{ productId, quantity }], notes? }`; each line's `quantityUnit` (PIECE for TIN, CARTON for POUCH) is set by the server, a client-sent unit is ignored; summaries return `totalPieces` / `totalCartons` (never mixed); number generated in the transaction; 422 per field for unassigned/inactive shop or inactive/unknown product |
 | `POST /orders/:id/cancel` | ADMIN / BOOKER own | ✅ only `PENDING` (409 otherwise) |
@@ -96,13 +98,13 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /invoices/preview` | ADMIN | ✅ computes every value server-side without saving |
 | `POST /invoices` | ADMIN | ✅ inputs only (`shopId`, optional `orderId`, `invoiceDate`, rows, optional invoice-level values); totals/number/status sent by the client are ignored; 422 per field (`items.N.field`), 409 order not PENDING |
 | `GET /invoices?page&pageSize&q&shopId&status`, `GET /invoices/:id` | ADMIN | ✅ from snapshots only |
-| `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled; linked order stays INVOICED; ledger reversal via `ShopLedgerPort` in Phase 5 |
+| `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled; linked order stays INVOICED; INVOICE_REVERSAL credit of the original debit in the same transaction |
 | `GET/POST /expenses`, `PATCH /expenses/:id` | ADMIN | |
 | `GET/POST /expense-categories`, `PATCH …/:id` | ADMIN | |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |
 
-Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is present the order is validated as `PENDING` (same shop) and flipped to `INVOICED` in the same transaction. Formulas live only in `packages/shared-types/src/invoices.ts`. Ledger integration goes through `modules/ledger/shop-ledger.port.ts` (`outstandingBalance`, `invoiceConfirmed`, `invoiceCancelled` — no-ops until Phase 5, already called inside the invoice transactions). Numbers: `common/numbering/document-number.ts` (shared by orders and invoices).
+Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is present the order is validated as `PENDING` (same shop) and flipped to `INVOICED` in the same transaction. Formulas live only in `packages/shared-types/src/invoices.ts`. Ledger integration goes through `modules/ledger/shop-ledger.service.ts` (`outstandingBalance` for Due Payment, `invoiceConfirmed` / `invoiceCancelled` called inside the invoice transactions). Raw ledger SQL always filters `organizationId` explicitly (raw queries bypass the tenant client). Numbers: `common/numbering/document-number.ts` (shared by orders and invoices).
 
 ### Dashboard summary response
 ```json
@@ -129,7 +131,7 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
 - **Invoice**: calculator unit tests from the owner's worked examples (D-29); TIN/POUCH quantities; rounding half up; cost snapshot preserved after product cost change; snapshots unchanged after product/shop/org edits; totals recomputed server-side ignoring client totals; Due Payment never touches shop state; concurrent numbering; rollback when confirm fails; DB triggers refuse edits.
 - **Order workflow**: booker creates `PENDING`; admin invoices → `INVOICED`; second invoice for same order → 409.
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
-- **Ledger**: invoice adds debt; payment reduces; overpayment rejected; balance correct; concurrent payments don't overdraw.
+- **Ledger**: invoice adds one debit; payment credit reduces; overpayment rejected; concurrent payments can't overdraw (row lock); adjustments; running balance with backdated entries; reversal once on cancel; Due Payment prefill and no ledger change from it; area sheet opening/payments/closing incl. same-day invoices/adjustments, filters, totals; append-only triggers; tenant isolation; permissions.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
 - **Profit**: sales, COGS, gross, expenses, net for a period; cancelled invoices excluded.
 

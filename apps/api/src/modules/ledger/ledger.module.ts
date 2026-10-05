@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ShopLedgerPort } from './shop-ledger.port';
+import { LedgerController, ShopLedgerController } from './ledger.controller';
+import { ShopLedgerService } from './shop-ledger.service';
 
-/** Shop ledger (credit / payments). Phase 5 fills it in; for now only the invoice integration point. */
+/** Shop ledger: the single source of truth for shop credit (D-30). */
 @Module({
-  providers: [ShopLedgerPort],
-  exports: [ShopLedgerPort],
+  controllers: [ShopLedgerController, LedgerController],
+  providers: [ShopLedgerService],
+  exports: [ShopLedgerService],
 })
 export class LedgerModule {}

@@ -19,8 +19,8 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 2. The Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO / ATO rate, line Special Discount, invoice-level values, invoice date, Due Payment.
 3. **The product holds defaults; the invoice item holds what was used.** Editing a value on an invoice never changes the product master.
 4. **Backend recomputes everything** from the inputs and ignores any total / number / status / organization sent by a client.
-5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → ledger hook (no-op until Phase 5). Any failure rolls all of it back: the order stays `PENDING`, the number is not used.
-6. A confirmed invoice is **immutable** (database triggers too). Admin can **cancel** it (D-16): it becomes `CANCELLED` with reason, user and time; all data stays; a linked order stays `INVOICED`. The ledger reversal is added with the ledger (Phase 5) through the same hook.
+5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → **`INVOICE` ledger debit of the Grand Total** (D-30). Any failure rolls all of it back: the order stays `PENDING`, the number is not used, no debit exists.
+6. A confirmed invoice is **immutable** (database triggers too). Admin can **cancel** it (D-16): it becomes `CANCELLED` with reason, user and time; all data stays; a linked order stays `INVOICED`; in the same transaction the ledger gets an `INVOICE_REVERSAL` credit of exactly the original debit (once — unique per invoice).
 
 ## 2. Prices and product type (D-26, D-29)
 
@@ -84,7 +84,7 @@ Invoice-level values are **optional Admin entries with no formula**; they never 
 | Due Payment | `duePayment` | shop's previous outstanding credit, **snapshot only** — see below; printed when > 0 |
 | Payable Value | `payableValue` | printed only when entered; no automatic formula yet |
 
-**Due Payment and the ledger (D-29):** the form prefills Due Payment from the shop's outstanding balance via `ShopLedgerPort.outstandingBalance()`. The Shop Ledger arrives in Phase 5, so until then it returns `null` (field blank, Admin may type a value). There is **no** `Shop.credit` field and no temporary balance anywhere. Editing Due Payment changes only the invoice's printed snapshot — **the ledger never reads it**.
+**Due Payment and the ledger (D-29, D-30):** the form prefills Due Payment with the shop's current outstanding balance from the Shop Ledger (`ShopLedgerService.outstandingBalance`). It is only the invoice's printed snapshot: editing it changes nothing in the ledger, which never reads it. The ledger is debited with the invoice's own **Grand Total** only (never with Due Payment, D-9). There is no `Shop.credit` field.
 
 ## 5. Rounding and precision
 
@@ -123,3 +123,4 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 5. The same product may appear on more than one row of an invoice.
 6. Invoice date is editable (default today) with no restriction on past / future dates.
 7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.
+8. The ledger debit is the **Grand Total** (Σ Gross). Advance Tax, Further Tax, ADT discount and Payable Value are printed values only and are **not** posted to the ledger. A zero Grand Total posts no debit.

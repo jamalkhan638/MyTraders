@@ -87,3 +87,9 @@ Both load `GET /invoices/draft`. Full page (not a dialog): header card (shop, pr
 Invoice view `/invoices/:id` is also the print layout (print CSS: A4 landscape, app chrome hidden via `print:hidden`, cost never shown, blank optional rows omitted). Invoices list `/invoices`; shop details shows the shop's invoice history.
 
 Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolutely positioned children (e.g. `sr-only` labels) widen the whole page.
+
+## 8. Shop credit and Area Ledger
+
+- **Shop details**: a prominent *Current outstanding* card (from `GET /shops/:id`, which carries the ledger balance) with *Record payment* and *Adjust credit* dialogs (`features/ledger/components`), then the *Ledger / credit history* table (server running balance) and the separate *Invoice history*.
+- **Finance → Area Ledger** (`/finance/area-ledger?areaId&date`): area select, date with previous / next / today, shop search, "only shops with a balance"; Previous / Invoices-adj. / Payment / Remaining / Last payment per shop; totals row from the server; per-row *Payment* opens the same `RecordPaymentDialog` with the sheet's date. Print (A4 portrait) and CSV download (opens in Excel; built from the server's decimal strings).
+- Every ledger posting (payment, adjustment, invoice confirm / cancel) invalidates ledger, shop and invoice-draft queries (`invalidateBalances`), so Shop Details, the shop list, the area sheet and Due Payment always show the server's numbers.

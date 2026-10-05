@@ -22,9 +22,9 @@ Every request is checked for: authenticated → user active → organization not
 | Orders: cancel | ✅ any pending | ✅ own pending only |
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
 | Invoices: list / view / print / draft / preview | ✅ | ❌ |
-| Invoices: cancel with reason (ledger reversal arrives with the ledger, Phase 5) | ✅ | ❌ |
-| Ledger: add credit / receive payment | ✅ | ❌ |
-| Ledger: view history | ✅ | ❌ |
+| Invoices: cancel with reason (ledger reversal credit) | ✅ | ❌ |
+| Ledger: record payment / adjust credit (shop details or area ledger) | ✅ | ❌ |
+| Ledger: view history, area ledger, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
 | Expenses & categories | ✅ | ❌ |
 | Dashboard / profit / reports / exports | ✅ | ❌ |
 

@@ -11,6 +11,7 @@ import {
 import { type Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
+import { ShopLedgerService } from '../ledger/shop-ledger.service';
 
 const REF = { select: { id: true, name: true, isActive: true } } as const;
 
@@ -46,6 +47,7 @@ export class ShopsService {
   constructor(
     private readonly db: TenantPrismaService,
     private readonly tenant: TenantContext,
+    private readonly ledger: ShopLedgerService,
   ) {}
 
   async list(query: ListShopsQuery): Promise<Paginated<Shop>> {
@@ -76,13 +78,20 @@ export class ShopsService {
       }),
       this.db.client.shop.count({ where }),
     ]);
-    return { items: rows.map(toShop), total, page: query.page, pageSize: query.pageSize };
+    // One grouped ledger query for the whole page (no N+1).
+    const balances = await this.ledger.balances(rows.map((r) => r.id));
+    return {
+      items: rows.map((row) => toShop(row, balances.get(row.id) ?? '0.00')),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
   }
 
   async get(id: string): Promise<Shop> {
     const row = await this.db.client.shop.findFirst({ where: { id }, select: SHOP_FIELDS });
     if (!row) throw new NotFoundException('Shop not found');
-    return toShop(row);
+    return toShop(row, (await this.ledger.balance(row.id)).outstandingBalance);
   }
 
   async create(input: CreateShop): Promise<Shop> {
@@ -104,7 +113,7 @@ export class ShopsService {
       },
       select: SHOP_FIELDS,
     });
-    return toShop(row);
+    return toShop(row, (await this.ledger.balance(row.id)).outstandingBalance);
   }
 
   async update(id: string, input: UpdateShop): Promise<Shop> {
@@ -176,9 +185,10 @@ function changed<T>(next: T | undefined, current: T): T | undefined {
   return next === undefined || next === current ? undefined : next;
 }
 
-function toShop(row: ShopRow): Shop {
+function toShop(row: ShopRow, outstandingBalance: string): Shop {
   return {
     ...row,
+    outstandingBalance,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

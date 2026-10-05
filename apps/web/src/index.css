@@ -101,3 +101,14 @@
     display: none !important;
   }
 }
+
+/* Area collection sheet prints portrait. */
+@media print {
+  @page area-sheet {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  .area-ledger {
+    page: area-sheet;
+  }
+}

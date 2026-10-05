@@ -11,6 +11,7 @@ import { BookOrderPage } from '@/features/booker/pages/BookOrderPage';
 import { InvoiceDetailsPage } from '@/features/invoices/pages/InvoiceDetailsPage';
 import { InvoiceFormPage } from '@/features/invoices/pages/InvoiceFormPage';
 import { InvoicesPage } from '@/features/invoices/pages/InvoicesPage';
+import { AreaLedgerPage } from '@/features/ledger/pages/AreaLedgerPage';
 import { OrderDetailsPage } from '@/features/orders/pages/OrderDetailsPage';
 import { OrdersPage } from '@/features/orders/pages/OrdersPage';
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
               { path: '/invoices/new', element: <InvoiceFormPage /> },
               { path: '/invoices/:id', element: <InvoiceDetailsPage /> },
               { path: '/shops/:shopId/invoices/new', element: <InvoiceFormPage /> },
+              { path: '/finance/area-ledger', element: <AreaLedgerPage /> },
               { path: '/shops', element: <ShopsPage /> },
               { path: '/shops/:id', element: <ShopDetailsPage /> },
               { path: '/products', element: <ProductsPage /> },

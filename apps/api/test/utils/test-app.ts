@@ -26,6 +26,6 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
     throw new Error('Refusing to truncate a database whose name does not contain "_test"');
   }
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "InvoiceItem", "Invoice", "OrderItem", "Order", "Shop", "Product", "ShopCategory", "Area", "RefreshToken", "OrganizationCounter", "User", "Organization" CASCADE',
+    'TRUNCATE TABLE "ShopLedgerEntry", "Payment", "InvoiceItem", "Invoice", "OrderItem", "Order", "Shop", "Product", "ShopCategory", "Area", "RefreshToken", "OrganizationCounter", "User", "Organization" CASCADE',
   );
 }

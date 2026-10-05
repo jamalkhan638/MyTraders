@@ -1,5 +1,5 @@
 import { type Shop } from '@mytraders/shared-types';
-import { ArrowLeft, Clock, FilePlus, Pencil, Power, Wallet } from 'lucide-react';
+import { ArrowLeft, Banknote, FilePlus, Pencil, Power, SlidersHorizontal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { ShopInvoiceHistory } from '@/features/invoices/components/ShopInvoiceHistory';
+import { AdjustCreditDialog } from '@/features/ledger/components/AdjustCreditDialog';
+import {
+  type PaymentTarget,
+  RecordPaymentDialog,
+} from '@/features/ledger/components/RecordPaymentDialog';
+import { ShopLedgerHistory } from '@/features/ledger/components/ShopLedgerHistory';
 import { formatDate } from '@/lib/format/date';
+import { formatAmount } from '@/lib/format/number';
 import { ShopFormSheet, type ShopSheetMode } from '../components/ShopFormSheet';
 import { ShopStatusBadge } from '../components/ShopStatusBadge';
 import { ToggleShopDialog } from '../components/ToggleShopDialog';
 import { useShop } from '../hooks/useShops';
 
-/** Dedicated shop page (docs/product-requirements.md §4.4). Ledger sections arrive in Phase 5. */
+/** Dedicated shop page (docs/product-requirements.md §4.4–4.5): info, credit, ledger, invoices. */
 export function ShopDetailsPage() {
   const { id = '' } = useParams();
   const shop = useShop(id);
@@ -52,6 +59,15 @@ function ShopDetails({ shop }: { shop: Shop }) {
   const timeZone = useCurrentUser().organization?.timezone;
   const [sheet, setSheet] = useState<ShopSheetMode | null>(null);
   const [toggling, setToggling] = useState<Shop | null>(null);
+  const [paying, setPaying] = useState<PaymentTarget | null>(null);
+  const [adjusting, setAdjusting] = useState<PaymentTarget | null>(null);
+  const currency = useCurrentUser().organization?.currency ?? '';
+  const target: PaymentTarget = {
+    shopId: shop.id,
+    shopName: shop.name,
+    outstandingBalance: shop.outstandingBalance,
+  };
+  const owes = shop.outstandingBalance !== '0.00' && !shop.outstandingBalance.startsWith('-');
 
   return (
     <>
@@ -86,6 +102,33 @@ function ShopDetails({ shop }: { shop: Shop }) {
           </Button>
         </div>
       </div>
+
+      <Card className="mb-4 py-4">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 px-5">
+          <div>
+            <div className="text-sm text-muted-foreground">Current outstanding</div>
+            <div
+              className="text-3xl font-semibold tracking-tight tabular-nums"
+              data-testid="outstanding"
+            >
+              {currency} {formatAmount(shop.outstandingBalance)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              From the shop ledger (invoices − payments ± adjustments).
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setPaying(target)} disabled={!owes}>
+              <Banknote />
+              Record payment
+            </Button>
+            <Button variant="outline" onClick={() => setAdjusting(target)}>
+              <SlidersHorizontal />
+              Adjust credit
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -146,21 +189,14 @@ function ShopDetails({ shop }: { shop: Shop }) {
           </CardContent>
         </Card>
 
-        <Upcoming
-          icon={<Wallet />}
-          title="Outstanding credit"
-          note="Shown here once the shop ledger is built (Phase 5)."
-        />
+        <ShopLedgerHistory shopId={shop.id} />
         <ShopInvoiceHistory shopId={shop.id} canInvoice={shop.isActive} />
-        <Upcoming
-          icon={<Clock />}
-          title="Payment / credit history"
-          note="Payments received and credit added will be listed here (Phase 5)."
-        />
       </div>
 
       <ShopFormSheet mode={sheet} onClose={() => setSheet(null)} />
       <ToggleShopDialog shop={toggling} onClose={() => setToggling(null)} />
+      <RecordPaymentDialog target={paying} onClose={() => setPaying(null)} />
+      <AdjustCreditDialog target={adjusting} onClose={() => setAdjusting(null)} />
     </>
   );
 }
@@ -180,20 +216,6 @@ function InfoList({ rows }: { rows: [string, ReactNode][] }) {
 
 function Inactive() {
   return <span className="ml-1.5 text-xs font-normal text-destructive">(inactive)</span>;
-}
-
-function Upcoming({ icon, title, note }: { icon: ReactNode; title: string; note: string }) {
-  return (
-    <Card className="border-dashed shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-muted-foreground [&_svg]:size-4">
-          {icon}
-          {title}
-        </CardTitle>
-        <CardDescription>{note}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
 }
 
 function DetailsSkeleton() {

@@ -25,7 +25,7 @@ import { allocateDocumentNumber, peekDocumentNumber } from '../../common/numberi
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { type TenantPrismaClient } from '../../prisma/tenant-scope';
-import { ShopLedgerPort } from '../ledger/shop-ledger.port';
+import { ShopLedgerService } from '../ledger/shop-ledger.service';
 import { PRODUCT_FIELDS, type ProductRow, toProduct } from '../products/products.service';
 
 type TenantTx = Parameters<Parameters<TenantPrismaClient['$transaction']>[0]>[0];
@@ -116,7 +116,7 @@ export class InvoicesService {
   constructor(
     private readonly db: TenantPrismaService,
     private readonly tenant: TenantContext,
-    private readonly ledger: ShopLedgerPort,
+    private readonly ledger: ShopLedgerService,
   ) {}
 
   async list(query: ListInvoicesQuery): Promise<Paginated<InvoiceSummary>> {
@@ -345,10 +345,12 @@ export class InvoicesService {
         })),
       });
 
-      await this.ledger.invoiceConfirmed(tx, {
-        ...invoice,
-        grandTotal: invoice.grandTotal.toFixed(2),
-      });
+      // The shop is debited with this invoice's own Grand Total, in the same transaction (D-30).
+      await this.ledger.invoiceConfirmed(
+        tx,
+        { ...invoice, grandTotal: invoice.grandTotal.toFixed(2) },
+        auth.userId,
+      );
       return invoice.id;
     });
     return this.get(id);
@@ -356,8 +358,8 @@ export class InvoicesService {
 
   /**
    * Admin cancels a confirmed invoice (D-16): it becomes CANCELLED with reason, user and time; all
-   * its data stays. A linked order stays INVOICED (invoice-specification.md §1.6). The ledger
-   * reversal is added through the ledger hook in Phase 5.
+   * its data stays. A linked order stays INVOICED (invoice-specification.md §1.6). In the same
+   * transaction the ledger gets an INVOICE_REVERSAL credit equal to the original debit (D-30).
    */
   async cancel(id: string, reason: string): Promise<InvoiceDetails> {
     const auth = this.tenant.require();
@@ -384,10 +386,12 @@ export class InvoicesService {
       });
       if (!invoice) throw new NotFoundException('Invoice not found');
       if (count === 0) throw new ConflictException('This invoice is already cancelled');
-      await this.ledger.invoiceCancelled(tx, {
-        ...invoice,
-        grandTotal: invoice.grandTotal.toFixed(2),
-      });
+      await this.ledger.invoiceCancelled(
+        tx,
+        { ...invoice, grandTotal: invoice.grandTotal.toFixed(2) },
+        auth.userId,
+        reason,
+      );
     });
     return this.get(id);
   }

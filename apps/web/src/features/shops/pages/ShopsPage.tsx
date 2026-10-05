@@ -14,6 +14,8 @@ import { ShopStatusBadge } from '../components/ShopStatusBadge';
 import { ToggleShopDialog } from '../components/ToggleShopDialog';
 import { useShopLookups } from '../hooks/useShopLookups';
 import { useShops } from '../hooks/useShops';
+import { formatAmount } from '@/lib/format/number';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 type StatusFilter = 'active' | 'inactive' | '';
@@ -73,6 +75,20 @@ export function ShopsPage() {
       {
         header: 'Phone',
         cell: ({ row }) => <span className="whitespace-nowrap">{row.original.phone ?? '—'}</span>,
+      },
+      {
+        header: () => <span className="block text-right">Outstanding</span>,
+        id: 'outstandingBalance',
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              'block text-right tabular-nums',
+              row.original.outstandingBalance === '0.00' ? 'text-muted-foreground' : 'font-medium',
+            )}
+          >
+            {formatAmount(row.original.outstandingBalance)}
+          </span>
+        ),
       },
       { header: 'Status', cell: ({ row }) => <ShopStatusBadge isActive={row.original.isActive} /> },
       {
@@ -195,8 +211,14 @@ export function ShopsPage() {
                 {s.assignedOrderBooker?.name ?? 'Unassigned'}
                 {s.phone && ` · ${s.phone}`}
               </div>
-              <div className="pt-1">
+              <div className="flex items-center gap-2 pt-1">
                 <ShopStatusBadge isActive={s.isActive} />
+                <span className="text-sm">
+                  Outstanding{' '}
+                  <span className="font-semibold tabular-nums">
+                    {formatAmount(s.outstandingBalance)}
+                  </span>
+                </span>
               </div>
             </Link>
             <ShopActions

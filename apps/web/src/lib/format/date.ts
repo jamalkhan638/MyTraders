@@ -32,3 +32,20 @@ export function formatBusinessDate(date: string | null | undefined): string {
     year: 'numeric',
   }).format(new Date(`${date}T00:00:00Z`));
 }
+
+/** Today's business date ("2026-10-05") in a timezone — a form default; the server re-checks. */
+export function todayIn(timeZone?: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/** "2026-10-05" ± days, as a business date. */
+export function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

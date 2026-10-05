@@ -19,6 +19,8 @@ export const shopSchema = z.object({
   category: refSchema.nullable(),
   assignedOrderBooker: refSchema.nullable(),
   isActive: z.boolean(),
+  /** Σ debit − Σ credit of the shop ledger (D-30), computed by the server */
+  outstandingBalance: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

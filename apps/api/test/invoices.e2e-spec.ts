@@ -172,7 +172,8 @@ describe('Invoices (e2e)', () => {
         shop: { id: shop.id, name: 'Bilal Store', isActive: true, category: 'General Store' },
         order: null,
         proposedInvoiceNumber: 'M-00000001',
-        duePayment: null,
+        // no ledger entries yet → nothing outstanding
+        duePayment: '0.00',
         defaultTaxRate: '18',
         items: [],
       });
@@ -318,6 +319,7 @@ describe('Invoices (e2e)', () => {
 
     it('editing Due Payment changes nothing but the invoice snapshot', async () => {
       const shopBefore = await t.prisma.shop.findUniqueOrThrow({ where: { id: shop.id } });
+      const ledgerBefore = (await draft(`?shopId=${shop.id}`)).body.duePayment as string;
       const res = await createInvoice(invoice([tinLine()], { duePayment: '80000' })).expect(201);
       expect(res.body.duePayment).toBe('80000.00');
       expect(res.body.grandTotal).toBe(
@@ -326,8 +328,12 @@ describe('Invoices (e2e)', () => {
       );
       const shopAfter = await t.prisma.shop.findUniqueOrThrow({ where: { id: shop.id } });
       expect(shopAfter).toEqual(shopBefore);
-      // no ledger yet: the draft still has no outstanding balance to offer
-      expect((await draft(`?shopId=${shop.id}`)).body.duePayment).toBeNull();
+      // the ledger only grew by the two invoices' own Grand Totals, never by a Due Payment
+      const ledgerAfter = (await draft(`?shopId=${shop.id}`)).body.duePayment as string;
+      const twoInvoices = Number(res.body.grandTotal) * 2;
+      expect(Math.round((Number(ledgerAfter) - Number(ledgerBefore)) * 100)).toBe(
+        Math.round(twoInvoices * 100),
+      );
     });
 
     it('optional invoice-level values: blank / 0 are not kept; entered ones are kept as-is', async () => {

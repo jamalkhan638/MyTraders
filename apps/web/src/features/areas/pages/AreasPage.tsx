@@ -1,6 +1,7 @@
 import { type Area, type ListAreasQueryInput } from '@mytraders/shared-types';
 import { type ColumnDef } from '@tanstack/react-table';
-import { MapPin, Pencil, Plus, Power, Search } from 'lucide-react';
+import { BookOpenText, MapPin, Pencil, Plus, Power, Search } from 'lucide-react';
+import { Link } from 'react-router';
 import { useMemo, useState } from 'react';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -168,6 +169,14 @@ function AreaActions({
 }) {
   return (
     <div className="flex justify-end gap-1">
+      <Button variant="ghost" size="icon" asChild title="View ledger">
+        <Link
+          to={`/finance/area-ledger?areaId=${area.id}`}
+          aria-label={`View ledger of ${area.name}`}
+        >
+          <BookOpenText />
+        </Link>
+      </Button>
       <Button
         variant="ghost"
         size="icon"
