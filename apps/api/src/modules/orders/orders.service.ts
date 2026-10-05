@@ -21,7 +21,7 @@ import { TenantContext } from '../../common/tenant/tenant-context';
 import { type AuthContext } from '../../common/types/auth-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { type TenantPrismaClient } from '../../prisma/tenant-scope';
-import { allocateOrderNumber } from './order-number';
+import { allocateDocumentNumber } from '../../common/numbering/document-number';
 
 type TenantTx = Parameters<Parameters<TenantPrismaClient['$transaction']>[0]>[0];
 type FieldError = NonNullable<ApiErrorBody['details']>[number];
@@ -43,6 +43,7 @@ const DETAIL_FIELDS = {
   notes: true,
   cancelledAt: true,
   cancelledBy: REF,
+  invoice: { select: { id: true, invoiceNumber: true } },
   updatedAt: true,
   items: {
     select: {
@@ -133,7 +134,7 @@ export class OrdersService {
     // Shop/product checks, number allocation and the order with all its lines: one transaction.
     const id = await this.db.client.$transaction(async (tx) => {
       const productTypes = await assertOrderable(tx, auth.userId, input);
-      const orderNumber = await allocateOrderNumber(tx, organizationId);
+      const orderNumber = await allocateDocumentNumber(tx, organizationId, 'ORDER');
       const order = await tx.order.create({
         data: {
           organizationId,
@@ -248,6 +249,7 @@ function toDetails(row: DetailRow): OrderDetails {
     notes: row.notes,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelledBy: row.cancelledBy,
+    invoice: row.invoice,
     updatedAt: row.updatedAt.toISOString(),
     items: row.items.map((item) => ({
       id: item.id,

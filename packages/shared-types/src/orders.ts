@@ -62,6 +62,8 @@ export const orderDetailsSchema = orderSummarySchema.extend({
   items: z.array(orderItemSchema),
   cancelledAt: z.string().nullable(),
   cancelledBy: refSchema.nullable(),
+  /** the invoice generated from this order, once INVOICED */
+  invoice: z.object({ id: z.uuid(), invoiceNumber: z.string() }).nullable(),
   updatedAt: z.string(),
 });
 export type OrderDetails = z.infer<typeof orderDetailsSchema>;

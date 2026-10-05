@@ -14,7 +14,7 @@ import { OrderItemsList } from '../components/OrderItemsList';
 import { OrderStatusBadge } from '../components/OrderStatusBadge';
 import { useOrder } from '../hooks/useOrders';
 
-/** Admin order details. The invoice itself is created in the Invoices module (Phase 4). */
+/** Admin order details. Generate Invoice opens the shared invoice form prefilled from the order. */
 export function OrderDetailsPage() {
   const { id = '' } = useParams();
   const order = useOrder(id);
@@ -77,6 +77,14 @@ function Details({ order }: { order: OrderDetails }) {
               </Link>
             </Button>
           </div>
+        )}
+        {order.invoice && (
+          <Button variant="outline" asChild>
+            <Link to={`/invoices/${order.invoice.id}`}>
+              <FileText />
+              Invoice {order.invoice.invoiceNumber}
+            </Link>
+          </Button>
         )}
       </div>
 

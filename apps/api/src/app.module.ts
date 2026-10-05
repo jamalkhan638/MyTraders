@@ -21,6 +21,7 @@ import { HealthController } from './modules/health/health.controller';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ProductsModule } from './modules/products/products.module';
 import { BookerModule } from './modules/booker/booker.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ShopsModule } from './modules/shops/shops.module';
 import { ShopCategoriesModule } from './modules/shop-categories/shop-categories.module';
@@ -88,6 +89,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ProductsModule,
     ShopsModule,
     OrdersModule,
+    InvoicesModule,
     BookerModule,
   ],
   controllers: [HealthController],

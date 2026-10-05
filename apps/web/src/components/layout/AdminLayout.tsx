@@ -14,7 +14,7 @@ export function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-svh bg-background print:bg-white">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-30 bg-foreground/40 lg:hidden"
@@ -25,7 +25,7 @@ export function AdminLayout() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 print:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -94,8 +94,8 @@ export function AdminLayout() {
         </div>
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-card px-4 lg:px-8">
+      <div className="lg:pl-64 print:pl-0">
+        <header className="sticky top-0 z-20 flex h-16 print:hidden items-center justify-between border-b bg-card px-4 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -110,7 +110,7 @@ export function AdminLayout() {
           </div>
           <UserBadge user={user} />
         </header>
-        <main className="px-4 py-6 lg:px-8">
+        <main className="px-4 py-6 lg:px-8 print:p-0">
           <Outlet />
         </main>
       </div>

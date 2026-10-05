@@ -92,16 +92,17 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /orders` | BOOKER | ✅ `{ shopId, items: [{ productId, quantity }], notes? }`; each line's `quantityUnit` (PIECE for TIN, CARTON for POUCH) is set by the server, a client-sent unit is ignored; summaries return `totalPieces` / `totalCartons` (never mixed); number generated in the transaction; 422 per field for unassigned/inactive shop or inactive/unknown product |
 | `POST /orders/:id/cancel` | ADMIN / BOOKER own | ✅ only `PENDING` (409 otherwise) |
 | `GET /booker/shops?q&areaId`, `GET /booker/shops/:id`, `GET /booker/areas`, `GET /booker/products?q` | BOOKER | ✅ assigned active shops only; areas of those shops; active products **without any price** (D-24) |
-| `POST /invoices/preview` | ADMIN | computes totals server-side without saving |
-| `POST /invoices` | ADMIN | body may contain `orderId`; one unified creation path |
-| `GET /invoices`, `GET /invoices/:id` | ADMIN | |
-| `POST /invoices/:id/cancel` | ADMIN | reason required; reverses ledger debit in the same transaction |
+| `GET /invoices/draft?shopId=` \| `?orderId=` | ADMIN | ✅ Phase 4; opening state of the form: shop, order lines with current product values, proposed number, today (org tz), Due Payment default (ledger port) |
+| `POST /invoices/preview` | ADMIN | ✅ computes every value server-side without saving |
+| `POST /invoices` | ADMIN | ✅ inputs only (`shopId`, optional `orderId`, `invoiceDate`, rows, optional invoice-level values); totals/number/status sent by the client are ignored; 422 per field (`items.N.field`), 409 order not PENDING |
+| `GET /invoices?page&pageSize&q&shopId&status`, `GET /invoices/:id` | ADMIN | ✅ from snapshots only |
+| `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled; linked order stays INVOICED; ledger reversal via `ShopLedgerPort` in Phase 5 |
 | `GET/POST /expenses`, `PATCH /expenses/:id` | ADMIN | |
 | `GET/POST /expense-categories`, `PATCH …/:id` | ADMIN | |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |
 
-Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is present the order is validated as `PENDING` and flipped to `INVOICED` in the same transaction.
+Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is present the order is validated as `PENDING` (same shop) and flipped to `INVOICED` in the same transaction. Formulas live only in `packages/shared-types/src/invoices.ts`. Ledger integration goes through `modules/ledger/shop-ledger.port.ts` (`outstandingBalance`, `invoiceConfirmed`, `invoiceCancelled` — no-ops until Phase 5, already called inside the invoice transactions). Numbers: `common/numbering/document-number.ts` (shared by orders and invoices).
 
 ### Dashboard summary response
 ```json
@@ -125,7 +126,7 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
 
 - **Tenant isolation**: product, shop, invoice, order, expense cross-org access → 404.
 - **Permissions**: booker → 403 on invoice/expense/ledger/admin endpoints; booker sees only assigned shops; no cost fields.
-- **Invoice**: calculator unit tests from real invoices (once formulas confirmed); cost snapshot preserved after product cost change; totals recomputed server-side ignoring client totals.
+- **Invoice**: calculator unit tests from the owner's worked examples (D-29); TIN/POUCH quantities; rounding half up; cost snapshot preserved after product cost change; snapshots unchanged after product/shop/org edits; totals recomputed server-side ignoring client totals; Due Payment never touches shop state; concurrent numbering; rollback when confirm fails; DB triggers refuse edits.
 - **Order workflow**: booker creates `PENDING`; admin invoices → `INVOICED`; second invoice for same order → 409.
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds debt; payment reduces; overpayment rejected; balance correct; concurrent payments don't overdraw.

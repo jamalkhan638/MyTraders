@@ -85,3 +85,19 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Printed invoice: landscape A4, no app chrome (AdminLayout hides it with print:hidden). */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  body {
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}

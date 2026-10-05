@@ -204,71 +204,72 @@ model OrderItem {               // reachable only through its Order (not a tenan
   @@unique([orderId, productId])  // a product appears once per order
 }
 
-model Invoice {
-  id                   String        @id @default(uuid(7)) @db.Uuid
-  organizationId       String        @db.Uuid
-  invoiceNumber        String
-  invoiceDate          DateTime      @db.Date
-  shopId               String        @db.Uuid
-  orderId              String?       @unique @db.Uuid  // an order is invoiced at most once
-  status               InvoiceStatus @default(CONFIRMED)
-  shopSnapshot         Json          // name, address, ntn, strn, cnic, contactPerson, category (printed as "Channel")
-  organizationSnapshot Json          // name, address, ntn, strn, phone, town, currency
-  // totals (formulas: invoice-specification.md — TBC)
-  totalWeightKg        Decimal       @db.Decimal(12, 3)
-  valueExclTax         Decimal       @db.Decimal(14, 2)
-  taxAmount            Decimal       @db.Decimal(14, 2)
-  tradeOfferTotal      Decimal       @db.Decimal(14, 2)
-  specialDiscountTotal Decimal       @db.Decimal(14, 2)
-  grandTotal           Decimal       @db.Decimal(14, 2)
-  furtherTax           Decimal       @default(0) @db.Decimal(14, 2)
-  invoiceAmount        Decimal       @db.Decimal(14, 2) // amount debited to the shop ledger
-  previousBalance      Decimal       @db.Decimal(14, 2) // printed as "Credit Balance"
-  payableValue         Decimal       @db.Decimal(14, 2)
-  paidAmount           Decimal       @default(0) @db.Decimal(14, 2)
-  costTotal            Decimal       @db.Decimal(14, 2)
-  notes                String?
-  createdById          String        @db.Uuid
-  cancelledAt          DateTime?     @db.Timestamptz
-  cancelledById        String?       @db.Uuid
-  cancelReason         String?
-  createdAt            DateTime      @default(now()) @db.Timestamptz
-  updatedAt            DateTime      @updatedAt @db.Timestamptz
+model Invoice {                                   // append-only (DB triggers): only CONFIRMED → CANCELLED
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  organizationId     String        @db.Uuid
+  invoiceNumber      String                        // prefix + padded counter, allocated on confirm
+  invoiceDate        DateTime      @db.Date
+  shopId             String        @db.Uuid
+  orderId            String?       @unique @db.Uuid  // an order is invoiced at most once; null = direct
+  status             InvoiceStatus @default(CONFIRMED)   // CONFIRMED | CANCELLED
+  // shop snapshot ("Shop information")
+  shopName String; shopAddress String?; shopPhone String?; shopContactPerson String?
+  shopNtn String?; shopStrn String?; shopCnic String?; shopCategory String? /* "Channel" */; shopArea String
+  // distributor snapshot ("Distributor information")
+  distributorName String; distributorAddress String?; distributorTown String?; distributorPhone String?
+  distributorNtn String?; distributorStrn String?; currency String @db.Char(3)
+  // totals computed by the server
+  totalValueExclTax  Decimal @db.Decimal(14, 2)
+  totalGstAmount     Decimal @db.Decimal(14, 2)
+  totalValueInclGst  Decimal @db.Decimal(14, 2)
+  totalTradeOffer    Decimal @db.Decimal(14, 2)
+  grandTotal         Decimal @db.Decimal(14, 2)  // Σ item grossValue
+  totalCost          Decimal @db.Decimal(14, 2)  // Σ item costTotal — profit only
+  // optional Admin entries, no formula; null = not printed
+  advanceTax Decimal?; furtherTax Decimal?; adtDiscount Decimal?; payableValue Decimal?   // numeric(14,2)
+  duePayment Decimal? @db.Decimal(14, 2)         // previous credit as printed — never read by the ledger
+  notes              String?
+  createdById        String    @db.Uuid
+  cancelledAt        DateTime? @db.Timestamptz
+  cancelledById      String?   @db.Uuid
+  cancelReason       String?
+  createdAt / updatedAt
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, invoiceDate])
   @@index([organizationId, shopId, invoiceDate])
+  @@index([organizationId, status, invoiceDate])
+  // CHECK: amounts >= 0; status = CANCELLED ⇔ cancelledAt, cancelledById, cancelReason set
 }
 
-model InvoiceItem {
-  id              String  @id @default(uuid(7)) @db.Uuid
-  organizationId  String  @db.Uuid                    // denormalized for tenant-scoped reporting
-  invoiceId       String  @db.Uuid
-  lineNo          Int
-  productId       String  @db.Uuid
-  // snapshots
-  productCode     String?
-  productName     String
-  retailPrice     Decimal @db.Decimal(14, 2)
-  tradePrice      Decimal @db.Decimal(14, 2)
-  piecesPerCarton Int
-  unitWeightKg    Decimal @db.Decimal(12, 3)
-  unitCost        Decimal @db.Decimal(14, 2)
+model InvoiceItem {                               // tenant model; append-only (DB trigger)
+  id               String       @id @default(uuid(7)) @db.Uuid
+  organizationId   String       @db.Uuid
+  invoiceId        String       @db.Uuid
+  lineNo           Int
+  productId        String       @db.Uuid
+  // product snapshot
+  productCode      String?
+  productName      String
+  productType      ProductType                      // TIN | POUCH
+  retailPrice      Decimal      @db.Decimal(14, 2)  // printed only
+  tradePrice       Decimal      @db.Decimal(14, 2)  // drives the values
+  invoiceCostPrice Decimal      @db.Decimal(14, 2)  // profit only, never printed
+  piecesPerCarton  Int?
+  weight           Decimal?     @db.Decimal(12, 3)
+  weightUnit       ProductUnit?
+  weightBasis      WeightBasis?
   // quantities
-  cartonQty       Decimal @db.Decimal(12, 3)
-  pieceQty        Decimal @db.Decimal(12, 3)
-  totalWeightKg   Decimal @db.Decimal(12, 3)
-  // tax / offers / values (formulas TBC)
-  valueExclTax    Decimal @db.Decimal(14, 2)
-  taxRate         Decimal @db.Decimal(7, 4)
-  taxAmount       Decimal @db.Decimal(14, 2)
-  toRate          Decimal @default(0) @db.Decimal(14, 4)
-  atoRate         Decimal @default(0) @db.Decimal(14, 4)
-  specialDiscount Decimal @default(0) @db.Decimal(14, 2)
-  tradeOffer      Decimal @default(0) @db.Decimal(14, 2)
-  grossValue      Decimal @db.Decimal(14, 2)
-  costTotal       Decimal @db.Decimal(14, 2)
+  qtyCtn           Int?                             // POUCH pricing qty; null for TIN
+  qtyPcs           Int?                             // TIN pricing qty; POUCH display only
+  totalWeight      Decimal      @db.Decimal(14, 3)
+  totalWeightUnit  TotalWeightUnit?                 // KG | LITER
+  // values (formulas: invoice-specification.md §3)
+  gstRate Decimal @db.Decimal(7, 4); valueExclTax, gstAmount, valueInclGst Decimal(14,2)
+  toRate Decimal @db.Decimal(14, 4); toAmount Decimal(14,2); atoRate Decimal(14,4); atoAmount Decimal(14,2)
+  specialDiscount, totalTradeOffer, grossValue, costTotal Decimal(14,2)
   @@unique([invoiceId, lineNo])
   @@index([organizationId, productId])
+  // CHECK: TIN ⇒ qtyCtn IS NULL AND qtyPcs ≥ 1; POUCH ⇒ qtyCtn ≥ 1; all amounts ≥ 0; 0 ≤ gstRate ≤ 100
 }
 
 model ShopLedgerEntry {
@@ -319,13 +320,14 @@ model OrganizationCounter {
 }
 ```
 
-Relation fields (`@relation`) are omitted above for readability; all FKs are real foreign keys with `onDelete: Restrict` (except `RefreshToken → User` and `OrderItem → Order`, `InvoiceItem → Invoice`: `Cascade`).
+Relation fields (`@relation`) are omitted above for readability; all FKs are real foreign keys with `onDelete: Restrict` (except `RefreshToken → User` and `OrderItem → Order`: `Cascade`; `InvoiceItem → Invoice` is `Restrict` because invoices are never deleted).
 
 ## 5. Why these choices
 
 - **Snapshots on Invoice/InvoiceItem**: product/shop/org edits never alter historical invoices or profit (spec §14, §25, §26).
 - **`orderId @unique` on Invoice**: DB-level guarantee an order is invoiced once.
-- **`invoiceAmount` vs `previousBalance`**: ledger debits only the invoice's own amount; the previous balance is display-only (D-9).
+- **`grandTotal` vs `duePayment`**: the ledger (Phase 5) debits only the invoice's own amount; `duePayment` (previous credit) is a printed snapshot the ledger never reads (D-9, D-29). There is no credit column on Shop.
+- **Append-only triggers**: `Invoice` rows cannot be deleted and only accept CONFIRMED → CANCELLED (cancel fields); `InvoiceItem` rows cannot be updated or deleted.
 - **`organizationId` on InvoiceItem**: product-sales reports aggregate items without joining through invoices, and tenant scoping stays uniform.
 - **No `Payment` table**: payments are ledger entries — one source of truth for cash collected and balances.
 - **Stock later**: a future `StockTransaction(organizationId, productId, qtyChange, type, refId)` table plugs into the invoice-confirm transaction without changing existing tables.

@@ -21,3 +21,14 @@ export function formatDate(iso: string | null | undefined, timeZone?: string): s
     year: 'numeric',
   }).format(new Date(iso));
 }
+
+/** Formats a business date ("2026-10-05", no time / timezone) as "05 Oct 2026". */
+export function formatBusinessDate(date: string | null | undefined): string {
+  if (!date) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${date}T00:00:00Z`));
+}

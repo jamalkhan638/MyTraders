@@ -91,7 +91,7 @@ Responses for another tenant's IDs are **404** (not 403) so existence is not lea
 - Arithmetic in `decimal.js`; values cross the API as **strings** (e.g. `"2114.06"`), never JS numbers.
 - The backend is the authority for invoice totals, ledger balances and profit. Client-sent totals are ignored.
 - Critical operations run in a single DB transaction (`prisma.$transaction`, interactive):
-  - Confirm invoice (number allocation, invoice, items, ledger, order status, optional payment).
+  - Confirm invoice (order status, number allocation, invoice, items with snapshots; ledger debit and optional payment join this transaction in Phase 5 through `ShopLedgerPort`).
   - Record payment (lock shop row `SELECT … FOR UPDATE`, compute balance, reject overpayment, insert entry).
 - Ledger is append-only. Corrections are new entries, never edits/deletes.
 

@@ -8,7 +8,9 @@ import { BookerOrderDetailsPage } from '@/features/booker/pages/BookerOrderDetai
 import { BookerOrdersPage } from '@/features/booker/pages/BookerOrdersPage';
 import { BookerShopsPage } from '@/features/booker/pages/BookerShopsPage';
 import { BookOrderPage } from '@/features/booker/pages/BookOrderPage';
-import { NewInvoicePlaceholderPage } from '@/features/invoices/pages/NewInvoicePlaceholderPage';
+import { InvoiceDetailsPage } from '@/features/invoices/pages/InvoiceDetailsPage';
+import { InvoiceFormPage } from '@/features/invoices/pages/InvoiceFormPage';
+import { InvoicesPage } from '@/features/invoices/pages/InvoicesPage';
 import { OrderDetailsPage } from '@/features/orders/pages/OrderDetailsPage';
 import { OrdersPage } from '@/features/orders/pages/OrdersPage';
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
@@ -26,7 +28,6 @@ import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } f
 import { NotFoundPage } from './NotFoundPage';
 
 const adminPlaceholders = [
-  { path: 'invoices', title: 'Invoices', phase: 'Phase 4' },
   { path: 'expenses', title: 'Expenses', phase: 'Phase 6' },
   { path: 'reports', title: 'Reports', phase: 'Phase 7' },
 ];
@@ -49,7 +50,10 @@ export const router = createBrowserRouter([
               { path: '/dashboard', element: <DashboardPage /> },
               { path: '/orders', element: <OrdersPage /> },
               { path: '/orders/:id', element: <OrderDetailsPage /> },
-              { path: '/invoices/new', element: <NewInvoicePlaceholderPage /> },
+              { path: '/invoices', element: <InvoicesPage /> },
+              { path: '/invoices/new', element: <InvoiceFormPage /> },
+              { path: '/invoices/:id', element: <InvoiceDetailsPage /> },
+              { path: '/shops/:shopId/invoices/new', element: <InvoiceFormPage /> },
               { path: '/shops', element: <ShopsPage /> },
               { path: '/shops/:id', element: <ShopDetailsPage /> },
               { path: '/products', element: <ProductsPage /> },

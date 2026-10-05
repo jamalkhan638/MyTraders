@@ -40,12 +40,15 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Booker: My Orders, order details, cancel own pending
 - ☑ Admin: Orders list (search/filters/pagination, pending polling), order details, cancel, Generate Invoice entry point (`/invoices/new?orderId=` placeholder until Phase 4)
 
-## Phase 4 — Invoices ⛔ needs OQ-1 (owner will provide formulas); OQ-6 mostly answered by D-26
-- ☐ Shared invoice calculator + unit tests from real invoices
-- ☐ `POST /invoices/preview`, `POST /invoices` (unified; optional `orderId`), numbering, snapshots, ledger debit, order → INVOICED, optional paid amount — one transaction
-- ☐ Invoice form (blank + prefilled from order)
-- ☐ Invoices list, invoice view, print layout matching reference
-- ☐ Cancellation with automatic ledger reversal (D-16)
+## Phase 4 — Invoices (formulas confirmed, D-29)
+- ☑ Shared invoice calculator (Decimal, ROUND_HALF_UP) + unit tests from the owner's worked examples
+- ☑ `GET /invoices/draft`, `POST /invoices/preview`, `POST /invoices` (unified; optional `orderId`), numbering, shop/distributor/product snapshots, order → INVOICED — one transaction; append-only DB triggers
+- ☑ Invoice form (direct from shop + prefilled from order), product picker, live preview
+- ☑ Invoices list, invoice view / print layout (A4 landscape), shop invoice history, order → invoice link
+- ◐ Cancellation — ☑ reason, user, time, order stays INVOICED; ☐ ledger reversal in Phase 5 via `ShopLedgerPort`
+- ☐ Ledger debit on confirm and Due Payment prefill — Phase 5 (`ShopLedgerPort`)
+- ☐ Optional paid-amount-at-invoice-time — Phase 5 (payments)
+- ☐ Server-generated PDF file (browser save-as-PDF works now)
 
 ## Phase 5 — Ledger & payments
 - ☐ ShopLedgerEntry table; shop balance (list column, details card, credit-status filter), Add Credit

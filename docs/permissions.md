@@ -21,8 +21,8 @@ Every request is checked for: authenticated → user active → organization not
 | Orders: list / view | ✅ all | ✅ own orders only |
 | Orders: cancel | ✅ any pending | ✅ own pending only |
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
-| Invoices: list / view / print | ✅ | ❌ |
-| Invoices: cancel (auto-reverses ledger) | ✅ | ❌ |
+| Invoices: list / view / print / draft / preview | ✅ | ❌ |
+| Invoices: cancel with reason (ledger reversal arrives with the ledger, Phase 5) | ✅ | ❌ |
 | Ledger: add credit / receive payment | ✅ | ❌ |
 | Ledger: view history | ✅ | ❌ |
 | Expenses & categories | ✅ | ❌ |

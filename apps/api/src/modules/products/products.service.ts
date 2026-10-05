@@ -16,7 +16,7 @@ import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 
-const PRODUCT_FIELDS = {
+export const PRODUCT_FIELDS = {
   id: true,
   name: true,
   code: true,
@@ -34,7 +34,7 @@ const PRODUCT_FIELDS = {
   updatedAt: true,
 } as const satisfies Prisma.ProductSelect;
 
-type ProductRow = Prisma.ProductGetPayload<{ select: typeof PRODUCT_FIELDS }>;
+export type ProductRow = Prisma.ProductGetPayload<{ select: typeof PRODUCT_FIELDS }>;
 
 const DUPLICATE_CODE = 'A product with this code already exists';
 
@@ -162,7 +162,7 @@ function normalizeCode(code: string | null | undefined): string | null {
   return code ? code.toLowerCase() : null;
 }
 
-function toProduct(row: ProductRow): Product {
+export function toProduct(row: ProductRow): Product {
   return {
     ...row,
     retailPrice: row.retailPrice.toFixed(2),

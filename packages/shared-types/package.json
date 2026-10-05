@@ -23,6 +23,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "decimal.js": "^10.6.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

@@ -10,3 +10,4 @@ export * from './products';
 export * from './shops';
 export * from './orders';
 export * from './booker';
+export * from './invoices';

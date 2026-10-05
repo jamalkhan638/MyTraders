@@ -1,5 +1,5 @@
 import { type Shop } from '@mytraders/shared-types';
-import { ArrowLeft, Clock, FileText, Pencil, Power, Wallet } from 'lucide-react';
+import { ArrowLeft, Clock, FilePlus, Pencil, Power, Wallet } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api/client';
+import { ShopInvoiceHistory } from '@/features/invoices/components/ShopInvoiceHistory';
 import { formatDate } from '@/lib/format/date';
 import { ShopFormSheet, type ShopSheetMode } from '../components/ShopFormSheet';
 import { ShopStatusBadge } from '../components/ShopStatusBadge';
 import { ToggleShopDialog } from '../components/ToggleShopDialog';
 import { useShop } from '../hooks/useShops';
 
-/** Dedicated shop page (docs/product-requirements.md §4.4). Ledger/invoice sections arrive in Phases 4–5. */
+/** Dedicated shop page (docs/product-requirements.md §4.4). Ledger sections arrive in Phase 5. */
 export function ShopDetailsPage() {
   const { id = '' } = useParams();
   const shop = useShop(id);
@@ -66,12 +67,20 @@ function ShopDetails({ shop }: { shop: Shop }) {
             {formatDate(shop.createdAt, timeZone)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {shop.isActive && (
+            <Button asChild>
+              <Link to={`/shops/${shop.id}/invoices/new`}>
+                <FilePlus />
+                Generate invoice
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setToggling(shop)}>
             <Power />
             {shop.isActive ? 'Deactivate' : 'Activate'}
           </Button>
-          <Button onClick={() => setSheet({ kind: 'edit', shop })}>
+          <Button variant="outline" onClick={() => setSheet({ kind: 'edit', shop })}>
             <Pencil />
             Edit shop
           </Button>
@@ -142,11 +151,7 @@ function ShopDetails({ shop }: { shop: Shop }) {
           title="Outstanding credit"
           note="Shown here once the shop ledger is built (Phase 5)."
         />
-        <Upcoming
-          icon={<FileText />}
-          title="Invoice history"
-          note="Every invoice for this shop, with its date, will be listed here (Phase 4)."
-        />
+        <ShopInvoiceHistory shopId={shop.id} canInvoice={shop.isActive} />
         <Upcoming
           icon={<Clock />}
           title="Payment / credit history"

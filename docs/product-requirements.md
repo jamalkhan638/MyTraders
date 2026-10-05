@@ -73,7 +73,7 @@ Fields: name (required), contact person / owner, phone, address, area (required)
 - Desktop table columns (Phase 2): Shop, Area, Shop Category, Order Booker, Phone, Status, Actions. Outstanding Balance and Last Invoice columns are added with the ledger/invoices (Phases 4–5).
 - Filters: search (name, contact person, phone), area, shop category, order booker (incl. "Unassigned"), status. Credit-status filter comes with the ledger.
 - **Export the currently filtered list** to Excel and PDF (later in Phase 2).
-- Shop details is a dedicated page: info, area, category, order booker, contact/tax info, status. Outstanding balance, invoice history (open any invoice), ledger history, *Add Credit*, *Receive Payment* are placeholders until Phases 4–5.
+- Shop details is a dedicated page: info, area, category, order booker, contact/tax info, status. *Generate Invoice* and the invoice history (open any invoice) are live (Phase 4); outstanding balance, ledger history, *Add Credit*, *Receive Payment* are placeholders until Phase 5.
 - **No credit/balance column on Shop** — the balance will always be computed from the ledger.
 - Shops that have history are deactivated, never hard-deleted.
 - The Order Booker "My Shops" view (Phase 3) lists only shops whose `assignedOrderBookerId` is the signed-in booker; the backend list already supports filtering by order booker and the table is indexed for it.
@@ -139,15 +139,21 @@ Navigation: Home · My Shops · My Orders · Profile.
 - An order can be invoiced **once**. Converting it is atomic with invoice creation.
 
 ### 4.9 Invoices
-Full detail in [invoice-specification.md](./invoice-specification.md). Key rules:
-- **One invoice form**, two entry paths: blank (direct Admin sale) or prefilled from a pending order (shop, products, quantities).
-- Admin has full control: change product, quantity, rates, discounts; add/remove rows.
-- Backend recalculates every value; frontend totals are UX only.
-- Every value needed to reproduce the invoice is **snapshotted**; confirmed invoices never change when products, shops or settings change.
-- Admin can cancel a confirmed invoice; the ledger debit is reversed automatically (D-16).
-- Invoice numbers are sequential and unique **per organization**, format from settings (first customer: `M-00000001`).
-- Printable layout matching the customer's current invoice; print / save-as-PDF.
-- Shop's previous outstanding balance is printed on the invoice as **"Credit Balance"** when > 0.
+Full detail and formulas in [invoice-specification.md](./invoice-specification.md) (confirmed, D-29). Key rules:
+- **One invoice form**, two entry points: *Shop details → Generate Invoice* (direct, no rows — no order is created) or *pending order → Generate Invoice* (shop, products and booked quantities prefilled). Admin only.
+- Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO / ATO rate, line Special Discount, invoice-level values.
+- **TIN is priced by Qty Pcs** (Qty Ctn not used); **POUCH by Qty Ctn** (Qty Pcs = Qty Ctn × Pieces per Carton, display only, never affects values).
+- **Trade Price drives the values; Retail Price is printed only; Invoice / Cost Price is for profit only** and never printed.
+- Value Excl Tax = qty × T.P; GST = Value × rate %; TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + Special Discount; Gross = Value Incl GST − Total Trade Offer; **Grand Total = Σ Gross** (automatic). Decimal math, ROUND_HALF_UP to 2 decimals.
+- Optional invoice-level Advance Tax, Further Tax, ADT / special discount and Payable Value: no formula, not printed when blank.
+- **Due Payment** = the shop's previous outstanding credit, prefilled from the ledger (Phase 5; blank until then), editable on the invoice — **editing it never changes the ledger**.
+- Backend recalculates every value; frontend totals are a live preview only.
+- Every value needed to reproduce the invoice is **snapshotted** (shop, distributor, product, prices, quantities, results); confirmed invoices never change when products, shops or settings change (also enforced by database triggers).
+- Invoice numbers are sequential and unique **per organization**, assigned on confirm (first customer: `M-00000001`).
+- Confirming is one transaction; an order can be invoiced once and becomes `INVOICED`.
+- Admin can cancel a confirmed invoice with a reason (D-16); data is kept, a linked order stays `INVOICED`; the ledger reversal is added with the ledger (Phase 5).
+- Printable layout (A4 landscape) from the invoice view: browser print / save as PDF.
+- Shop details lists the shop's invoice history (number, date, grand total, status → open the invoice).
 
 ### 4.10 Expenses
 - Admin-only. Categories configurable (seeded: Fuel, Salary, Vehicle Maintenance, Loading / Unloading, Rent, Electricity, Miscellaneous).
@@ -196,7 +202,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-6 | Overpayment is rejected by the backend | Owner answer |
 | D-7 | Cost price is entered per product by Admin, snapshotted per invoice item | Owner answer |
 | D-8 | ~~Rate Code is display-only~~ — Rate Code removed entirely (D-27) | Owner answer |
-| D-9 | Previous balance printed as "Credit Balance"; ledger debits only this invoice's own amount | Owner answer |
+| D-9 | Previous balance printed on the invoice (now labelled **Due Payment**, D-29); the ledger debits only this invoice's own amount, never the previous balance | Owner answer |
 | D-10 | Shop NTN / STRN / CNIC / contact / shop category (channel) are optional | Owner answer |
 | D-11 | No partner split; show Net Profit only | Owner answer |
 | D-12 | English UI only | Owner answer |
@@ -212,6 +218,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-26 | Product **Type** `TIN \| POUCH`: a TIN is invoiced by `Qty Pcs`, a POUCH by `Qty Ctn` (`Qty Pcs = Qty Ctn × Pieces per Carton`, display only; POUCH requires Pieces per Carton). **Trade Price drives the invoice value; Invoice/Cost Price is for profit only; Retail Price is display only.** Products carry a required **Default Tax Rate** (pre-filled from the organization default) which the invoice snapshots. Weight has a unit and a basis (`PIECE \| CARTON`). Supersedes D-22, refines D-15 and OQ-6. Cost Price renamed Invoice/Cost Price | Owner decision (before Phase 4) |
 | D-27 | **No Rate Code** anywhere — removed from products and not printed on invoices | Owner decision (before Phase 4) |
 | D-28 | Order quantity follows the product type: **TIN → pieces, POUCH → cartons**. Each order line stores `quantityUnit` (`PIECE` \| `CARTON`), set by the server from the product type when booked and kept even if the product type changes later. The booker sees `Qty (Pcs)` / `Qty (Ctn)` and enters only that number. Orders stay price-free (no prices, tax, TO/ATO, discounts or totals) | Owner decision (before Phase 4) |
+| D-29 | **Invoice formulas** (owner): TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs display only); Value Excl Tax = qty × Trade Price; GST = Value × rate / 100 (rate snapshotted, default from product); TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + line Special Discount; Gross = Value Incl GST − Trade Offer; Grand Total = Σ Gross; Advance Tax / Further Tax / ADT discount / Payable Value optional with no formula and hidden when blank; Due Payment = previous credit from the ledger, editable snapshot that never changes the ledger; Decimal ROUND_HALF_UP to 2 decimals; Retail Price display only; Invoice/Cost Price profit only | Owner decision (Phase 4) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |
@@ -221,8 +228,8 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 
 | # | Question | Blocks |
 |---|---|---|
-| OQ-1 | Exact invoice formulas: R.P, T.P, value excl. tax, GST, FED, TO, ATO, special discount, total trade offer, gross value, further tax, due payment / credit balance, payable value, rounding | Invoice module |
+| OQ-1 | ~~Exact invoice formulas~~ — answered by D-29 (see invoice-specification.md; §8 lists implementation choices awaiting review) | closed |
 | OQ-2 | Are Sales / Profit based on value **excl. tax** or incl. tax? | Dashboard / Profit |
 | OQ-7 | How should Liter / ML products count toward "tons sold" (e.g. a kg-per-liter factor, or shown separately in liters)? | Dashboard weight card |
 | OQ-5 | ~~Booker estimated order total~~ — not applicable: bookers see no prices (D-24) | closed |
-| OQ-6 | ~~Qty ctn vs Qty pcs~~ — answered by D-26 (TIN by pieces, POUCH by cartons). Order quantity answered by D-28. Still open: Qty Ctn for a TIN on the invoice. | Invoice module |
+| OQ-6 | ~~Qty ctn vs Qty pcs~~ — answered by D-26 / D-28 / D-29 (a TIN has no Qty Ctn on the invoice) | closed |

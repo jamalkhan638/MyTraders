@@ -1,97 +1,125 @@
 # Invoice Specification
 
-> **Status: formulas NOT confirmed.** Nothing in this file marked `TBC` may be implemented until the owner supplies the rule and a worked example. Each confirmed formula gets a unit test built from a real invoice.
+> **Status: confirmed by the owner (D-29, before Phase 4).** The formulas below are implemented once, in
+> `packages/shared-types/src/invoices.ts` (`calculateInvoiceLine`, `calculateInvoiceTotals`). The api uses
+> them as the authority when an invoice is confirmed; the web uses the same code for the live preview.
+> Tests: `apps/api/src/modules/invoices/invoice-calculator.spec.ts` (owner's worked examples) and
+> `apps/api/test/invoices.e2e-spec.ts`. Items marked **(to confirm)** in §8 are implementation choices
+> awaiting the owner's review.
 
-The invoice is a real FMCG distributor sale invoice (tax, trade offers, carton/piece quantities, weight), not `qty × price`.
+The invoice is a real FMCG distributor sale invoice (tax, trade offers, carton/piece quantities, weight).
 Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 
 ## 1. Principles
 
-1. **One invoice form**, two entry paths:
-   - **Direct sale** — Admin clicks *Create Invoice*, form opens blank.
-   - **From order** — Admin opens a pending order; the same form opens prefilled with shop, products, quantities only.
-2. Admin has full control over every row: product, quantities, rates, discounts; add/remove rows.
-3. **Product holds defaults; InvoiceItem holds what was actually used.** Overriding a value on an invoice never changes the product master.
-4. Frontend computes live totals with the shared calculator for UX. **Backend recomputes everything** from the inputs with the same calculator and ignores client-sent totals.
-5. On confirm, one DB transaction: allocate invoice number → create invoice + items with snapshots → ledger entry for the shop → (if from order) mark order `INVOICED` (fails if not `PENDING`) → (optional) payment entry for amount paid now.
-6. A confirmed invoice is **immutable**. Admin can **cancel** it (D-16): in one transaction the invoice becomes `CANCELLED` (with reason, user, time) and an `INVOICE_CANCELLATION` ledger credit equal to `invoiceAmount` reverses the debit. A payment recorded at invoice time stays as a normal payment. The linked order stays `INVOICED` (not reopened). Cancelled invoices are excluded from sales, profit and weight sold.
+1. **One invoice form**, two entry points — no separate implementation for orders:
+   - **Direct** — *Shops → shop → Generate Invoice* (`/shops/:shopId/invoices/new`): the shop, no rows.
+   - **From order** — *Orders → pending order → Generate Invoice* (`/invoices/new?orderId=…`): shop, products and booked quantities prefilled.
+   Both open with `GET /invoices/draft` and confirm with the same `POST /invoices`.
+2. The Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO / ATO rate, line Special Discount, invoice-level values, invoice date, Due Payment.
+3. **The product holds defaults; the invoice item holds what was used.** Editing a value on an invoice never changes the product master.
+4. **Backend recomputes everything** from the inputs and ignores any total / number / status / organization sent by a client.
+5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → ledger hook (no-op until Phase 5). Any failure rolls all of it back: the order stays `PENDING`, the number is not used.
+6. A confirmed invoice is **immutable** (database triggers too). Admin can **cancel** it (D-16): it becomes `CANCELLED` with reason, user and time; all data stays; a linked order stays `INVOICED`. The ledger reversal is added with the ledger (Phase 5) through the same hook.
 
-## 2. Header
+## 2. Prices and product type (D-26, D-29)
 
-| Section | Fields | Source |
+| Price | Role on the invoice |
+|---|---|
+| **Trade Price (T.P)** | Distributor's selling price to the shop, excl. tax. **Drives all invoice values.** Editable per invoice row. |
+| **Retail Price (R.P)** | End-customer reference price. **Printed only, never calculated with.** Editable per invoice row (snapshot). |
+| **Invoice / Cost Price** | What the distributor pays the company. **Profit only**: snapshotted on the item, never printed, never in the shop's totals. |
+
+| Type | Pricing quantity | Qty (Ctn) | Qty (Pcs) |
+|---|---|---|---|
+| **TIN** | **Qty Pcs** | not used — hidden on the form, stored `null` | editable, required ≥ 1 |
+| **POUCH** | **Qty Ctn** | editable, required ≥ 1 | display / reference only; starts as `Qty Ctn × Pieces per Carton`, follows Qty Ctn until the Admin types their own value; **never affects any value** |
+
+Behaviour comes from `Product.type`, never from the product name.
+
+## 3. Row formulas (per invoice item)
+
+```
+pricing qty       = Qty Pcs (TIN) | Qty Ctn (POUCH)
+Value Excl Tax    = pricing qty × Trade Price
+GST Amount        = round2(Value Excl Tax × GST Rate / 100)
+Value Incl GST    = Value Excl Tax + GST Amount
+TO Amount         = round2(TO Rate × Total Weight)          TO Rate is an amount per unit of weight, not a %
+ATO Amount        = round2(ATO Rate × Total Weight)
+Total Trade Offer = TO Amount + ATO Amount + Special Discount    (Special Discount: amount, default 0)
+Gross Value       = Value Incl GST − Total Trade Offer
+Cost (profit)     = round2(pricing qty × Invoice/Cost Price)     never in the shop's totals
+```
+
+Worked example (owner): POUCH, T.P 2,102 / carton, Qty Ctn 2, 5 pcs/ctn, 4.5 kg per carton, GST 18 %, TO 5, ATO 3, Special Discount 10 →
+Qty Pcs 10 · Value Excl Tax 4,204.00 (not 10 × 2,102) · GST 756.72 · Value Incl GST 4,960.72 · Total Weight 9 · TO 45 · ATO 27 · Total Trade Offer 82 · Gross 4,878.72.
+
+**Total Weight** (from the product's stored weight, unit and basis; rounded to 3 decimals):
+
+| Type | Weight basis | Total Weight |
 |---|---|---|
-| Shop information | Name, Address, NTN, STRN, CNIC, Contact Person, Channel (= shop category) | Shop — **snapshotted** |
-| Distributor information | Name, Address, NTN, STRN, Phone, Town | Organization settings — **snapshotted** |
-| Invoice | Invoice Number, Invoice Date | Generated / chosen by Admin (default today, org timezone) |
+| TIN | per piece | weight × Qty Pcs |
+| TIN | per carton | weight × Qty Pcs ÷ Pieces per Carton **(to confirm)** |
+| POUCH | per carton | weight × Qty Ctn |
+| POUCH | per piece | weight × Qty Ctn × Pieces per Carton (the pricing quantity, not the display pieces) |
 
-## 3. Line columns
+Gram is converted to KG and ML to Liter (÷ 1000); the row stores the result with its unit (`KG` or `LITER`) **(to confirm)**. A product without weight has Total Weight 0, so a TO / ATO rate on it is refused.
 
-| Column | Input or derived | Default source | Stored on InvoiceItem | Formula |
-|---|---|---|---|---|
-| Product Code | snapshot | Product | `productCode` | — |
-| Product Name | snapshot | Product | `productName` | — |
-| R.P / Pcs incl. tax | editable, display only | Product.retailPrice | `retailPrice` | never used in invoice math (D-26) |
-| T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | **drives the invoice value** (D-26); exact formula TBC |
-| Qty (ctn) | editable | Order line with unit `CARTON` | `cartonQty` | **POUCH:** the pricing quantity. TIN: TBC |
-| Qty (pcs) | editable / derived | Order line with unit `PIECE` | `pieceQty` | **TIN:** the pricing quantity. **POUCH:** display only, auto = Qty Ctn × Pieces per Carton (D-26) |
-| Total Weight | derived | Product.weight / weightUnit / weightBasis | `totalWeightKg` | weight × pieces (basis PIECE) or × cartons (basis CARTON); Liter/ML TBC (OQ-7) |
-| Value excl. tax | derived | — | `valueExclTax` | **TBC** |
-| GST rate | editable | Product.defaultTaxRate (D-26) | `taxRate` | — |
-| GST amount | derived | — | `taxAmount` | **TBC** |
-| TO rate | editable | 0 | `toRate` | — |
-| ATO rate | editable | 0 | `atoRate` | — |
-| Special discount | editable | 0 | `specialDiscount` | **TBC** |
-| Total trade offer | derived | — | `tradeOffer` | **TBC** |
-| Gross invoice value | derived | — | `grossValue` | **TBC** |
-| (hidden) Cost | snapshot | Product.invoiceCostPrice | `unitCost`, `costTotal` | profit only, never in invoice totals; pricing qty × unit cost (D-26) |
+**GST rate** defaults to the product's `defaultTaxRate` (itself pre-filled from the organization default), is editable per row and is snapshotted. Never hard-coded.
 
-### Prefilling from an order (D-28)
-An order line carries `quantity` and `quantityUnit`, fixed when the order was booked:
+## 4. Totals and invoice-level values
 
-| Order line | Invoice Qty (ctn) | Invoice Qty (pcs) |
+```
+Grand Total = Σ Gross Value of all rows        (automatic, read-only)
+```
+Also stored: Σ Value Excl Tax, Σ GST, Σ Value Incl GST, Σ Total Trade Offer, Σ Cost (internal).
+
+Invoice-level values are **optional Admin entries with no formula**; they never change the Grand Total. Blank or 0 is stored as `null` and **not printed**:
+
+| Field | Stored | Notes |
 |---|---|---|
-| `PIECE` (TIN) | TBC | = order quantity |
-| `CARTON` (POUCH) | = order quantity | = order quantity × Product.piecesPerCarton (display only) |
+| Advance Tax | `advanceTax` | printed only when entered |
+| Further Tax | `furtherTax` | printed only when entered |
+| ADT / invoice-level Special Discount | `adtDiscount` | separate from the row Special Discount |
+| Due Payment | `duePayment` | shop's previous outstanding credit, **snapshot only** — see below; printed when > 0 |
+| Payable Value | `payableValue` | printed only when entered; no automatic formula yet |
 
-The order itself holds no prices; trade price, cost and tax rate come from the product when the invoice is created.
+**Due Payment and the ledger (D-29):** the form prefills Due Payment from the shop's outstanding balance via `ShopLedgerPort.outstandingBalance()`. The Shop Ledger arrives in Phase 5, so until then it returns `null` (field blank, Admin may type a value). There is **no** `Shop.credit` field and no temporary balance anywhere. Editing Due Payment changes only the invoice's printed snapshot — **the ledger never reads it**.
 
-## 4. Totals / footer
+## 5. Rounding and precision
 
-| Line | Stored on Invoice | Formula |
+- All math uses `decimal.js` (40 significant digits) with **ROUND_HALF_UP** — never JS floats.
+- Rounded to 2 decimals: GST Amount, TO Amount, ATO Amount, Cost (Value Excl Tax and the sums are exact). Total Weight: 3 decimals. Examples: 756.724 → 756.72, 756.725 → 756.73, 0.045 → 0.05.
+- Database: money `numeric(14,2)`, rates `numeric(14,4)` (TO / ATO) and `numeric(7,4)` (GST), weight `numeric(14,3)`. Strings over the API.
+- Inputs: prices / discounts ≥ 0 with ≤ 2 decimals, TO / ATO ≥ 0 with ≤ 4 decimals, GST 0–100 with ≤ 2 decimals, quantities whole numbers ≤ 100,000.
+
+## 6. Header, snapshots and numbering
+
+| Section | Fields | Stored on Invoice |
 |---|---|---|
-| Grand Total | `grandTotal` | **TBC** (likely Σ gross value) |
-| Further Tax | `furtherTax` | **TBC** (when does it apply? rate?) |
-| Credit Balance (shop's previous outstanding, printed only if > 0) | `previousBalance` | shop balance **before** this invoice, snapshotted at confirm |
-| Payable Value | `payableValue` | **TBC** |
-| Amount paid now (optional) | `paidAmount` | creates a `PAYMENT` ledger entry |
+| Shop information | Name, Address, Phone, Contact Person, NTN, STRN, CNIC, Channel (= shop category), Area | `shop*` columns, snapshotted on confirm |
+| Distributor information | Name, Address, Town / City, Phone, NTN, STRN; currency | `distributor*` columns + `currency`, snapshotted |
+| Invoice | Invoice Number, Invoice Date (Admin-chosen, default today in the org timezone) | `invoiceNumber`, `invoiceDate` |
 
-**Ledger rule (confirmed, D-9):** the shop is debited with **this invoice's own amount** (`invoiceAmount`, TBC — expected Grand Total + Further Tax), **never** with the previous balance, otherwise old credit would be counted twice.
+Each **InvoiceItem** snapshots: product id / code / name / type, retail, trade and invoice-cost price, pieces per carton, weight + unit + basis, Qty Ctn, Qty Pcs, Total Weight + unit, GST rate, Value Excl Tax, GST, Value Incl GST, TO rate + amount, ATO rate + amount, Special Discount, Total Trade Offer, Gross Value, Cost. Old invoices are always shown from these snapshots. **No Rate Code** (D-27).
 
-## 5. Rounding
+**Invoice number:** `organization invoice prefix + zero-padded counter` (first customer `M-` + 8 digits), allocated by the server inside the confirm transaction with a row-locked UPSERT on `OrganizationCounter(INVOICE)` → concurrent invoices never share a number, a rolled-back invoice leaves no gap, `@@unique([organizationId, invoiceNumber])` is the final net. The form shows the *proposed* next number; the real one is assigned on confirm. Admin may move the counter forward only (D-18).
 
-TBC: per line or on totals; decimals (assumed 2). All math uses `Decimal`, never JS floats.
+## 7. Order → invoice (D-28)
 
-## 6. Observations from the reference invoice (NOT rules — for the formula conversation only)
+| Order line (`quantityUnit`) | Invoice prefill |
+|---|---|
+| `PIECE` (TIN) | Qty Pcs = order quantity |
+| `CARTON` (POUCH) | Qty Ctn = order quantity; Qty Pcs = Qty Ctn × Pieces per Carton |
 
-From `M-00000001` (screen version):
-- GST amount = 18% × Value excl. tax on all three rows.
-- Total trade offer = TO rate × Total weight on all three rows (4.50, 2.25, 13.50).
-- Gross invoice value = Value excl. tax + GST − Total trade offer (±0.01).
-- Value excl. tax vs R.P fits rows 1–2 (≈ 97.18% of R.P / 1.18) but **not** row 3 (pouch 1×5).
-- The photographed paper template contains `#REF!` and inconsistent weight/quantity values; it is not used as a numeric reference.
+Prices, GST rate and cost come from the product's **current** values. Only a `PENDING` order of the **same shop and organization** can be invoiced; the conditional `UPDATE … WHERE status = 'PENDING'` (row lock) plus `Invoice.orderId UNIQUE` make a second invoice for the same order impossible (409). Cancelled / invoiced orders → 409; another shop's order → 422; another organization's order → not found.
 
-## 7. Questions to ask when the invoice module starts
+## 8. Implementation choices awaiting confirmation
 
-For each: the rule + one worked example from a real invoice.
-1. R.P and T.P — which one drives the value?
-2. Value excl. tax
-3. GST (and when FED applies)
-4. TO — per kg? per carton? per piece?
-5. ATO
-6. Special discount — amount or percent? per line or per invoice?
-7. Total trade offer
-8. Gross invoice value
-9. Further tax — which shops, what rate, on what base?
-10. Payable value
-11. ~~Qty ctn vs Qty pcs~~ — D-26: TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs = Qty Ctn × Pieces per Carton). Order quantities: D-28 (TIN pieces, POUCH cartons). Still to confirm: Qty Ctn for a TIN.
-12. Rounding
+1. TIN with a **per-carton** weight: Total Weight = weight × Qty Pcs ÷ Pieces per Carton (and it requires Pieces per Carton).
+2. Gram / ML weights converted to KG / Liter, so TO / ATO rates apply per kg (or per liter for liquid products, see OQ-7).
+3. A row whose Total Trade Offer exceeds its Value Incl GST is refused (Gross Value may not be negative).
+4. An **inactive shop** cannot be invoiced (same rule as orders); inactive products cannot be invoiced (PRD §4.6).
+5. The same product may appear on more than one row of an invoice.
+6. Invoice date is editable (default today) with no restriction on past / future dates.
+7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.

@@ -78,10 +78,12 @@ Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implement
 
 ## 7. Invoice form (single component)
 
-`features/invoices/components/InvoiceForm.tsx` used by:
-- `/invoices/new` (blank)
-- `/invoices/new?orderId=…` (prefilled from order)
+`features/invoices/components/InvoiceForm.tsx`, opened by `pages/InvoiceFormPage.tsx` from:
+- `/shops/:shopId/invoices/new` — direct invoice for the shop (no rows)
+- `/invoices/new?orderId=…` — prefilled from a pending order
 
-Selecting a product auto-fills its defaults into the row; every row field is editable; totals recalculate live via the shared calculator; Confirm posts inputs only.
+Both load `GET /invoices/draft`. Full page (not a dialog): header card (shop, proposed number, invoice date, Due Payment), a wide row grid (horizontal scroll, sticky Product column, compact right-aligned inputs; calculated cells read-only), a summary card (Grand Total read-only + optional invoice-level inputs) and *Confirm invoice* behind a confirmation dialog. Products are added / swapped with `ProductPickerDialog` (active products); a new row takes the product's T.P, R.P and default tax rate. TIN rows have no Qty (Ctn) input; POUCH Qty (Pcs) follows Qty (Ctn) × pieces per carton until edited ("reset" link). Live values come from the shared calculator; the server recomputes on confirm and field errors (`items.N.field`) are shown on the cells.
 
-Print view `/invoices/:id/print` replicates the customer's invoice layout with print CSS.
+Invoice view `/invoices/:id` is also the print layout (print CSS: A4 landscape, app chrome hidden via `print:hidden`, cost never shown, blank optional rows omitted). Invoices list `/invoices`; shop details shows the shop's invoice history.
+
+Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolutely positioned children (e.g. `sr-only` labels) widen the whole page.
