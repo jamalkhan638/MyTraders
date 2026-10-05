@@ -36,7 +36,7 @@ User ─< RefreshToken
 
 | Type | Side | Link | Created by |
 |---|---|---|---|
-| `INVOICE` | debit | `invoiceId` | invoice confirmation (Grand Total), same transaction |
+| `INVOICE` | debit | `invoiceId` | invoice confirmation (**Payable Value**, D-31), same transaction |
 | `PAYMENT` | credit | `paymentId` (1:1 `Payment`) | Record Payment |
 | `MANUAL_ADJUSTMENT` | debit (increase) or credit (decrease) | — (`notes` = reason, required) | Adjust Credit |
 | `INVOICE_REVERSAL` | credit | `invoiceId` | invoice cancellation (exact original debit) |
@@ -230,7 +230,8 @@ model Invoice {                                   // append-only (DB triggers): 
   grandTotal         Decimal @db.Decimal(14, 2)  // Σ item grossValue
   totalCost          Decimal @db.Decimal(14, 2)  // Σ item costTotal — profit only
   // optional Admin entries, no formula; null = not printed
-  advanceTax Decimal?; furtherTax Decimal?; adtDiscount Decimal?; payableValue Decimal?   // numeric(14,2)
+  advanceTax Decimal?; furtherTax Decimal?; adtDiscount Decimal?   // numeric(14,2); null = blank, not printed
+  payableValue Decimal @db.Decimal(14, 2)       // Grand Total + Advance Tax + Further Tax − ADT discount; ledger debit (D-31)
   duePayment Decimal? @db.Decimal(14, 2)         // previous credit as printed — never read by the ledger
   notes              String?
   createdById        String    @db.Uuid
@@ -348,7 +349,7 @@ Relation fields (`@relation`) are omitted above for readability; all FKs are rea
 
 - **Snapshots on Invoice/InvoiceItem**: product/shop/org edits never alter historical invoices or profit (spec §14, §25, §26).
 - **`orderId @unique` on Invoice**: DB-level guarantee an order is invoiced once.
-- **`grandTotal` vs `duePayment`**: the ledger debits only the invoice's own amount; `duePayment` (previous credit) is a printed snapshot the ledger never reads (D-9, D-29). There is no credit column on Shop.
+- **`payableValue` vs `duePayment`**: the ledger debits only the invoice's own Payable Value; `duePayment` (previous credit) is a printed snapshot the ledger never reads (D-9, D-29). There is no credit column on Shop.
 - **Append-only triggers**: `Invoice` rows cannot be deleted and only accept CONFIRMED → CANCELLED (cancel fields); `InvoiceItem` rows cannot be updated or deleted.
 - **`organizationId` on InvoiceItem**: product-sales reports aggregate items without joining through invoices, and tenant scoping stays uniform.
 - **No `Payment` table**: payments are ledger entries — one source of truth for cash collected and balances.

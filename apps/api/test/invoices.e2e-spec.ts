@@ -336,38 +336,108 @@ describe('Invoices (e2e)', () => {
       );
     });
 
-    it('optional invoice-level values: blank / 0 are not kept; entered ones are kept as-is', async () => {
+    it('Grand Total = Σ Gross; blank / 0 optional values are not kept and count as zero', async () => {
       const blank = await createInvoice(
         invoice([tinLine()], {
           advanceTax: '',
           furtherTax: '0',
           adtDiscount: null,
-          payableValue: '0.00',
+          payableValue: '1.00', // client value is ignored: Payable Value is always calculated
         }),
       ).expect(201);
       expect(blank.body).toMatchObject({
+        grandTotal: '7442.85',
         advanceTax: null,
         furtherTax: null,
         adtDiscount: null,
-        payableValue: null,
-        duePayment: null,
+        payableValue: '7442.85',
       });
-      const filled = await createInvoice(
-        invoice([tinLine()], {
-          advanceTax: '120.5',
-          furtherTax: '300',
-          adtDiscount: '50',
-          payableValue: '7900',
+    });
+  });
+
+  describe('Payable Value = Grand Total + Advance Tax + Further Tax − ADT discount (D-31)', () => {
+    const payable = async (patch: object) =>
+      (await createInvoice(invoice([tinLine()], patch)).expect(201)).body as {
+        id: string;
+        grandTotal: string;
+        payableValue: string;
+        duePayment: string | null;
+      };
+    const debitOf = async (invoiceId: string) =>
+      (
+        await t.prisma.shopLedgerEntry.findFirstOrThrow({ where: { invoiceId, type: 'INVOICE' } })
+      ).debitAmount.toFixed(2);
+
+    it('Advance Tax increases Payable Value', async () => {
+      const res = await payable({ advanceTax: '120.5' });
+      expect(res).toMatchObject({ grandTotal: '7442.85', payableValue: '7563.35' });
+    });
+
+    it('Further Tax increases Payable Value', async () => {
+      expect((await payable({ furtherTax: '300' })).payableValue).toBe('7742.85');
+    });
+
+    it('the invoice-level Special Discount reduces Payable Value', async () => {
+      expect((await payable({ adtDiscount: '50' })).payableValue).toBe('7392.85');
+    });
+
+    it("all together, and the owner's example (100,000 + 2,000 + 1,000 − 3,000 = 100,000)", async () => {
+      const all = await payable({ advanceTax: '120.5', furtherTax: '300', adtDiscount: '50' });
+      expect(all).toMatchObject({ grandTotal: '7442.85', payableValue: '7813.35' });
+      const example = await createInvoice(
+        invoice([tinLine({ qtyPcs: 1, tradePrice: '100000', gstRate: '0' })], {
+          advanceTax: '2000',
+          furtherTax: '1000',
+          adtDiscount: '3000',
         }),
       ).expect(201);
-      expect(filled.body).toMatchObject({
-        advanceTax: '120.50',
-        furtherTax: '300.00',
-        adtDiscount: '50.00',
-        payableValue: '7900.00',
-        // no formula: they never change the Grand Total
-        grandTotal: blank.body.grandTotal,
-      });
+      expect(example.body).toMatchObject({ grandTotal: '100000.00', payableValue: '100000.00' });
+    });
+
+    it('keeps exact decimals (7442.85 + 0.10 + 0.20 − 0.05 = 7443.10)', async () => {
+      expect(
+        (await payable({ advanceTax: '0.10', furtherTax: '0.20', adtDiscount: '0.05' }))
+          .payableValue,
+      ).toBe('7443.10');
+    });
+
+    it('Due Payment never changes Payable Value', async () => {
+      const a = await payable({ furtherTax: '300', duePayment: '85000' });
+      const b = await payable({ furtherTax: '300', duePayment: '1' });
+      const c = await payable({ furtherTax: '300' });
+      expect([a.payableValue, b.payableValue, c.payableValue]).toEqual([
+        '7742.85',
+        '7742.85',
+        '7742.85',
+      ]);
+      expect(a.duePayment).toBe('85000.00');
+    });
+
+    it('the ledger debit is the Payable Value, whatever Due Payment says', async () => {
+      const a = await payable({ advanceTax: '100', adtDiscount: '20', duePayment: '85000' });
+      const b = await payable({ advanceTax: '100', adtDiscount: '20', duePayment: '80000' });
+      expect(a.payableValue).toBe('7522.85');
+      expect(await debitOf(a.id)).toBe('7522.85');
+      expect(await debitOf(b.id)).toBe('7522.85');
+    });
+
+    it('rejects a discount larger than Grand Total + taxes (422) and saves nothing', async () => {
+      const before = await t.prisma.invoice.count();
+      const res = await createInvoice(
+        invoice([tinLine()], { advanceTax: '10', adtDiscount: '7452.86' }),
+      ).expect(422);
+      expect(res.body.details).toEqual([
+        {
+          path: 'adtDiscount',
+          message:
+            'ADT / special discount cannot be more than Grand Total + Advance Tax + Further Tax',
+        },
+      ]);
+      expect(await t.prisma.invoice.count()).toBe(before);
+      // exactly equal is allowed: Payable Value 0 (and no ledger debit)
+      const zero = await payable({ advanceTax: '10', adtDiscount: '7452.85' });
+      expect(zero.payableValue).toBe('0.00');
+      expect(await t.prisma.shopLedgerEntry.count({ where: { invoiceId: zero.id } })).toBe(0);
     });
   });
 
@@ -639,7 +709,11 @@ describe('Invoices (e2e)', () => {
         .set(auth(adminToken))
         .send(invoice([pouchLine()]))
         .expect(200);
-      expect(res.body).toMatchObject({ grandTotal: '4878.72', totalGstAmount: '756.72' });
+      expect(res.body).toMatchObject({
+        grandTotal: '4878.72',
+        totalGstAmount: '756.72',
+        payableValue: '4878.72',
+      });
       expect(await t.prisma.invoice.count()).toBe(count);
       expect(await nextNumber()).toBe(number);
     });

@@ -47,7 +47,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Invoices list, invoice view / print layout (A4 landscape), shop invoice history, order → invoice link
 - ☑ Cancellation — reason, user, time, order stays INVOICED, ledger reversal (Phase 5)
 - ☑ Ledger debit on confirm and Due Payment prefill (Phase 5)
-- ☐ Optional paid-amount-at-invoice-time — Phase 5 (payments)
+- ☑ Payable Value calculated (Grand Total + Advance Tax + Further Tax − ADT discount) and debited to the ledger (D-31)
 - ☐ Server-generated PDF file (browser save-as-PDF works now)
 
 ## Phase 5 — Ledger & payments (D-30)
@@ -57,9 +57,11 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Shop details: current outstanding, ledger history with running balance; shop list Outstanding column (grouped query)
 - ☑ Finance → Area Ledger: opening / payments / closing per shop and date, filters, totals, payment entry, print, CSV
 - ☑ Total Market Credit service + `GET /ledger/market-credit` (for the Dashboard)
-- ☐ Shop list credit-status filter; Credit report (Phase 7)
-- ☐ Server-generated XLSX / PDF for the area sheet (browser print + CSV today)
-- ☐ Optional paid-amount-at-invoice-time
+- ☑ Backdated payments / decreases limited by the balance on their date and later balances; cancellation refused if the balance would go negative (D-31)
+- ☐ Shop list credit-status filter → Dashboard / Reports phase
+- ☐ Credit Report → Reports phase
+- ☐ Real `.xlsx` / server-generated PDF for the area sheet (CSV + browser print are the MVP)
+- Payment during invoice creation — not required (payments are recorded from Shop Details and the Area Ledger)
 
 ## Phase 6 — Expenses & dashboard
 - ☐ Expense categories, Expenses (table + dialog, period total)

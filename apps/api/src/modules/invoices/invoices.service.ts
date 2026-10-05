@@ -17,6 +17,7 @@ import {
   type InvoicePreview,
   type InvoiceSummary,
   type ListInvoicesQuery,
+  calculatePayableValue,
   optionalInvoiceAmount,
   type Paginated,
 } from '@mytraders/shared-types';
@@ -240,12 +241,14 @@ export class InvoicesService {
       totalValueInclGst: totals.totalValueInclGst,
       totalTradeOffer: totals.totalTradeOffer,
       grandTotal: totals.grandTotal,
+      payableValue: payableOf(totals.grandTotal, input),
     };
   }
 
   /**
    * Confirms an invoice in ONE transaction: (order PENDING → INVOICED) → invoice number →
-   * products validated and priced → invoice + items with all snapshots → ledger hook. Any failure
+   * products validated and priced → invoice + items with all snapshots → ledger debit of the
+   * Payable Value. Any failure
    * rolls everything back: the order stays PENDING and the number is not used.
    */
   async create(input: CreateInvoice): Promise<InvoiceDetails> {
@@ -295,9 +298,10 @@ export class InvoicesService {
           advanceTax: optionalInvoiceAmount(input.advanceTax),
           furtherTax: optionalInvoiceAmount(input.furtherTax),
           adtDiscount: optionalInvoiceAmount(input.adtDiscount),
-          // Due Payment is a printed snapshot only — the ledger never reads it (D-29).
+          // Due Payment is a printed snapshot only — neither the ledger nor Payable Value reads it.
           duePayment: input.duePayment ?? null,
-          payableValue: optionalInvoiceAmount(input.payableValue),
+          // Grand Total + Advance Tax + Further Tax − ADT discount; never Due Payment (D-31)
+          payableValue: payableOf(totals.grandTotal, input),
           notes: input.notes ?? null,
           createdById: auth.userId,
         },
@@ -306,7 +310,7 @@ export class InvoicesService {
           shopId: true,
           invoiceNumber: true,
           invoiceDate: true,
-          grandTotal: true,
+          payableValue: true,
         },
       });
 
@@ -345,10 +349,10 @@ export class InvoicesService {
         })),
       });
 
-      // The shop is debited with this invoice's own Grand Total, in the same transaction (D-30).
+      // The shop is debited with this invoice's Payable Value, in the same transaction (D-30, D-31).
       await this.ledger.invoiceConfirmed(
         tx,
-        { ...invoice, grandTotal: invoice.grandTotal.toFixed(2) },
+        { ...invoice, amount: invoice.payableValue.toFixed(2) },
         auth.userId,
       );
       return invoice.id;
@@ -380,21 +384,37 @@ export class InvoicesService {
           shopId: true,
           invoiceNumber: true,
           invoiceDate: true,
-          grandTotal: true,
+          payableValue: true,
           status: true,
         },
       });
       if (!invoice) throw new NotFoundException('Invoice not found');
       if (count === 0) throw new ConflictException('This invoice is already cancelled');
+      // Refused (and the cancel rolled back) if the reversal would leave the shop owing < 0.
       await this.ledger.invoiceCancelled(
         tx,
-        { ...invoice, grandTotal: invoice.grandTotal.toFixed(2) },
+        { ...invoice, amount: invoice.payableValue.toFixed(2) },
         auth.userId,
         reason,
       );
     });
     return this.get(id);
   }
+}
+
+/** Payable Value of an invoice; refused when the invoice-level discount makes it negative. */
+function payableOf(grandTotal: string, input: CreateInvoice): string {
+  const payable = calculatePayableValue({ grandTotal, ...input });
+  if (payable.startsWith('-')) {
+    fail([
+      {
+        path: 'adtDiscount',
+        message:
+          'ADT / special discount cannot be more than Grand Total + Advance Tax + Further Tax',
+      },
+    ]);
+  }
+  return payable;
 }
 
 function fail(details: FieldError[]): never {
@@ -588,7 +608,7 @@ function toDetails(row: DetailRow): InvoiceDetails {
     furtherTax: optional(row.furtherTax),
     adtDiscount: optional(row.adtDiscount),
     duePayment: optional(row.duePayment),
-    payableValue: optional(row.payableValue),
+    payableValue: amount(row.payableValue),
     notes: row.notes,
     createdBy: row.createdBy,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,

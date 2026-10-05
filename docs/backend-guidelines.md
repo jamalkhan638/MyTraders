@@ -86,8 +86,8 @@ Prefix `/api`. All require auth unless marked public.
 | Booker "My Shops" (assigned shops only) | BOOKER | Phase 3 — reuses the shops list scoped to `assignedOrderBookerId = current user` |
 | `GET /shops/export?format=xlsx\|pdf&<filters>` | ADMIN | exports current filter |
 | `GET /shops/:id/ledger?page&pageSize` | ADMIN | ✅ Phase 5; balance + history newest first with server running balance |
-| `POST /shops/:id/payments` | ADMIN | ✅ `{ amount, paymentDate, method, reference?, notes? }`; shop row lock; 422 above current balance or future date |
-| `POST /shops/:id/adjustments` | ADMIN | ✅ `{ direction: INCREASE\|DECREASE, amount, adjustmentDate, reason }`; decrease not below zero |
+| `POST /shops/:id/payments` | ADMIN | ✅ `{ amount, paymentDate, method, reference?, notes? }`; shop row lock; 422 if above the balance on the payment date, if it would make a later balance negative, or future date |
+| `POST /shops/:id/adjustments` | ADMIN | ✅ `{ direction: INCREASE\|DECREASE, amount, adjustmentDate, reason }`; decrease follows the same date-aware limit |
 | `GET /ledger/areas/:areaId?date&q&outstandingOnly` | ADMIN | ✅ area collection sheet computed from ledger entries (one SQL aggregate) |
 | `GET /ledger/market-credit` | ADMIN | ✅ Σ outstanding of all shops (Dashboard later) |
 | `GET /orders?page&pageSize&q&areaId&orderBookerId&status`, `GET /orders/:id` | ADMIN all / BOOKER own | ✅ Phase 3; booker filters are forced to their own orders; another booker's order → 404 |
@@ -96,9 +96,9 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /booker/shops?q&areaId`, `GET /booker/shops/:id`, `GET /booker/areas`, `GET /booker/products?q` | BOOKER | ✅ assigned active shops only; areas of those shops; active products **without any price** (D-24) |
 | `GET /invoices/draft?shopId=` \| `?orderId=` | ADMIN | ✅ Phase 4; opening state of the form: shop, order lines with current product values, proposed number, today (org tz), Due Payment default (ledger port) |
 | `POST /invoices/preview` | ADMIN | ✅ computes every value server-side without saving |
-| `POST /invoices` | ADMIN | ✅ inputs only (`shopId`, optional `orderId`, `invoiceDate`, rows, optional invoice-level values); totals/number/status sent by the client are ignored; 422 per field (`items.N.field`), 409 order not PENDING |
+| `POST /invoices` | ADMIN | ✅ inputs only (`shopId`, optional `orderId`, `invoiceDate`, rows, optional invoice-level values); totals/number/status/payableValue sent by the client are ignored (Payable Value is calculated, D-31); 422 per field (`items.N.field`), 409 order not PENDING |
 | `GET /invoices?page&pageSize&q&shopId&status`, `GET /invoices/:id` | ADMIN | ✅ from snapshots only |
-| `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled; linked order stays INVOICED; INVOICE_REVERSAL credit of the original debit in the same transaction |
+| `POST /invoices/:id/cancel` | ADMIN | ✅ `{ reason }`; 409 if already cancelled or if the reversal would make the shop's balance negative; linked order stays INVOICED; INVOICE_REVERSAL credit of the original debit in the same transaction |
 | `GET/POST /expenses`, `PATCH /expenses/:id` | ADMIN | |
 | `GET/POST /expense-categories`, `PATCH …/:id` | ADMIN | |
 | `GET /dashboard/summary` | ADMIN | one aggregated call |

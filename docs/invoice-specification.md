@@ -19,7 +19,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 2. The Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO / ATO rate, line Special Discount, invoice-level values, invoice date, Due Payment.
 3. **The product holds defaults; the invoice item holds what was used.** Editing a value on an invoice never changes the product master.
 4. **Backend recomputes everything** from the inputs and ignores any total / number / status / organization sent by a client.
-5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → **`INVOICE` ledger debit of the Grand Total** (D-30). Any failure rolls all of it back: the order stays `PENDING`, the number is not used, no debit exists.
+5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → **`INVOICE` ledger debit of the Payable Value** (D-30, D-31). Any failure rolls all of it back: the order stays `PENDING`, the number is not used, no debit exists.
 6. A confirmed invoice is **immutable** (database triggers too). Admin can **cancel** it (D-16): it becomes `CANCELLED` with reason, user and time; all data stays; a linked order stays `INVOICED`; in the same transaction the ledger gets an `INVOICE_REVERSAL` credit of exactly the original debit (once — unique per invoice).
 
 ## 2. Prices and product type (D-26, D-29)
@@ -74,17 +74,25 @@ Grand Total = Σ Gross Value of all rows        (automatic, read-only)
 ```
 Also stored: Σ Value Excl Tax, Σ GST, Σ Value Incl GST, Σ Total Trade Offer, Σ Cost (internal).
 
-Invoice-level values are **optional Admin entries with no formula**; they never change the Grand Total. Blank or 0 is stored as `null` and **not printed**:
+Advance Tax, Further Tax and the ADT / invoice-level Special Discount are **optional Admin entries**. Blank or 0 counts as zero, is stored as `null` and is **not printed**. **Payable Value is always calculated** (D-31):
 
-| Field | Stored | Notes |
+```
+Payable Value (final invoice amount) = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount
+```
+Owner's example: 100,000 + 2,000 + 1,000 − 3,000 = **100,000**. A discount larger than Grand Total + taxes is refused (422 on `adtDiscount`). A client-sent `payableValue` is ignored.
+
+| Field | Stored | Printed |
 |---|---|---|
-| Advance Tax | `advanceTax` | printed only when entered |
-| Further Tax | `furtherTax` | printed only when entered |
-| ADT / invoice-level Special Discount | `adtDiscount` | separate from the row Special Discount |
-| Due Payment | `duePayment` | shop's previous outstanding credit, **snapshot only** — see below; printed when > 0 |
-| Payable Value | `payableValue` | printed only when entered; no automatic formula yet |
+| Grand Total | `grandTotal` | always |
+| Advance Tax | `advanceTax` (null when blank / 0) | only when non-zero |
+| Further Tax | `furtherTax` | only when non-zero |
+| ADT / invoice-level Special Discount | `adtDiscount` | only when non-zero (shown as −) |
+| Due Payment | `duePayment` — shop's previous outstanding credit, **snapshot only** | when > 0 |
+| Payable Value | `payableValue` — calculated snapshot, NOT NULL | **always** — the final amount of this invoice |
 
-**Due Payment and the ledger (D-29, D-30):** the form prefills Due Payment with the shop's current outstanding balance from the Shop Ledger (`ShopLedgerService.outstandingBalance`). It is only the invoice's printed snapshot: editing it changes nothing in the ledger, which never reads it. The ledger is debited with the invoice's own **Grand Total** only (never with Due Payment, D-9). There is no `Shop.credit` field.
+**Ledger (D-30, D-31):** confirming the invoice debits the shop ledger with the **Payable Value** (not Grand Total alone), in the same transaction; cancelling credits back exactly that debit (refused if it would make the shop's balance negative — see product-requirements §4.5). A Payable Value of 0 posts no debit.
+
+**Due Payment** is prefilled with the shop's current outstanding balance from the Shop Ledger (`ShopLedgerService.outstandingBalance`). It is only the invoice's printed snapshot: editing it never changes the Shop Ledger, the Payable Value or the ledger debit (D-9). There is no `Shop.credit` field.
 
 ## 5. Rounding and precision
 
@@ -123,4 +131,4 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 5. The same product may appear on more than one row of an invoice.
 6. Invoice date is editable (default today) with no restriction on past / future dates.
 7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.
-8. The ledger debit is the **Grand Total** (Σ Gross). Advance Tax, Further Tax, ADT discount and Payable Value are printed values only and are **not** posted to the ledger. A zero Grand Total posts no debit.
+8. ~~Ledger debit = Grand Total~~ — confirmed by the owner as **Payable Value** (D-31).

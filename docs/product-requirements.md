@@ -71,7 +71,7 @@ Fields: name (required), contact person / owner, phone, address, area (required)
   - A foreign id from another organization is rejected exactly like a non-existent id (422 on that field) — nothing about the other organization is revealed.
   - Phone max 40 (digits, spaces, + - ( )); CNIC max 20 (digits and dashes); NTN/STRN max 40; address max 300.
 - Desktop table columns: Shop, Area, Shop Category, Order Booker, Phone, **Outstanding** (from the ledger, one grouped query per page), Status, Actions. Last Invoice column later.
-- Filters: search (name, contact person, phone), area, shop category, order booker (incl. "Unassigned"), status. Credit-status filter comes with the ledger.
+- Filters: search (name, contact person, phone), area, shop category, order booker (incl. "Unassigned"), status. Credit-status filter → Dashboard / Reports phase.
 - **Export the currently filtered list** to Excel and PDF (later in Phase 2).
 - Shop details is a dedicated page: info, area, category, order booker, contact/tax info, status. Prominent **Current outstanding** with *Record Payment* and *Adjust Credit*; **Ledger / credit history** (date, type, reference, debit, credit, running balance, notes); **Invoice history** as a separate section; *Generate Invoice*.
 - **No credit/balance column on Shop** — the balance is always computed from the ledger (D-30).
@@ -87,18 +87,18 @@ Outstanding Balance = Σ debit − Σ credit   (over the shop's ledger entries)
 
 | Entry | Side | Created by |
 |---|---|---|
-| `INVOICE` | debit — shop owes more | confirming an invoice: the invoice's own **Grand Total**, dated the invoice date, in the confirm transaction; one per invoice (unique) |
+| `INVOICE` | debit — shop owes more | confirming an invoice: its **Payable Value** (Grand Total + Advance Tax + Further Tax − ADT discount, D-31), dated the invoice date, in the confirm transaction; one per invoice (unique) |
 | `PAYMENT` | credit — shop owes less | *Record Payment* (amount, date, method, reference, notes); also stored as a `Payment` |
 | `MANUAL_ADJUSTMENT` | debit (*Increase*) or credit (*Decrease*) | *Adjust Credit* with a required reason — e.g. old khata balance (D-5) or a correction |
 | `INVOICE_REVERSAL` | credit | cancelling an invoice: exactly the original debit, dated the cancellation day; the debit stays; at most one per invoice |
 
-- **Record Payment** (Admin, Shop Details or Area Ledger): amount > 0, ≤ the **current** outstanding balance (D-6 — overpayment rejected), date not in the future. Payments never modify invoices.
-- **Adjust Credit** (Admin): Increase or Decrease, amount, date (not in the future), reason. A decrease may not take the balance below zero.
+- **Record Payment** (Admin, Shop Details or Area Ledger): amount > 0, date not in the future (backdating allowed). The amount may not exceed what the shop owed **on the payment date**, and may not make any **later** running balance negative (D-6, D-31) — so a backdated payment can never create a negative balance anywhere in the history. Payments never modify invoices.
+- **Adjust Credit** (Admin): Increase or Decrease, amount, date (not in the future, backdating allowed), reason. A decrease follows the same date-aware limit as a payment.
 - Payments, decreases and reversals on one shop are serialized with a row lock, so concurrent postings cannot overdraw a shop.
 - Ledger entries and payments are **append-only** (database triggers); corrections are new entries.
 - **Running balance** = balance after each entry, ordered by (business date, entry time, id) — computed by the server.
 - **Due Payment** on the invoice form is prefilled with the current outstanding balance; it is only a printed snapshot — editing it never changes the ledger (D-29).
-- A balance can only go negative through an invoice reversal after the shop already paid (the shop then has an advance); payments are refused while the balance is ≤ 0.
+- **No negative / advance balances in the MVP.** Cancelling an invoice whose reversal would take the shop's current balance below zero is **refused** with a message to correct the related payment or adjustment first (e.g. *Adjust Credit → Increase*), then cancel.
 - **Total Market Credit** = Σ outstanding balances of all shops of the organization (`GET /ledger/market-credit`; shown on the Dashboard later).
 
 **Area Ledger (Finance → Area Ledger; also Settings → Areas → "View ledger")** — the digital paper collection sheet, an aggregated view over shop ledger entries (no area balances are stored). For an area and a date, each shop shows:
@@ -110,7 +110,7 @@ Payment            = Σ PAYMENT credits on the date
 Remaining (closing)= Σ(debit − credit) up to and including the date
                    = Previous + invoices/increases − decreases/reversals − Payment
 ```
-Totals of every column come from the server. Filters: area, date (previous day / today / next day), shop search, "only shops with a balance" (opening, closing or payment ≠ 0). Lists the area's active shops plus inactive shops that have ledger entries. A payment entered from the sheet is the normal *Record Payment* (same endpoint, the sheet's date prefilled). Print view (A4 portrait) and CSV download for Excel; server-generated PDF/XLSX later.
+Totals of every column come from the server. Filters: area, date (previous day / today / next day), shop search, "only shops with a balance" (opening, closing or payment ≠ 0). Lists the area's active shops plus inactive shops that have ledger entries. A payment entered from the sheet is the normal *Record Payment* (same endpoint, the sheet's date prefilled). Print view (A4 portrait) / browser *Save as PDF* and CSV download for Excel — sufficient for the MVP; real `.xlsx` and server-generated PDF are later enhancements.
 
 ### 4.6 Products
 Every product has a **Type** that decides how it is invoiced (D-26):
@@ -171,9 +171,9 @@ Full detail and formulas in [invoice-specification.md](./invoice-specification.m
 - **TIN is priced by Qty Pcs** (Qty Ctn not used); **POUCH by Qty Ctn** (Qty Pcs = Qty Ctn × Pieces per Carton, display only, never affects values).
 - **Trade Price drives the values; Retail Price is printed only; Invoice / Cost Price is for profit only** and never printed.
 - Value Excl Tax = qty × T.P; GST = Value × rate %; TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + Special Discount; Gross = Value Incl GST − Total Trade Offer; **Grand Total = Σ Gross** (automatic). Decimal math, ROUND_HALF_UP to 2 decimals.
-- Optional invoice-level Advance Tax, Further Tax, ADT / special discount and Payable Value: no formula, not printed when blank.
+- Optional invoice-level Advance Tax, Further Tax and ADT / special discount (blank = 0, not printed when zero). **Payable Value = Grand Total + Advance Tax + Further Tax − ADT discount** — calculated, read-only, always printed (D-31).
 - **Due Payment** = the shop's previous outstanding credit, prefilled from the ledger, editable on the invoice — **editing it never changes the ledger**.
-- Confirming debits the shop ledger with the invoice's Grand Total in the same transaction (D-30).
+- Confirming debits the shop ledger with the invoice's **Payable Value** in the same transaction (D-30, D-31); Due Payment never affects it.
 - Backend recalculates every value; frontend totals are a live preview only.
 - Every value needed to reproduce the invoice is **snapshotted** (shop, distributor, product, prices, quantities, results); confirmed invoices never change when products, shops or settings change (also enforced by database triggers).
 - Invoice numbers are sequential and unique **per organization**, assigned on confirm (first customer: `M-00000001`).
@@ -245,8 +245,9 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-26 | Product **Type** `TIN \| POUCH`: a TIN is invoiced by `Qty Pcs`, a POUCH by `Qty Ctn` (`Qty Pcs = Qty Ctn × Pieces per Carton`, display only; POUCH requires Pieces per Carton). **Trade Price drives the invoice value; Invoice/Cost Price is for profit only; Retail Price is display only.** Products carry a required **Default Tax Rate** (pre-filled from the organization default) which the invoice snapshots. Weight has a unit and a basis (`PIECE \| CARTON`). Supersedes D-22, refines D-15 and OQ-6. Cost Price renamed Invoice/Cost Price | Owner decision (before Phase 4) |
 | D-27 | **No Rate Code** anywhere — removed from products and not printed on invoices | Owner decision (before Phase 4) |
 | D-28 | Order quantity follows the product type: **TIN → pieces, POUCH → cartons**. Each order line stores `quantityUnit` (`PIECE` \| `CARTON`), set by the server from the product type when booked and kept even if the product type changes later. The booker sees `Qty (Pcs)` / `Qty (Ctn)` and enters only that number. Orders stay price-free (no prices, tax, TO/ATO, discounts or totals) | Owner decision (before Phase 4) |
-| D-29 | **Invoice formulas** (owner): TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs display only); Value Excl Tax = qty × Trade Price; GST = Value × rate / 100 (rate snapshotted, default from product); TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + line Special Discount; Gross = Value Incl GST − Trade Offer; Grand Total = Σ Gross; Advance Tax / Further Tax / ADT discount / Payable Value optional with no formula and hidden when blank; Due Payment = previous credit from the ledger, editable snapshot that never changes the ledger; Decimal ROUND_HALF_UP to 2 decimals; Retail Price display only; Invoice/Cost Price profit only | Owner decision (Phase 4) |
+| D-29 | **Invoice formulas** (owner): TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs display only); Value Excl Tax = qty × Trade Price; GST = Value × rate / 100 (rate snapshotted, default from product); TO / ATO = rate × Total Weight; Total Trade Offer = TO + ATO + line Special Discount; Gross = Value Incl GST − Trade Offer; Grand Total = Σ Gross; Advance Tax / Further Tax / ADT discount optional and hidden when blank (Payable Value: see D-31); Due Payment = previous credit from the ledger, editable snapshot that never changes the ledger; Decimal ROUND_HALF_UP to 2 decimals; Retail Price display only; Invoice/Cost Price profit only | Owner decision (Phase 4) |
 | D-30 | **Shop Ledger is the single source of truth** for credit: balance = Σ debit − Σ credit; INVOICE debit (Grand Total, in the confirm transaction, once per invoice), PAYMENT credit (≤ current balance), MANUAL_ADJUSTMENT increase/decrease with reason (decrease not below zero), INVOICE_REVERSAL credit on cancel (exact debit, once); append-only; Area Ledger is a computed collection sheet (opening / payments / closing per shop and date), no stored area balances | Owner decision (Phase 5) |
+| D-31 | **Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount** (blank = 0), calculated and stored by the server, always printed; it is the invoice's ledger debit. Due Payment never affects Payable Value or the ledger. Payments / decreases: no future dates, backdating allowed, limited by the balance on their date and never making a later balance negative. Invoice cancellation refused if it would make the current balance negative (no advance balances in the MVP). Area Ledger exports: CSV + browser print / PDF. Later: credit-status filter (Dashboard/Reports), Credit Report (Reports), payment during invoice creation (not required) | Owner decision (Phase 5 review) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

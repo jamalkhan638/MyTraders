@@ -219,7 +219,7 @@ describe('Shop ledger & payments (e2e)', () => {
       expect(res.body.details).toEqual([
         {
           path: 'amount',
-          message: 'Payment cannot be more than the outstanding balance (1249.75)',
+          message: "Payment cannot be more than the shop's balance on 2025-09-05 (1249.75)",
         },
       ]);
       expect(await t.prisma.payment.count()).toBe(before);
@@ -543,6 +543,105 @@ describe('Shop ledger & payments (e2e)', () => {
           (s: { outstandingBalance: string }) => s.outstandingBalance !== '0.00',
         ).length,
       );
+    });
+  });
+
+  describe('backdated payments and decreases', () => {
+    let shop: Id;
+    const running = async () =>
+      (await ledger(shop).expect(200)).body.items.map(
+        (e: { transactionDate: string; runningBalance: string }) => [
+          e.transactionDate,
+          e.runningBalance,
+        ],
+      );
+
+    beforeAll(async () => {
+      shop = await fixtures(t.prisma).shop(orgA.id, 'Backdate Store', cantt.id, null);
+      await invoice(shop, '2025-07-10', '1000').expect(201);
+      await invoice(shop, '2025-07-20', '500').expect(201);
+    });
+
+    it("is checked against the balance on the payment's own date, not today's", async () => {
+      // today the shop owes 1,500 — on 15 July it owed only 1,000
+      const res = await pay(shop, { amount: '1000.01', paymentDate: '2025-07-15' }).expect(422);
+      expect(res.body.details).toEqual([
+        {
+          path: 'amount',
+          message: "Payment cannot be more than the shop's balance on 2025-07-15 (1000.00)",
+        },
+      ]);
+      await pay(shop, { amount: '1', paymentDate: '2025-07-05' }).expect(422); // owed nothing yet
+      await pay(shop, { amount: '1000', paymentDate: '2025-07-15' }).expect(201);
+      expect(await running()).toEqual([
+        ['2025-07-20', '500.00'],
+        ['2025-07-15', '0.00'],
+        ['2025-07-10', '1000.00'],
+      ]);
+    });
+
+    it('may not make any later running balance negative', async () => {
+      await pay(shop, { amount: '400', paymentDate: '2025-07-25' }).expect(201); // → 100 owed
+      // on 21 July the shop owed 500, but after 25 July only 100 is left
+      const res = await pay(shop, { amount: '200', paymentDate: '2025-07-21' }).expect(422);
+      expect(res.body.details[0].message).toBe(
+        "Payment on 2025-07-21 would make the shop's balance negative later (lowest balance after that date: 100.00)",
+      );
+      const decrease = await adjust(shop, {
+        direction: 'DECREASE',
+        amount: '150',
+        adjustmentDate: '2025-07-21',
+      }).expect(422);
+      expect(decrease.body.details[0].message).toMatch(/^A decrease on 2025-07-21 would make/);
+      await pay(shop, { amount: '100', paymentDate: '2025-07-21' }).expect(201);
+      const balances = (await running()).map(([, b]: [string, string]) => b);
+      expect(balances.every((b: string) => !b.startsWith('-'))).toBe(true);
+      expect(await balanceOf(shop)).toBe('0.00');
+    });
+  });
+
+  describe('invoice cancellation protection', () => {
+    let shop: Id;
+    let first: { id: string; invoiceNumber: string };
+    let second: { id: string };
+
+    beforeAll(async () => {
+      shop = await fixtures(t.prisma).shop(orgA.id, 'Cancel Guard Store', cantt.id, null);
+      first = (await invoice(shop, '2025-07-01', '1000').expect(201)).body;
+      second = (await invoice(shop, '2025-07-02', '500').expect(201)).body;
+      await pay(shop, { amount: '1200', paymentDate: '2025-07-03' }).expect(201); // owes 300
+    });
+
+    const cancel = (id: string) =>
+      http().post(`/api/invoices/${id}/cancel`).set(auth(adminToken)).send({ reason: 'Returned' });
+
+    it('refuses a cancellation that would make the balance negative, and changes nothing', async () => {
+      const res = await cancel(first.id).expect(409);
+      expect(res.body.message).toBe(
+        `Cannot cancel invoice ${first.invoiceNumber}: the shop's balance would become -700.00 ` +
+          '(it owes 300.00, the invoice is 1000.00). Payments already cover this invoice — correct ' +
+          'the related payment or adjustment first (e.g. Adjust Credit → Increase), then cancel.',
+      );
+      await cancel(second.id).expect(409);
+      const invoice = await t.prisma.invoice.findUniqueOrThrow({ where: { id: first.id } });
+      expect(invoice.status).toBe('CONFIRMED');
+      expect(
+        await t.prisma.shopLedgerEntry.count({
+          where: { invoiceId: first.id, type: 'INVOICE_REVERSAL' },
+        }),
+      ).toBe(0);
+      expect(await balanceOf(shop)).toBe('300.00');
+    });
+
+    it('allows it once the balance covers the reversal', async () => {
+      await adjust(shop, {
+        direction: 'INCREASE',
+        amount: '700',
+        adjustmentDate: '2025-07-04',
+        reason: 'Payment was for goods returned',
+      }).expect(201);
+      await cancel(first.id).expect(200);
+      expect(await balanceOf(shop)).toBe('0.00');
     });
   });
 

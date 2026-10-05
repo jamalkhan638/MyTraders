@@ -2,6 +2,7 @@ import {
   type CalculatedInvoiceLine,
   calculateInvoiceLine,
   calculateInvoiceTotals,
+  calculatePayableValue,
   type CreateInvoiceInput,
   createInvoiceSchema,
   type InvoiceDraft,
@@ -118,7 +119,6 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
   const [advanceTax, setAdvanceTax] = useState('');
   const [furtherTax, setFurtherTax] = useState('');
   const [adtDiscount, setAdtDiscount] = useState('');
-  const [payableValue, setPayableValue] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [picker, setPicker] = useState<{ replaceKey: string | null } | null>(null);
@@ -130,6 +130,12 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
   const totals = calculateInvoiceTotals(
     valid.filter((l): l is CalculatedInvoiceLine => l !== null),
   );
+  // Payable Value = Grand Total + Advance Tax + Further Tax − ADT discount (D-31); Due Payment is
+  // not part of it. Live preview only — the server calculates the stored value.
+  const payableValue = complete
+    ? calculatePayableValue({ grandTotal: totals.grandTotal, advanceTax, furtherTax, adtDiscount })
+    : null;
+  const payableNegative = payableValue?.startsWith('-') ?? false;
   const usedIds = new Set(lines.map((l) => l.product.id));
   const inactiveProducts = lines.filter((l) => !l.product.isActive);
 
@@ -194,7 +200,6 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
     furtherTax,
     adtDiscount,
     duePayment,
-    payableValue,
     notes,
   });
 
@@ -207,6 +212,10 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
         const path = issue.path.join('.');
         found[path] ??= issue.message;
       }
+    }
+    if (payableNegative) {
+      found.adtDiscount ??=
+        'ADT / special discount cannot be more than Grand Total + Advance Tax + Further Tax';
     }
     results.forEach((result, index) => {
       for (const issue of result.issues) found[`items.${index}.${issue.field}`] ??= issue.message;
@@ -553,7 +562,7 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
             )}
             <div className="space-y-2 border-t pt-3">
               <p className="text-xs text-muted-foreground">
-                Optional — left blank they are not printed. No formula is applied.
+                Optional — blank counts as zero and is not printed.
               </p>
               <AmountInput
                 id="advanceTax"
@@ -577,17 +586,34 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
                 error={errors.adtDiscount}
               />
               <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Due payment</span>
+                <span className="text-muted-foreground">
+                  Due payment <span className="text-xs">(previous credit, display only)</span>
+                </span>
                 <span className="tabular-nums">{formatAmount(duePayment || null)}</span>
               </div>
-              <AmountInput
-                id="payableValue"
-                label="Payable value"
-                value={payableValue}
-                onChange={setPayableValue}
-                error={errors.payableValue}
-              />
             </div>
+            <div className="flex items-baseline justify-between border-t pt-2">
+              <span className="font-semibold">
+                Payable value ({currency})
+                <span className="block text-xs font-normal text-muted-foreground">
+                  Grand total + advance tax + further tax − ADT discount
+                </span>
+              </span>
+              <span
+                className={cn(
+                  'text-xl font-semibold tabular-nums',
+                  payableNegative && 'text-destructive',
+                )}
+                data-testid="payable-value"
+              >
+                {payableValue === null ? '—' : formatAmount(payableValue)}
+              </span>
+            </div>
+            {payableNegative && (
+              <p className="text-right text-xs text-destructive">
+                The ADT / special discount is more than the grand total plus taxes.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -624,8 +650,9 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
             <AlertDialogTitle>Confirm this invoice?</AlertDialogTitle>
             <AlertDialogDescription>
               {draft.shop.name} · {lines.length} product{lines.length === 1 ? '' : 's'} · grand
-              total {currency} {formatAmount(totals.grandTotal)}. The server recalculates every
-              value. A confirmed invoice cannot be edited.
+              total {currency} {formatAmount(totals.grandTotal)}, payable value {currency}{' '}
+              {formatAmount(payableValue)}. The server recalculates every value. A confirmed invoice
+              cannot be edited.
               {draft.order && ` Order ${draft.order.orderNumber} will be marked invoiced.`}
             </AlertDialogDescription>
           </AlertDialogHeader>

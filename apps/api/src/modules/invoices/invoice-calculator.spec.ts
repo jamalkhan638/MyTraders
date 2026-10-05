@@ -1,5 +1,6 @@
 import {
   calculateInvoiceLine,
+  calculatePayableValue,
   calculateInvoiceTotals,
   initialQuantities,
   type InvoiceLineValues,
@@ -213,6 +214,35 @@ describe('invoice calculator', () => {
       expect(optionalInvoiceAmount('0')).toBeNull();
       expect(optionalInvoiceAmount('0.00')).toBeNull();
       expect(optionalInvoiceAmount('1250.5')).toBe('1250.50');
+    });
+  });
+
+  describe('Payable Value (D-31)', () => {
+    it("= Grand Total + Advance Tax + Further Tax − ADT discount (owner's example)", () => {
+      expect(
+        calculatePayableValue({
+          grandTotal: '100000',
+          advanceTax: '2000',
+          furtherTax: '1000',
+          adtDiscount: '3000',
+        }),
+      ).toBe('100000.00');
+    });
+
+    it('each part moves it the right way; blank counts as zero', () => {
+      const g = { grandTotal: '7442.85' };
+      expect(calculatePayableValue(g)).toBe('7442.85');
+      expect(calculatePayableValue({ ...g, advanceTax: '', furtherTax: null })).toBe('7442.85');
+      expect(calculatePayableValue({ ...g, advanceTax: '120.5' })).toBe('7563.35');
+      expect(calculatePayableValue({ ...g, furtherTax: '300' })).toBe('7742.85');
+      expect(calculatePayableValue({ ...g, adtDiscount: '50' })).toBe('7392.85');
+    });
+
+    it('is exact with decimals and can report a negative result to be refused', () => {
+      expect(
+        calculatePayableValue({ grandTotal: '0.10', advanceTax: '0.20', adtDiscount: '0.05' }),
+      ).toBe('0.25');
+      expect(calculatePayableValue({ grandTotal: '10', adtDiscount: '10.01' })).toBe('-0.01');
     });
   });
 });

@@ -391,7 +391,8 @@ model Invoice {
   adtDiscount  Decimal? @db.Decimal(14, 2)
   /// shop's previous outstanding balance as printed; editing it never touches the ledger
   duePayment   Decimal? @db.Decimal(14, 2)
-  payableValue Decimal? @db.Decimal(14, 2)
+  /// Grand Total + Advance Tax + Further Tax − ADT discount; the amount debited to the ledger (D-31)
+  payableValue Decimal  @db.Decimal(14, 2)
   notes        String?
 
   createdById   String    @db.Uuid

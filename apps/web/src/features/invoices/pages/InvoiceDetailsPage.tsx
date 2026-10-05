@@ -192,14 +192,19 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
             <Total label={`Grand total (${invoice.currency})`} value={invoice.grandTotal} strong />
             <Total label="Advance tax" value={invoice.advanceTax} />
             <Total label="Further tax" value={invoice.furtherTax} />
-            <Total label="ADT / special discount" value={invoice.adtDiscount} />
+            <Total label="ADT / special discount" value={invoice.adtDiscount} negative />
             <Total
               label="Due payment"
               value={
                 invoice.duePayment && invoice.duePayment !== '0.00' ? invoice.duePayment : null
               }
             />
-            <Total label="Payable value" value={invoice.payableValue} strong />
+            {/* always shown: the final amount of this invoice (and its ledger debit) */}
+            <Total
+              label={`Payable value (${invoice.currency})`}
+              value={invoice.payableValue}
+              strong
+            />
           </dl>
         </div>
         {invoice.notes && (
@@ -289,10 +294,12 @@ function Total({
   label,
   value,
   strong,
+  negative,
 }: {
   label: string;
   value: string | null;
   strong?: boolean;
+  negative?: boolean;
 }) {
   if (value === null) return null;
   return (
@@ -303,7 +310,10 @@ function Total({
       )}
     >
       <dt>{label}</dt>
-      <dd className="tabular-nums">{formatAmount(value)}</dd>
+      <dd className="tabular-nums">
+        {negative && '− '}
+        {formatAmount(value)}
+      </dd>
     </div>
   );
 }

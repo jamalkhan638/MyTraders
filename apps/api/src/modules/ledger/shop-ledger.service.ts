@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   type AdjustCredit,
   type AreaLedger,
@@ -28,7 +33,8 @@ export interface LedgerInvoice {
   shopId: string;
   invoiceNumber: string;
   invoiceDate: Date;
-  grandTotal: string;
+  /** the invoice's Payable Value — the amount debited (D-31) */
+  amount: string;
 }
 
 interface EntryRow {
@@ -154,13 +160,14 @@ export class ShopLedgerService {
     const entryId = await this.db.client.$transaction(async (tx) => {
       await this.lockShop(tx, organizationId, shopId);
       await this.assertNotFuture(tx, 'paymentDate', input.paymentDate);
-      const { outstandingBalance } = await this.balance(shopId, tx);
-      if (new Decimal(input.amount).greaterThan(outstandingBalance)) {
-        fail(
-          'amount',
-          `Payment cannot be more than the outstanding balance (${outstandingBalance})`,
-        );
-      }
+      await this.assertCreditAllowed(
+        tx,
+        organizationId,
+        shopId,
+        input.paymentDate,
+        input.amount,
+        'Payment',
+      );
       const payment = await tx.payment.create({
         data: {
           organizationId,
@@ -200,13 +207,14 @@ export class ShopLedgerService {
       await this.lockShop(tx, organizationId, shopId);
       await this.assertNotFuture(tx, 'adjustmentDate', input.adjustmentDate);
       if (input.direction === 'DECREASE') {
-        const { outstandingBalance } = await this.balance(shopId, tx);
-        if (new Decimal(input.amount).greaterThan(outstandingBalance)) {
-          fail(
-            'amount',
-            `A decrease cannot be more than the outstanding balance (${outstandingBalance})`,
-          );
-        }
+        await this.assertCreditAllowed(
+          tx,
+          organizationId,
+          shopId,
+          input.adjustmentDate,
+          input.amount,
+          'A decrease',
+        );
       }
       const entry = await tx.shopLedgerEntry.create({
         data: {
@@ -229,19 +237,20 @@ export class ShopLedgerService {
   // ---- invoice integration (called inside the invoice transactions) --------------------------
 
   /**
-   * Confirming an invoice debits the shop with the invoice's own Grand Total (from the confirmed
-   * invoice, never from current product data), on the invoice date. Runs in the confirm
+   * Confirming an invoice debits the shop with the invoice's Payable Value (Grand Total + Advance
+   * Tax + Further Tax − ADT discount, from the confirmed invoice — never Due Payment, never current
+   * product data), on the invoice date. Runs in the confirm
    * transaction, so invoice and debit commit or fail together; `@@unique([invoiceId, type])`
    * makes a second debit for the same invoice impossible. A zero-value invoice posts nothing.
    */
   async invoiceConfirmed(tx: TenantTx, invoice: LedgerInvoice, userId: string): Promise<void> {
-    if (!new Decimal(invoice.grandTotal).greaterThan(0)) return;
+    if (!new Decimal(invoice.amount).greaterThan(0)) return;
     await tx.shopLedgerEntry.create({
       data: {
         organizationId: this.tenant.requireOrganizationId(),
         shopId: invoice.shopId,
         type: 'INVOICE',
-        debitAmount: invoice.grandTotal,
+        debitAmount: invoice.amount,
         transactionDate: invoice.invoiceDate,
         invoiceId: invoice.id,
         notes: `Invoice ${invoice.invoiceNumber}`,
@@ -253,7 +262,8 @@ export class ShopLedgerService {
   /**
    * Cancelling an invoice keeps its debit and adds an INVOICE_REVERSAL credit of exactly the same
    * amount, dated the cancellation day. Runs in the cancel transaction; the unique index makes a
-   * second reversal impossible.
+   * second reversal impossible. Negative (advance) balances are not supported in the MVP: if the
+   * reversal would take the shop's current balance below zero, the cancellation is refused.
    */
   async invoiceCancelled(
     tx: TenantTx,
@@ -268,6 +278,16 @@ export class ShopLedgerService {
       select: { debitAmount: true },
     });
     if (!debit) return;
+    const { outstandingBalance } = await this.balance(invoice.shopId, tx);
+    const after = new Decimal(outstandingBalance).minus(debit.debitAmount);
+    if (after.isNegative()) {
+      throw new ConflictException(
+        `Cannot cancel invoice ${invoice.invoiceNumber}: the shop's balance would become ` +
+          `${money(after)} (it owes ${outstandingBalance}, the invoice is ${money(debit.debitAmount)}). ` +
+          'Payments already cover this invoice — correct the related payment or adjustment first ' +
+          '(e.g. Adjust Credit → Increase), then cancel.',
+      );
+    }
     await tx.shopLedgerEntry.create({
       data: {
         organizationId,
@@ -439,6 +459,48 @@ export class ShopLedgerService {
       WHERE "id" = ${shopId}::uuid AND "organizationId" = ${organizationId}::uuid
       FOR UPDATE`;
     if (rows.length === 0) throw new NotFoundException('Shop not found');
+  }
+
+  /**
+   * A payment or decrease dated D is a credit inserted at D. It may not exceed what the shop owed
+   * on D (all entries up to and including D), nor make any later running balance negative — so a
+   * backdated credit can never create a negative balance anywhere in the history.
+   */
+  private async assertCreditAllowed(
+    tx: TenantTx,
+    organizationId: string,
+    shopId: string,
+    date: string,
+    amount: string,
+    what: string,
+  ): Promise<void> {
+    const [row] = await tx.$queryRaw<{ asOf: string; minAfter: string | null }[]>`
+      WITH r AS (
+        SELECT "transactionDate",
+          SUM("debitAmount" - "creditAmount") OVER (
+            ORDER BY "transactionDate", "createdAt", "id"
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+          ) AS "running",
+          ROW_NUMBER() OVER (ORDER BY "transactionDate", "createdAt", "id") AS "position"
+        FROM "ShopLedgerEntry"
+        WHERE "organizationId" = ${organizationId}::uuid AND "shopId" = ${shopId}::uuid
+      )
+      SELECT
+        COALESCE((SELECT "running" FROM r WHERE "transactionDate" <= ${date}::date
+                  ORDER BY "position" DESC LIMIT 1), 0)::text AS "asOf",
+        (SELECT MIN("running") FROM r WHERE "transactionDate" > ${date}::date)::text AS "minAfter"`;
+    const credit = new Decimal(amount);
+    const asOf = new Decimal(row.asOf);
+    if (credit.greaterThan(asOf)) {
+      fail('amount', `${what} cannot be more than the shop's balance on ${date} (${money(asOf)})`);
+    }
+    if (row.minAfter !== null && credit.greaterThan(row.minAfter)) {
+      fail(
+        'amount',
+        `${what} on ${date} would make the shop's balance negative later ` +
+          `(lowest balance after that date: ${money(new Decimal(row.minAfter))})`,
+      );
+    }
   }
 
   private async assertNotFuture(tx: TenantTx, field: string, date: string): Promise<void> {

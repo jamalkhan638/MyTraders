@@ -131,7 +131,8 @@ export type InvoiceLine = z.output<typeof invoiceLineInputSchema>;
 /**
  * POST /invoices (and /invoices/preview). Only inputs are accepted: the invoice number, all
  * calculated values and every snapshot are produced by the server. `orderId` links a PENDING order
- * of the same shop. Invoice-level values are optional Admin entries with no formula (D-29).
+ * of the same shop. Advance Tax, Further Tax and ADT discount are optional Admin entries; Payable
+ * Value is always calculated by the server (D-31) — a client-sent value is ignored.
  */
 export const createInvoiceSchema = z.object({
   shopId: z.uuid({ message: 'Choose a shop' }),
@@ -145,7 +146,6 @@ export const createInvoiceSchema = z.object({
   furtherTax: optionalAmount('Further tax'),
   adtDiscount: optionalAmount('ADT / special discount'),
   duePayment: optionalAmount('Due payment'),
-  payableValue: optionalAmount('Payable value'),
   notes: optionalText(500),
 });
 export type CreateInvoiceInput = z.input<typeof createInvoiceSchema>;
@@ -417,6 +417,25 @@ export function calculateInvoiceTotals(lines: CalculatedInvoiceLine[]): InvoiceT
   };
 }
 
+/**
+ * Payable Value — the final amount of the invoice, and the amount debited to the shop ledger
+ * (D-31). Blank optional amounts count as zero; Due Payment never takes part.
+ *
+ *   Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount
+ */
+export function calculatePayableValue(values: {
+  grandTotal: string;
+  advanceTax?: string | null;
+  furtherTax?: string | null;
+  adtDiscount?: string | null;
+}): string {
+  const opt = (v: string | null | undefined) => dec(v ?? null) ?? new D(0);
+  const grand = dec(values.grandTotal) ?? new D(values.grandTotal);
+  return money(
+    grand.plus(opt(values.advanceTax)).plus(opt(values.furtherTax)).minus(opt(values.adtDiscount)),
+  ).toFixed(2);
+}
+
 /** "Optional" invoice-level amounts: blank or zero are not stored and not printed. */
 export function optionalInvoiceAmount(value: string | null | undefined): string | null {
   const d = dec(value ?? null);
@@ -516,7 +535,8 @@ export const invoiceDetailsSchema = invoiceSummarySchema.extend({
   furtherTax: z.string().nullable(),
   adtDiscount: z.string().nullable(),
   duePayment: z.string().nullable(),
-  payableValue: z.string().nullable(),
+  /** Grand Total + Advance Tax + Further Tax − ADT discount; always printed (D-31) */
+  payableValue: z.string(),
   notes: z.string().nullable(),
   createdBy: refSchema,
   cancelledAt: z.string().nullable(),
@@ -549,6 +569,7 @@ export const invoicePreviewSchema = z.object({
   totalValueInclGst: z.string(),
   totalTradeOffer: z.string(),
   grandTotal: z.string(),
+  payableValue: z.string(),
 });
 export type InvoicePreview = z.infer<typeof invoicePreviewSchema>;
 
