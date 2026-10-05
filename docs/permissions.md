@@ -9,7 +9,8 @@ Every request is checked for: authenticated → user active → organization not
 |---|:---:|:---:|
 | Organization settings | ✅ | ❌ |
 | Users: create / edit / deactivate | ✅ | ❌ |
-| Own profile / change own password | ✅ | ✅ |
+| Own profile (`GET /auth/me`) | ✅ | ✅ |
+| Change own password | ☐ not built yet — Admin resets a booker's password; Admin passwords via CLI / database (TODO) | ☐ |
 | Areas: manage | ✅ | ❌ |
 | Shop Categories: manage | ✅ | ❌ |
 | Areas: list (for filter) | ✅ | ✅ only areas of their assigned active shops (`GET /booker/areas`) |
@@ -44,6 +45,9 @@ Every request is checked for: authenticated → user active → organization not
 - Foreign IDs outside scope → **404**.
 
 ## 4. Required tests (per module)
+
+Across all modules, `test/hardening.e2e-spec.ts` reads every route's declared roles from the decorators and checks the real HTTP behaviour: anonymous → 401, Order Booker / Super Admin → 403 wherever their role is not declared, a token of a moved / suspended organization → 401; and Organization B using Organization A ids (reads, edits, cancels, payments, references inside bodies) → 404 / 422 with A's data byte-for-byte unchanged.
+
 
 - Org A Admin cannot read / update / delete Org B's record by ID (404).
 - Order Booker gets 403 on every Admin-only endpoint.

@@ -62,10 +62,12 @@ Open http://localhost:5173. Swagger: http://localhost:3000/api/docs.
 ### Create a real organization
 
 ```bash
-pnpm --filter @mytraders/api org:create -- --name "Ali Akbar Traders" \
-  --admin-name "Owner" --admin-email owner@example.com --admin-password 'choose-a-strong-one' \
+ADMIN_PASSWORD='choose-a-strong-one' pnpm --filter @mytraders/api org:create -- \
+  --name "Ali Akbar Traders" --admin-name "Owner" --admin-email owner@example.com \
   --invoice-prefix M- --invoice-digits 8
 ```
+
+Production deployment, configuration, migrations and backup / restore: [docs/operations.md](docs/operations.md).
 
 ## Checks
 

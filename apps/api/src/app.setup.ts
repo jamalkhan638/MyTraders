@@ -16,7 +16,7 @@ export function configureApp(app: NestExpressApplication): void {
 
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix(API_PREFIX);
-  app.set('trust proxy', 'loopback');
+  app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({

@@ -32,4 +32,19 @@ describe('toErrorBody', () => {
       message: 'Internal server error',
     });
   });
+
+  it('keeps the 4xx status of body-parser errors (413 too large, 400 invalid JSON)', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      expose: true,
+    });
+    expect(toErrorBody(tooLarge)).toEqual({
+      statusCode: 413,
+      error: 'Payload Too Large',
+      message: 'The request is too large',
+    });
+    // a non-exposed status (internal) stays a 500
+    const internal = Object.assign(new Error('x'), { status: 400, expose: false });
+    expect(toErrorBody(internal).statusCode).toBe(500);
+  });
 });

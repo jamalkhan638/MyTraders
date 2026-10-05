@@ -4,6 +4,8 @@
  *   pnpm --filter @mytraders/api org:create -- \
  *     --name "Ali Akbar Traders" --admin-name "Owner" \
  *     --admin-email owner@example.com --admin-password 'S3cure-pass!' \
+ *   (or leave out --admin-password and set ADMIN_PASSWORD in the environment, so the password
+ *    does not end up in the shell history or the process list)
  *     [--status ACTIVE|TRIAL] [--currency PKR] [--timezone Asia/Karachi] \
  *     [--invoice-prefix M-] [--invoice-digits 8]
  */
@@ -25,7 +27,10 @@ const argsSchema = z.object({
 });
 
 async function main() {
+  // `pnpm org:create -- --name …` forwards the "--" separator; skip it.
+  const argv = process.argv.slice(2);
   const { values } = parseArgs({
+    args: argv[0] === '--' ? argv.slice(1) : argv,
     options: {
       name: { type: 'string' },
       'admin-name': { type: 'string' },
@@ -38,7 +43,10 @@ async function main() {
       'invoice-digits': { type: 'string' },
     },
   });
-  const parsed = argsSchema.safeParse(values);
+  const parsed = argsSchema.safeParse({
+    ...values,
+    'admin-password': values['admin-password'] ?? process.env.ADMIN_PASSWORD,
+  });
   if (!parsed.success) {
     console.error(z.prettifyError(parsed.error));
     process.exit(1);

@@ -78,6 +78,17 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Real `.xlsx` and server-generated PDF exports
 - ☐ Server-backed searchable Shop / Product pickers for report filters (dropdowns list the first 100 — needed as the catalogue grows)
 
+## MVP hardening (before SaaS Super Admin)
+- ☑ End-to-end workflow test + browser walkthrough (fresh CLI organization → … → reports, booker on a phone)
+- ☑ Permission matrix over every route, cross-tenant id attacks, concurrency, precision, snapshots, ledger invariants, inactive entities (`hardening.e2e-spec.ts`)
+- ☑ Fixes: values too large for a column → 422 (was 500); body-parser errors keep 4xx (413 was 500); health → 503 when the database is down; production env checks (secure cookie, example secret, trust proxy) + `TRUST_PROXY`; demo seed refuses non-`_dev`/`_test` databases; `org:create -- …` argument bug; `ADMIN_PASSWORD` for the CLI; invoice form no longer re-fetches its consumed draft (409 noise); booker quantity summary follows typing
+- ☑ [operations.md](./operations.md): deployment, configuration, migrations, backup / restore, monitoring
+- ☐ Change own password (Admin and Order Booker) — documented in permissions.md, not built yet
+- ☐ Idempotency keys for payments / direct invoices (the UI blocks double submits; a retried request can still post twice)
+- ☐ Scheduled clean-up of expired / revoked refresh tokens
+- ☐ CI workflow running build, lint, typecheck, unit + e2e on every push
+- ☐ Container images + deployment scripts
+
 ## Phase 8 — PWA & polish
 - ☐ PWA manifest/icons, app-shell caching, order draft persistence
 - ☐ Mobile review of all Admin pages

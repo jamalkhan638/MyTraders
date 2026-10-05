@@ -15,13 +15,14 @@ import {
   type InvoiceDraft,
   type InvoiceDraftQuery,
   type InvoicePreview,
+  type InvoiceTotals,
   type InvoiceSummary,
   type ListInvoicesQuery,
   calculatePayableValue,
   optionalInvoiceAmount,
   type Paginated,
 } from '@mytraders/shared-types';
-import { type Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { allocateDocumentNumber, peekDocumentNumber } from '../../common/numbering/document-number';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
@@ -220,6 +221,8 @@ export class InvoicesService {
   async preview(input: CreateInvoice): Promise<InvoicePreview> {
     const lines = await priceLines(this.db.client, input);
     const totals = calculateInvoiceTotals(lines.map((l) => l.calc));
+    const payableValue = payableOf(totals.grandTotal, input);
+    assertStorable(lines, totals, payableValue);
     return {
       items: lines.map(({ product, calc }) => ({
         productId: product.id,
@@ -241,7 +244,7 @@ export class InvoicesService {
       totalValueInclGst: totals.totalValueInclGst,
       totalTradeOffer: totals.totalTradeOffer,
       grandTotal: totals.grandTotal,
-      payableValue: payableOf(totals.grandTotal, input),
+      payableValue,
     };
   }
 
@@ -264,6 +267,8 @@ export class InvoicesService {
       const invoiceNumber = await allocateDocumentNumber(tx, organizationId, 'INVOICE');
       const lines = await priceLines(tx, input);
       const totals = calculateInvoiceTotals(lines.map((l) => l.calc));
+      const payableValue = payableOf(totals.grandTotal, input);
+      assertStorable(lines, totals, payableValue);
       const org = await tx.organization.findFirstOrThrow();
 
       const invoice = await tx.invoice.create({
@@ -302,7 +307,7 @@ export class InvoicesService {
           // Due Payment is a printed snapshot only — neither the ledger nor Payable Value reads it.
           duePayment: input.duePayment ?? null,
           // Grand Total + Advance Tax + Further Tax − ADT discount; never Due Payment (D-31)
-          payableValue: payableOf(totals.grandTotal, input),
+          payableValue,
           notes: input.notes ?? null,
           createdById: auth.userId,
         },
@@ -416,6 +421,52 @@ function payableOf(grandTotal: string, input: CreateInvoice): string {
     ]);
   }
   return payable;
+}
+
+/** Column limits: money numeric(14,2) and weight numeric(14,3) hold values below these. */
+const MONEY_LIMIT = new Prisma.Decimal('1e12');
+const WEIGHT_LIMIT = new Prisma.Decimal('1e11');
+const exceeds = (value: string | null, limit: Prisma.Decimal) =>
+  value !== null && new Prisma.Decimal(value).abs().greaterThanOrEqualTo(limit);
+
+/**
+ * Every calculated value must fit its database column. Inputs are bounded one by one, but a
+ * large quantity × price (or many large lines) can exceed the column — refuse that with a 422
+ * on the line / invoice instead of failing inside the database.
+ */
+function assertStorable(lines: PricedLine[], totals: InvoiceTotals, payableValue: string): void {
+  const errors: FieldError[] = [];
+  lines.forEach(({ calc }, index) => {
+    const money = [
+      calc.valueExclTax,
+      calc.gstAmount,
+      calc.valueInclGst,
+      calc.toAmount,
+      calc.atoAmount,
+      calc.totalTradeOffer,
+      calc.grossValue,
+      calc.costTotal,
+    ];
+    if (money.some((v) => exceeds(v, MONEY_LIMIT)) || exceeds(calc.totalWeight, WEIGHT_LIMIT)) {
+      errors.push({
+        path: `items.${index}`,
+        message: `Line ${index + 1}: the quantity or price is too large`,
+      });
+    }
+  });
+  const invoiceMoney = [
+    totals.totalValueExclTax,
+    totals.totalGstAmount,
+    totals.totalValueInclGst,
+    totals.totalTradeOffer,
+    totals.grandTotal,
+    totals.totalCost,
+    payableValue,
+  ];
+  if (errors.length === 0 && invoiceMoney.some((v) => exceeds(v, MONEY_LIMIT))) {
+    errors.push({ path: 'items', message: 'The invoice total is too large' });
+  }
+  if (errors.length > 0) fail(errors);
 }
 
 function fail(details: FieldError[]): never {

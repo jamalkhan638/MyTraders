@@ -48,7 +48,14 @@ export function QuantityStepper({
           aria-label={`${unitLabel} of ${label}`}
           className="h-11 w-16 rounded-md border border-input bg-card text-center text-base font-semibold tabular-nums outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
           value={text ?? String(value)}
-          onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ''))}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/[^0-9]/g, '');
+            setText(digits);
+            // a typed quantity ≥ 1 counts at once (the order summary follows); empty / 0 waits
+            // for blur so the line is not removed while typing
+            const parsed = Number.parseInt(digits, 10);
+            if (parsed >= 1) onChange(Math.min(parsed, ORDER_MAX_QUANTITY));
+          }}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit((e.target as HTMLInputElement).value);

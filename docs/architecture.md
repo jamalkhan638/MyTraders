@@ -125,6 +125,6 @@ The row lock serializes concurrent confirmations per organization; if the transa
 
 REST, JSON, prefix `/api`, Swagger at `/api/docs` (dev only). Pagination: `?page=&pageSize=` → `{ items, total, page, pageSize }`. See [backend-guidelines.md](./backend-guidelines.md) for the endpoint list.
 
-## 11. Deployment (later)
+## 11. Deployment
 
-Single Docker image per app; managed PostgreSQL with daily backups; web served as static files behind the same domain as the API (`/api`) so the refresh cookie can be `SameSite=Strict`.
+Single Docker image per app (later); managed PostgreSQL with daily backups and point-in-time recovery; web served as static files behind the same domain as the API (`/api`) so the refresh cookie can be `SameSite=Strict`. Configuration, migrations, backup / restore and monitoring: [operations.md](./operations.md).

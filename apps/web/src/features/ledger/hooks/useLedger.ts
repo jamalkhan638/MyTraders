@@ -26,11 +26,12 @@ export const ledgerKeys = {
  * Anything that posts to the ledger changes balances shown in several places (shop details, shop
  * list, area sheet, invoice draft): refresh them all from the server.
  */
-export function invalidateBalances(queryClient: QueryClient) {
+export function invalidateBalances(queryClient: QueryClient, { drafts = true } = {}) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: ledgerKeys.all }),
     queryClient.invalidateQueries({ queryKey: shopsKeys.all }),
-    queryClient.invalidateQueries({ queryKey: ['invoices', 'draft'] }),
+    // an open invoice form's Due Payment follows the balance
+    drafts && queryClient.invalidateQueries({ queryKey: ['invoices', 'draft'] }),
   ]);
 }
 

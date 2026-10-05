@@ -9,8 +9,14 @@ import { createOrganizationWithAdmin, createUser } from '../scripts/lib/organiza
 const prisma = new PrismaClient();
 
 async function main() {
-  if (process.env.NODE_ENV === 'production')
-    throw new Error('Refusing to seed a production database');
+  // Demo data has public passwords: never let it reach a real database, even when NODE_ENV is
+  // not set in the shell (e.g. `prisma migrate reset` run against the wrong DATABASE_URL).
+  const database = new URL(process.env.DATABASE_URL ?? '').pathname.slice(1);
+  if (process.env.NODE_ENV === 'production' || !/_(dev|test)$/.test(database)) {
+    throw new Error(
+      `Refusing to seed "${database}": demo data is only for databases named *_dev or *_test`,
+    );
+  }
 
   if (!(await prisma.user.findUnique({ where: { email: 'admin@demo.test' } }))) {
     const { organization } = await createOrganizationWithAdmin(prisma, {

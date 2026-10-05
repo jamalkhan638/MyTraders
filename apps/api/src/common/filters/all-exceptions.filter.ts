@@ -66,10 +66,32 @@ export function toErrorBody(exception: unknown): ApiErrorBody {
         return { ...base(404), message: 'Record not found' };
       case 'P2003':
         return { ...base(409), message: 'The record is referenced by or references other data' };
+      case 'P2000':
+      case 'P2020':
+        // a value does not fit its column — inputs are validated, so this is a safety net
+        return { ...base(422), message: 'A value is too large' };
     }
   }
 
+  // Request body errors raised by the body parser before Nest (e.g. 413 body too large).
+  const status = clientErrorStatus(exception);
+  if (status) {
+    return {
+      ...base(status),
+      message: status === 413 ? 'The request is too large' : 'The request body is not valid',
+    };
+  }
+
   return { ...base(500), message: 'Internal server error' };
+}
+
+/** 4xx status of an http-errors error (body-parser), if the exception is one. */
+function clientErrorStatus(exception: unknown): number | undefined {
+  if (!exception || typeof exception !== 'object') return undefined;
+  const { status, expose } = exception as { status?: unknown; expose?: unknown };
+  return typeof status === 'number' && status >= 400 && status < 500 && expose === true
+    ? status
+    : undefined;
 }
 
 function base(statusCode: number): Pick<ApiErrorBody, 'statusCode' | 'error'> {

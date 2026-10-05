@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Before implementing or changing any module, read the relevant files in `/docs` — they are the source of truth:
-`product-requirements.md`, `invoice-specification.md`, `architecture.md`, `database-design.md`, `backend-guidelines.md`, `frontend-guidelines.md`, `permissions.md`, `implementation-plan.md`.
+`product-requirements.md`, `invoice-specification.md`, `architecture.md`, `database-design.md`, `backend-guidelines.md`, `frontend-guidelines.md`, `permissions.md`, `implementation-plan.md`, `operations.md`.
 
 Non-negotiable rules:
 - Never accept `organizationId` from the client; use the tenant-scoped Prisma client for tenant data.

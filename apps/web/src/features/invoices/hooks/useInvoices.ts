@@ -46,10 +46,15 @@ export function useCreateInvoice() {
     onSuccess: async (invoice) => {
       queryClient.setQueryData(invoicesKeys.detail(invoice.id), invoice);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: invoicesKeys.all }),
+        // not the form's own draft: its order is now invoiced, so re-fetching it would only
+        // return 409 (the draft is never cached and is dropped when the form closes)
+        queryClient.invalidateQueries({
+          queryKey: invoicesKeys.all,
+          predicate: (query) => query.queryKey[1] !== 'draft',
+        }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.all }),
-        // the invoice debit changed the shop's balance (D-30)
-        invalidateBalances(queryClient),
+        // the invoice debit changed the shop's balance (D-30); the confirmed form's draft is done
+        invalidateBalances(queryClient, { drafts: false }),
       ]);
     },
   });
