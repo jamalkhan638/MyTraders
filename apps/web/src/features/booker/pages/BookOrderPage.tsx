@@ -1,4 +1,4 @@
-import { type BookerProduct } from '@mytraders/shared-types';
+import { type BookerProduct, quantityUnitFor } from '@mytraders/shared-types';
 import { ArrowLeft, Check, Loader2, PackageSearch, Plus, Search, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCreateOrder } from '@/features/orders/hooks/useOrders';
 import { ApiError } from '@/lib/api/client';
 import { showApiError } from '@/lib/api/form-errors';
-import { weightLabel } from '@/lib/format/product';
+import { quantityLabel, quantityTotals, weightLabel } from '@/lib/format/product';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useBookerProducts, useMyShop } from '../hooks/useBooker';
@@ -77,7 +77,12 @@ function BookOrderForm({
   const q = useDebouncedValue(search.trim());
   const products = useBookerProducts({ q: q || undefined, pageSize: 30 });
   const inOrder = new Map(draft.lines.map((line) => [line.product.id, line]));
-  const totalQuantity = draft.lines.reduce((sum, line) => sum + line.quantity, 0);
+  // Pieces (TIN) and cartons (POUCH) are counted separately, never added together (D-28).
+  const totals = { totalPieces: 0, totalCartons: 0 };
+  for (const line of draft.lines) {
+    if (quantityUnitFor(line.product.type) === 'CARTON') totals.totalCartons += line.quantity;
+    else totals.totalPieces += line.quantity;
+  }
 
   const submit = () => {
     if (draft.lines.length === 0) return;
@@ -220,7 +225,7 @@ function BookOrderForm({
           {create.isPending ? <Loader2 className="animate-spin" /> : <Send />}
           {draft.lines.length === 0
             ? 'Add products to submit'
-            : `Submit order · ${draft.lines.length} product${draft.lines.length === 1 ? '' : 's'}, qty ${totalQuantity}`}
+            : `Submit order · ${draft.lines.length} product${draft.lines.length === 1 ? '' : 's'} · ${quantityTotals(totals)}`}
         </Button>
       </div>
     </div>
@@ -254,7 +259,12 @@ function OrderLine({
           <Trash2 />
         </Button>
       </div>
-      <QuantityStepper value={line.quantity} onChange={onQuantity} label={line.product.name} />
+      <QuantityStepper
+        value={line.quantity}
+        onChange={onQuantity}
+        label={line.product.name}
+        unitLabel={quantityLabel(quantityUnitFor(line.product.type))}
+      />
     </li>
   );
 }

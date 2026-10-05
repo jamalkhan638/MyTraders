@@ -85,7 +85,7 @@ describe('Orders (e2e)', () => {
     unassignedShop = await f.shop(orgA.id, 'Unassigned Shop', saddar.id, null);
     shopB = await f.shop(orgB.id, 'Org B Shop', areaB.id, bookerB.id);
 
-    pouch = await f.product(orgA.id, 'Dalda 5L Pouch');
+    pouch = await f.product(orgA.id, 'Dalda 5L Pouch', true, null, 'POUCH');
     ghee = await f.product(orgA.id, 'Dalda Ghee 1Kg');
     tin = await f.product(orgA.id, 'Dalda 4.5Kg Tin');
     oldProduct = await f.product(orgA.id, 'Old Product', false);
@@ -118,19 +118,23 @@ describe('Orders (e2e)', () => {
         area: { id: saddar.id, name: 'Saddar' },
         orderBooker: { id: ahmed.id, name: 'Ahmed' },
         itemCount: 3,
-        totalQuantity: 18,
+        totalPieces: 13,
+        totalCartons: 5,
         notes: 'Deliver tomorrow',
         cancelledAt: null,
       });
       expect(
-        res.body.items.map((i: { product: { name: string }; quantity: number }) => [
-          i.product.name,
-          i.quantity,
-        ]),
+        res.body.items.map(
+          (i: { product: { name: string }; quantity: number; quantityUnit: string }) => [
+            i.product.name,
+            i.quantity,
+            i.quantityUnit,
+          ],
+        ),
       ).toEqual([
-        ['Dalda 4.5Kg Tin', 3],
-        ['Dalda 5L Pouch', 5],
-        ['Dalda Ghee 1Kg', 10],
+        ['Dalda 4.5Kg Tin', 3, 'PIECE'],
+        ['Dalda 5L Pouch', 5, 'CARTON'],
+        ['Dalda Ghee 1Kg', 10, 'PIECE'],
       ]);
       expect(JSON.stringify(res.body)).not.toMatch(/price|cost|tax|discount/i);
 
@@ -144,6 +148,13 @@ describe('Orders (e2e)', () => {
         status: 'PENDING',
       });
       expect(stored.items).toHaveLength(3);
+      expect(
+        Object.fromEntries(stored.items.map((i) => [i.productId, [i.quantity, i.quantityUnit]])),
+      ).toEqual({
+        [tin.id]: [3, 'PIECE'],
+        [pouch.id]: [5, 'CARTON'],
+        [ghee.id]: [10, 'PIECE'],
+      });
     });
 
     it('numbers orders sequentially per organization', async () => {
@@ -166,6 +177,45 @@ describe('Orders (e2e)', () => {
       expect(res.body.orderNumber).toMatch(/^OB-\d{5}$/);
       const stored = await t.prisma.order.findUniqueOrThrow({ where: { id: res.body.id } });
       expect(stored).toMatchObject({ organizationId: orgA.id, orderBookerId: ahmed.id });
+    });
+
+    it('takes the quantity unit from the product type, never from the request', async () => {
+      const res = await create(ahmedToken, {
+        shopId: aliStore.id,
+        items: [
+          { productId: pouch.id, quantity: 4, quantityUnit: 'PIECE', pieces: 20 },
+          { productId: tin.id, quantity: 7, quantityUnit: 'CARTON' },
+        ],
+      }).expect(201);
+      expect(
+        res.body.items.map((i: { quantity: number; quantityUnit: string }) => [
+          i.quantity,
+          i.quantityUnit,
+        ]),
+      ).toEqual([
+        [7, 'PIECE'],
+        [4, 'CARTON'],
+      ]);
+      expect(res.body).toMatchObject({ totalPieces: 7, totalCartons: 4 });
+    });
+
+    it('keeps the booked unit when the product type changes later', async () => {
+      const product = await fixtures(t.prisma).product(orgA.id, 'Switcher', true, null, 'TIN');
+      const res = await create(ahmedToken, order(aliStore, [product, 6])).expect(201);
+      await t.prisma.product.update({
+        where: { id: product.id },
+        data: { type: 'POUCH', piecesPerCarton: 12 },
+      });
+      const after = await http()
+        .get(`/api/orders/${res.body.id}`)
+        .set(auth(adminToken))
+        .expect(200);
+      expect(after.body.items[0]).toMatchObject({
+        quantity: 6,
+        quantityUnit: 'PIECE',
+        product: { type: 'POUCH', piecesPerCarton: 12 },
+      });
+      await t.prisma.product.update({ where: { id: product.id }, data: { isActive: false } });
     });
   });
 

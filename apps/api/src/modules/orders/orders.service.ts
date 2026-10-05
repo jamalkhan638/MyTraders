@@ -11,7 +11,10 @@ import {
   type ListOrdersQuery,
   type OrderDetails,
   type OrderSummary,
+  type ProductType,
+  type QuantityUnit,
   type Paginated,
+  quantityUnitFor,
 } from '@mytraders/shared-types';
 import { type Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/tenant/tenant-context';
@@ -32,7 +35,7 @@ const SUMMARY_FIELDS = {
   createdAt: true,
   shop: { select: { id: true, name: true, area: REF } },
   orderBooker: REF,
-  items: { select: { quantity: true } },
+  items: { select: { quantity: true, quantityUnit: true } },
 } as const satisfies Prisma.OrderSelect;
 
 const DETAIL_FIELDS = {
@@ -45,6 +48,7 @@ const DETAIL_FIELDS = {
     select: {
       id: true,
       quantity: true,
+      quantityUnit: true,
       product: {
         select: {
           id: true,
@@ -128,7 +132,7 @@ export class OrdersService {
 
     // Shop/product checks, number allocation and the order with all its lines: one transaction.
     const id = await this.db.client.$transaction(async (tx) => {
-      await assertOrderable(tx, auth.userId, input);
+      const productTypes = await assertOrderable(tx, auth.userId, input);
       const orderNumber = await allocateOrderNumber(tx, organizationId);
       const order = await tx.order.create({
         data: {
@@ -141,6 +145,8 @@ export class OrdersService {
             create: input.items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
+              // TIN → pieces, POUCH → cartons; never taken from the request (D-28).
+              quantityUnit: quantityUnitFor(productTypes.get(item.productId)!),
             })),
           },
         },
@@ -181,9 +187,14 @@ function visibleTo(auth: AuthContext): Prisma.OrderWhereInput {
 /**
  * The shop must be an active shop assigned to this booker, and every product an active product
  * of the organization (the tenant client already hides other organizations' records, so a
- * foreign id fails exactly like an unknown one).
+ * foreign id fails exactly like an unknown one). Returns each product's type, which decides the
+ * unit its quantity counts.
  */
-async function assertOrderable(tx: TenantTx, bookerId: string, input: CreateOrder): Promise<void> {
+async function assertOrderable(
+  tx: TenantTx,
+  bookerId: string,
+  input: CreateOrder,
+): Promise<Map<string, ProductType>> {
   const details: FieldError[] = [];
 
   const shop = await tx.shop.findFirst({
@@ -196,7 +207,7 @@ async function assertOrderable(tx: TenantTx, bookerId: string, input: CreateOrde
   const productIds = input.items.map((item) => item.productId);
   const products = await tx.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true, isActive: true },
+    select: { id: true, isActive: true, type: true },
   });
   const byId = new Map(products.map((p) => [p.id, p]));
   input.items.forEach((item, index) => {
@@ -213,6 +224,7 @@ async function assertOrderable(tx: TenantTx, bookerId: string, input: CreateOrde
       details,
     });
   }
+  return new Map(products.map((p) => [p.id, p.type]));
 }
 
 function toSummary(row: SummaryRow): OrderSummary {
@@ -224,7 +236,8 @@ function toSummary(row: SummaryRow): OrderSummary {
     area: row.shop.area,
     orderBooker: row.orderBooker,
     itemCount: row.items.length,
-    totalQuantity: row.items.reduce((sum, item) => sum + item.quantity, 0),
+    totalPieces: sumOf(row.items, 'PIECE'),
+    totalCartons: sumOf(row.items, 'CARTON'),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -239,7 +252,13 @@ function toDetails(row: DetailRow): OrderDetails {
     items: row.items.map((item) => ({
       id: item.id,
       quantity: item.quantity,
+      quantityUnit: item.quantityUnit,
       product: { ...item.product, weight: item.product.weight?.toString() ?? null },
     })),
   };
+}
+
+/** Quantities are only ever added up within one unit — pieces and cartons are never mixed. */
+function sumOf(items: { quantity: number; quantityUnit: QuantityUnit }[], unit: QuantityUnit) {
+  return items.reduce((sum, item) => (item.quantityUnit === unit ? sum + item.quantity : sum), 0);
 }

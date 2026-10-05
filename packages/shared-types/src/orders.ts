@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { optionalText, paginatedSchema, paginationQuerySchema } from './common';
-import { ProductType, ProductUnit, WeightBasis } from './enums';
+import { ProductType, ProductUnit, QuantityUnit, WeightBasis } from './enums';
 
 export const OrderStatus = {
   PENDING: 'PENDING',
@@ -29,7 +29,10 @@ export const orderSummarySchema = z.object({
   area: refSchema,
   orderBooker: refSchema,
   itemCount: z.number().int(),
-  totalQuantity: z.number().int(),
+  /** Sum of the quantities counted in pieces (TIN lines). Units are never mixed (D-28). */
+  totalPieces: z.number().int(),
+  /** Sum of the quantities counted in cartons (POUCH lines). */
+  totalCartons: z.number().int(),
   createdAt: z.string(),
 });
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
@@ -47,7 +50,10 @@ export const orderItemSchema = z.object({
     piecesPerCarton: z.number().int().nullable(),
     isActive: z.boolean(),
   }),
+  /** Whole number in `quantityUnit`. */
   quantity: z.number().int(),
+  /** PIECE for a TIN, CARTON for a POUCH — fixed when the order was booked (D-28). */
+  quantityUnit: z.enum(QuantityUnit),
 });
 export type OrderItem = z.infer<typeof orderItemSchema>;
 
@@ -86,7 +92,8 @@ const quantity = z
 
 /**
  * POST /orders (Order Booker). Only shop, products, quantities and an optional note are accepted;
- * the order number, organization, booker, prices and status are decided by the server.
+ * the order number, organization, booker, prices, status and each line's quantity unit (from the
+ * product type: TIN → pieces, POUCH → cartons) are decided by the server.
  */
 export const createOrderSchema = z
   .object({

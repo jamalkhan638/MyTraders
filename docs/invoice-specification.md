@@ -32,8 +32,8 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | Product Name | snapshot | Product | `productName` | — |
 | R.P / Pcs incl. tax | editable, display only | Product.retailPrice | `retailPrice` | never used in invoice math (D-26) |
 | T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | **drives the invoice value** (D-26); exact formula TBC |
-| Qty (ctn) | editable | Order qty | `cartonQty` | **POUCH:** the pricing quantity. TIN: TBC |
-| Qty (pcs) | editable / derived | — | `pieceQty` | **TIN:** the pricing quantity. **POUCH:** display only, auto = Qty Ctn × Pieces per Carton (D-26) |
+| Qty (ctn) | editable | Order line with unit `CARTON` | `cartonQty` | **POUCH:** the pricing quantity. TIN: TBC |
+| Qty (pcs) | editable / derived | Order line with unit `PIECE` | `pieceQty` | **TIN:** the pricing quantity. **POUCH:** display only, auto = Qty Ctn × Pieces per Carton (D-26) |
 | Total Weight | derived | Product.weight / weightUnit / weightBasis | `totalWeightKg` | weight × pieces (basis PIECE) or × cartons (basis CARTON); Liter/ML TBC (OQ-7) |
 | Value excl. tax | derived | — | `valueExclTax` | **TBC** |
 | GST rate | editable | Product.defaultTaxRate (D-26) | `taxRate` | — |
@@ -44,6 +44,16 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | Total trade offer | derived | — | `tradeOffer` | **TBC** |
 | Gross invoice value | derived | — | `grossValue` | **TBC** |
 | (hidden) Cost | snapshot | Product.invoiceCostPrice | `unitCost`, `costTotal` | profit only, never in invoice totals; pricing qty × unit cost (D-26) |
+
+### Prefilling from an order (D-28)
+An order line carries `quantity` and `quantityUnit`, fixed when the order was booked:
+
+| Order line | Invoice Qty (ctn) | Invoice Qty (pcs) |
+|---|---|---|
+| `PIECE` (TIN) | TBC | = order quantity |
+| `CARTON` (POUCH) | = order quantity | = order quantity × Product.piecesPerCarton (display only) |
+
+The order itself holds no prices; trade price, cost and tax rate come from the product when the invoice is created.
 
 ## 4. Totals / footer
 
@@ -83,5 +93,5 @@ For each: the rule + one worked example from a real invoice.
 8. Gross invoice value
 9. Further tax — which shops, what rate, on what base?
 10. Payable value
-11. ~~Qty ctn vs Qty pcs~~ — D-26: TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs = Qty Ctn × Pieces per Carton). Still to confirm: what an order quantity means per type.
+11. ~~Qty ctn vs Qty pcs~~ — D-26: TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs = Qty Ctn × Pieces per Carton). Order quantities: D-28 (TIN pieces, POUCH cartons). Still to confirm: Qty Ctn for a TIN.
 12. Rounding

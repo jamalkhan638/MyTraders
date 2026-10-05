@@ -53,3 +53,24 @@ export const WEIGHT_BASIS_LABELS: Record<WeightBasis, string> = {
   PIECE: 'per piece',
   CARTON: 'per carton',
 };
+
+/**
+ * What an order quantity counts (D-28): pieces for a TIN, cartons for a POUCH. Decided by the
+ * server from the product type when the order is booked and stored on the order line.
+ */
+export const QuantityUnit = {
+  PIECE: 'PIECE',
+  CARTON: 'CARTON',
+} as const;
+export type QuantityUnit = (typeof QuantityUnit)[keyof typeof QuantityUnit];
+
+/** Short labels as printed on invoices: "Qty (Pcs)" / "Qty (Ctn)". */
+export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
+  PIECE: 'Pcs',
+  CARTON: 'Ctn',
+};
+
+/** TIN → PIECE, POUCH → CARTON (D-26, D-28). */
+export function quantityUnitFor(type: ProductType): QuantityUnit {
+  return type === 'POUCH' ? 'CARTON' : 'PIECE';
+}

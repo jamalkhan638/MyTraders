@@ -14,7 +14,9 @@ const key = (shopId: string) => `mytraders.orderDraft.${shopId}`;
 function load(shopId: string): DraftLine[] {
   try {
     const raw = localStorage.getItem(key(shopId));
-    return raw ? (JSON.parse(raw) as DraftLine[]) : [];
+    const lines = raw ? (JSON.parse(raw) as DraftLine[]) : [];
+    // Drafts saved before products had a type can't show the right unit (Pcs / Ctn): drop them.
+    return lines.filter((line) => line.product?.type === 'TIN' || line.product?.type === 'POUCH');
   } catch {
     return [];
   }

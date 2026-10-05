@@ -89,7 +89,7 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /shops/:id/payments` | ADMIN | rejects overpayment |
 | `POST /shops/:id/adjustments` | ADMIN | Add Credit / reduce, note required |
 | `GET /orders?page&pageSize&q&areaId&orderBookerId&status`, `GET /orders/:id` | ADMIN all / BOOKER own | ✅ Phase 3; booker filters are forced to their own orders; another booker's order → 404 |
-| `POST /orders` | BOOKER | ✅ `{ shopId, items: [{ productId, quantity }], notes? }`; number generated in the transaction; 422 per field for unassigned/inactive shop or inactive/unknown product |
+| `POST /orders` | BOOKER | ✅ `{ shopId, items: [{ productId, quantity }], notes? }`; each line's `quantityUnit` (PIECE for TIN, CARTON for POUCH) is set by the server, a client-sent unit is ignored; summaries return `totalPieces` / `totalCartons` (never mixed); number generated in the transaction; 422 per field for unassigned/inactive shop or inactive/unknown product |
 | `POST /orders/:id/cancel` | ADMIN / BOOKER own | ✅ only `PENDING` (409 otherwise) |
 | `GET /booker/shops?q&areaId`, `GET /booker/shops/:id`, `GET /booker/areas`, `GET /booker/products?q` | BOOKER | ✅ assigned active shops only; areas of those shops; active products **without any price** (D-24) |
 | `POST /invoices/preview` | ADMIN | computes totals server-side without saving |

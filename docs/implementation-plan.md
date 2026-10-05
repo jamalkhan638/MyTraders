@@ -36,6 +36,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 ## Phase 3 — Order Booker flow
 - ☑ Booker: My Shops (assigned active shops, area filter, search; balance in Phase 5) — `GET /booker/shops|areas`
 - ☑ Booker: Book Order (products + whole quantities only, no prices — D-24; draft kept on the phone) — `GET /booker/products`, `POST /orders`
+- ☑ Order quantity by product type (D-28): `Qty (Pcs)` for TIN, `Qty (Ctn)` for POUCH; `OrderItem.quantityUnit` stored by the server; totals per unit
 - ☑ Booker: My Orders, order details, cancel own pending
 - ☑ Admin: Orders list (search/filters/pagination, pending polling), order details, cancel, Generate Invoice entry point (`/invoices/new?orderId=` placeholder until Phase 4)
 

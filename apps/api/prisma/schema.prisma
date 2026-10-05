@@ -36,6 +36,12 @@ enum ProductType {
   POUCH
 }
 
+/// What an order quantity counts (D-28)
+enum QuantityUnit {
+  PIECE
+  CARTON
+}
+
 /// What a product's weight refers to.
 enum WeightBasis {
   PIECE
@@ -279,8 +285,10 @@ model OrderItem {
   id        String @id @default(uuid(7)) @db.Uuid
   orderId   String @db.Uuid
   productId String @db.Uuid
-  /// whole units as added by the Admin, e.g. cartons (D-15, D-25)
-  quantity  Int
+  /// whole number in `quantityUnit` (D-25, D-28)
+  quantity     Int
+  /// PIECE for a TIN, CARTON for a POUCH; set by the server from the product type when booked
+  quantityUnit QuantityUnit
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)

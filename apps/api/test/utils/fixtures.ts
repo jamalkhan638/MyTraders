@@ -7,21 +7,28 @@ export function fixtures(prisma: PrismaService) {
       prisma.area.create({
         data: { organizationId, name, nameNormalized: name.toLowerCase(), isActive },
       }),
-    product: (organizationId: string, name: string, isActive = true, code: string | null = null) =>
+    product: (
+      organizationId: string,
+      name: string,
+      isActive = true,
+      code: string | null = null,
+      type: 'TIN' | 'POUCH' = 'TIN',
+    ) =>
       prisma.product.create({
         data: {
           organizationId,
           name,
           code,
           codeNormalized: code?.toLowerCase() ?? null,
-          type: 'TIN',
+          type,
+          piecesPerCarton: type === 'POUCH' ? 5 : null,
           retailPrice: '100',
           tradePrice: '90',
           invoiceCostPrice: '80',
           defaultTaxRate: '18',
           weight: '4.5',
           weightUnit: 'KG',
-          weightBasis: 'PIECE',
+          weightBasis: type === 'POUCH' ? 'CARTON' : 'PIECE',
           isActive,
         },
       }),

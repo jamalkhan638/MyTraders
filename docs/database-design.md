@@ -194,11 +194,13 @@ model Order {
   @@index([organizationId, shopId])
 }
 
+// enum QuantityUnit { PIECE CARTON } — no prices of any kind on orders (D-24, D-28)
 model OrderItem {               // reachable only through its Order (not a tenant model itself)
   id        String @id @default(uuid(7)) @db.Uuid
   orderId   String @db.Uuid     // onDelete: Cascade
   productId String @db.Uuid
-  quantity  Int                 // whole units, e.g. cartons (D-15, D-25); CHECK quantity > 0
+  quantity  Int                 // whole number in quantityUnit (D-25, D-28); CHECK quantity > 0
+  quantityUnit QuantityUnit     // PIECE (TIN) | CARTON (POUCH); server-set from the product type when booked
   @@unique([orderId, productId])  // a product appears once per order
 }
 

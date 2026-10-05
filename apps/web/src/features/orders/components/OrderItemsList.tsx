@@ -1,4 +1,5 @@
 import { type OrderDetails } from '@mytraders/shared-types';
+import { QUANTITY_UNIT_LABELS } from '@mytraders/shared-types';
 import { weightLabel } from '@/lib/format/product';
 
 /** Products and quantities of an order (no prices — D-24 / orders carry none). */
@@ -26,7 +27,9 @@ export function OrderItemsList({ order }: { order: OrderDetails }) {
           </div>
           <div className="shrink-0 text-right">
             <span className="text-lg font-semibold tabular-nums">{item.quantity}</span>
-            <span className="ml-1 text-xs text-muted-foreground">qty</span>
+            <span className="ml-1 text-xs text-muted-foreground">
+              {QUANTITY_UNIT_LABELS[item.quantityUnit].toLowerCase()}
+            </span>
           </div>
         </li>
       ))}

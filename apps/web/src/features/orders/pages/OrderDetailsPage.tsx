@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format/date';
 import { CancelOrderDialog } from '../components/CancelOrderDialog';
+import { quantityTotals } from '@/lib/format/product';
 import { OrderItemsList } from '../components/OrderItemsList';
 import { OrderStatusBadge } from '../components/OrderStatusBadge';
 import { useOrder } from '../hooks/useOrders';
@@ -109,7 +110,7 @@ function Details({ order }: { order: OrderDetails }) {
             <CardTitle>
               Products{' '}
               <span className="font-normal text-muted-foreground">
-                ({order.itemCount} · total qty {order.totalQuantity})
+                ({order.itemCount} · {quantityTotals(order)})
               </span>
             </CardTitle>
           </CardHeader>
