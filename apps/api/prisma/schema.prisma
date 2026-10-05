@@ -185,7 +185,6 @@ model Product {
   codeNormalized   String?
   type             ProductType
   /// display only, never used in calculations
-  rateCode         String?
   /// R.P — display / reference only
   retailPrice      Decimal      @db.Decimal(14, 2)
   /// T.P — drives the invoice value

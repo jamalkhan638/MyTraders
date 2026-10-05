@@ -159,7 +159,6 @@ model Product {
   code            String?                                   // optional
   codeNormalized  String?                                   // lower-cased code; unique per org when set
   type            ProductType                               // TIN (invoiced by pieces) | POUCH (by cartons) — D-26
-  rateCode        String?                                   // display only
   retailPrice     Decimal      @db.Decimal(14, 2)           // R.P, display only
   tradePrice      Decimal      @db.Decimal(14, 2)           // T.P, drives the invoice value
   invoiceCostPrice Decimal     @db.Decimal(14, 2)           // company invoice price; profit only
@@ -247,7 +246,6 @@ model InvoiceItem {
   // snapshots
   productCode     String?
   productName     String
-  rateCode        String?
   retailPrice     Decimal @db.Decimal(14, 2)
   tradePrice      Decimal @db.Decimal(14, 2)
   piecesPerCarton Int

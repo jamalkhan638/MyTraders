@@ -31,7 +31,6 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 | Product Code | snapshot | Product | `productCode` | — |
 | Product Name | snapshot | Product | `productName` | — |
 | R.P / Pcs incl. tax | editable, display only | Product.retailPrice | `retailPrice` | never used in invoice math (D-26) |
-| Rate Code | snapshot, display only | Product.rateCode | `rateCode` | never used in math |
 | T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | **drives the invoice value** (D-26); exact formula TBC |
 | Qty (ctn) | editable | Order qty | `cartonQty` | **POUCH:** the pricing quantity. TIN: TBC |
 | Qty (pcs) | editable / derived | — | `pieceQty` | **TIN:** the pricing quantity. **POUCH:** display only, auto = Qty Ctn × Pieces per Carton (D-26) |

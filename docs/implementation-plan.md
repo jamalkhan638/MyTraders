@@ -28,6 +28,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Shop Categories (shop types) — Settings → Shop Categories; `GET/POST /shop-categories`, `GET/PATCH /shop-categories/:id`. Product Categories removed from the MVP (D-21)
 - ☑ Products (table + drawer) — `GET/POST /products`, `GET/PATCH /products/:id`
 - ☑ Product invoice rules (D-26): Type TIN/POUCH, Invoice/Cost Price, Default Tax Rate, Weight Unit + Basis, POUCH requires Pieces per Carton; data-preserving migration; type filter
+- ☑ Rate Code removed from products (D-27)
 - ☑ Shops (table, filters, drawer, assign booker; FK validation in organization, D-23) — `GET/POST /shops`, `GET/PATCH /shops/:id`
 - ◐ Shop details page — ☑ info/assignment/tax + placeholders; balance, ledger, Add Credit in Phase 5
 - ☐ Shops export Excel / PDF (filtered)

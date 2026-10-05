@@ -36,7 +36,6 @@ const FIELDS = [
   'name',
   'code',
   'type',
-  'rateCode',
   'retailPrice',
   'tradePrice',
   'invoiceCostPrice',
@@ -60,7 +59,6 @@ function toFormValues(product: Product | undefined, defaultTaxRate: string): Cre
     code: product?.code ?? '',
     // Empty until chosen; the schema rejects it with "Choose TIN or POUCH".
     type: product?.type ?? ('' as ProductType),
-    rateCode: product?.rateCode ?? '',
     retailPrice: product?.retailPrice ?? '',
     tradePrice: product?.tradePrice ?? '',
     invoiceCostPrice: product?.invoiceCostPrice ?? '',
@@ -186,24 +184,14 @@ function ProductForm({
               ))}
             </NativeSelect>
           </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              id="code"
-              label="Product code"
-              error={err('code')}
-              hint="Unique within your company."
-            >
-              <Input id="code" aria-invalid={!!errors.code} {...form.register('code')} />
-            </FormField>
-            <FormField
-              id="rateCode"
-              label="Rate code"
-              error={err('rateCode')}
-              hint="For display on invoices only."
-            >
-              <Input id="rateCode" {...form.register('rateCode')} />
-            </FormField>
-          </div>
+          <FormField
+            id="code"
+            label="Product code"
+            error={err('code')}
+            hint="Unique within your company."
+          >
+            <Input id="code" aria-invalid={!!errors.code} {...form.register('code')} />
+          </FormField>
         </Group>
 
         <Group

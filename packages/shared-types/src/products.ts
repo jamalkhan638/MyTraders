@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { cleanName, optionalText, paginatedSchema, paginationQuerySchema } from './common';
+import { cleanName, paginatedSchema, paginationQuerySchema } from './common';
 import { ProductType, ProductUnit, WeightBasis } from './enums';
 
 export const PRODUCT_NAME_MAX = 150;
@@ -16,7 +16,6 @@ export const productSchema = z.object({
   name: z.string(),
   code: z.string().nullable(),
   type: z.enum(ProductType),
-  rateCode: z.string().nullable(),
   /** e.g. "2180.00" — display / reference only */
   retailPrice: z.string(),
   /** drives the invoice value */
@@ -134,7 +133,6 @@ const productFields = {
   name: productName,
   code: optionalCode,
   type: z.enum(ProductType, { message: 'Choose TIN or POUCH' }),
-  rateCode: optionalText(PRODUCT_CODE_MAX),
   retailPrice: money('Retail price'),
   tradePrice: money('Trade price'),
   invoiceCostPrice: money('Invoice / cost price'),

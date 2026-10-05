@@ -99,7 +99,6 @@ Product master (defaults, editable any time):
 | Name | **Required** (max 150 chars, extra spaces removed) |
 | Type | **Required**; `TIN` or `POUCH` (see above) |
 | Product Code | Optional; unique per organization when set (case-insensitive) |
-| Rate Code | Optional; **display only**, never used in calculations |
 | Trade Price (T.P) | **Required**; ≥ 0, max 2 decimals. **Drives the invoice value** |
 | Invoice / Cost Price | **Required**; ≥ 0, max 2 decimals; what the distributor is invoiced by the company. **Used for profit only** — never in invoice totals |
 | Retail Price (R.P) | **Required**; ≥ 0, max 2 decimals. **Display / reference only** — does not affect invoice calculations |
@@ -196,7 +195,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-5 | Old khata credit is entered via "Add Credit" (ledger `MANUAL_ADJUSTMENT`) | Owner answer |
 | D-6 | Overpayment is rejected by the backend | Owner answer |
 | D-7 | Cost price is entered per product by Admin, snapshotted per invoice item | Owner answer |
-| D-8 | Rate Code is display-only | Owner answer |
+| D-8 | ~~Rate Code is display-only~~ — Rate Code removed entirely (D-27) | Owner answer |
 | D-9 | Previous balance printed as "Credit Balance"; ledger debits only this invoice's own amount | Owner answer |
 | D-10 | Shop NTN / STRN / CNIC / contact / shop category (channel) are optional | Owner answer |
 | D-11 | No partner split; show Net Profit only | Owner answer |
@@ -209,8 +208,9 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-18 | Admin may set the next invoice number, only forward (never lower than the current counter) | Phase 1 implementation |
 | D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
 | D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
-| D-22 | ~~Products carry no tax rate~~ — superseded by D-26. Product Name and the three prices are required; Product Name, Retail, Trade and Cost Price are required; Code, Rate Code, Weight, Pieces per Carton optional | Owner decision (Phase 2) |
+| D-22 | ~~Products carry no tax rate~~ — superseded by D-26. Product Name and the three prices are required; Code, Weight, Pieces per Carton optional | Owner decision (Phase 2) |
 | D-26 | Product **Type** `TIN \| POUCH`: a TIN is invoiced by `Qty Pcs`, a POUCH by `Qty Ctn` (`Qty Pcs = Qty Ctn × Pieces per Carton`, display only; POUCH requires Pieces per Carton). **Trade Price drives the invoice value; Invoice/Cost Price is for profit only; Retail Price is display only.** Products carry a required **Default Tax Rate** (pre-filled from the organization default) which the invoice snapshots. Weight has a unit and a basis (`PIECE \| CARTON`). Supersedes D-22, refines D-15 and OQ-6. Cost Price renamed Invoice/Cost Price | Owner decision (before Phase 4) |
+| D-27 | **No Rate Code** anywhere — removed from products and not printed on invoices | Owner decision (before Phase 4) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

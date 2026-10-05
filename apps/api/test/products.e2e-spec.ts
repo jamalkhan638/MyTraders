@@ -7,7 +7,6 @@ const DALDA_TIN = {
   name: 'mbp 4.5Kg TIN',
   code: '4000000164',
   type: 'TIN',
-  rateCode: '9020',
   retailPrice: '2180',
   tradePrice: '2102.50',
   invoiceCostPrice: '2050.25',
@@ -21,7 +20,6 @@ const DALDA_POUCH = {
   name: 'mbp POUCH 1*5',
   code: '220000',
   type: 'POUCH',
-  rateCode: '9015',
   retailPrice: '1135',
   tradePrice: '1100',
   invoiceCostPrice: '1050',
@@ -87,7 +85,6 @@ describe('Products (e2e)', () => {
         name: 'mbp 4.5Kg TIN',
         code: '4000000164',
         type: 'TIN',
-        rateCode: '9020',
         retailPrice: '2180.00',
         tradePrice: '2102.50',
         invoiceCostPrice: '2050.25',
@@ -119,7 +116,6 @@ describe('Products (e2e)', () => {
         name: 'Dalda Ghee 1Kg',
         type: 'TIN',
         code: null,
-        rateCode: null,
         weight: null,
         weightUnit: null,
         weightBasis: null,
@@ -133,7 +129,6 @@ describe('Products (e2e)', () => {
         ...REQUIRED_ONLY,
         name: '  Dalda   Ghee 500g ',
         code: '  ',
-        rateCode: '',
         weight: '',
         weightUnit: '',
         weightBasis: '',
@@ -142,7 +137,6 @@ describe('Products (e2e)', () => {
       expect(res.body).toMatchObject({
         name: 'Dalda Ghee 500g',
         code: null,
-        rateCode: null,
         weight: null,
         weightUnit: null,
         weightBasis: null,
@@ -423,7 +417,6 @@ describe('Products (e2e)', () => {
       await update(adminA, id, { type: 'TIN' }).expect(200);
       const res = await update(adminA, id, {
         code: '',
-        rateCode: null,
         weight: '',
         weightUnit: null,
         weightBasis: '',
@@ -431,7 +424,6 @@ describe('Products (e2e)', () => {
       }).expect(200);
       expect(res.body).toMatchObject({
         code: null,
-        rateCode: null,
         weight: null,
         weightUnit: null,
         weightBasis: null,
