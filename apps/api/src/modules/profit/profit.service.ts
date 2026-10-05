@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { type ProfitQuery, type ProfitSummary } from '@mytraders/shared-types';
 import { Prisma } from '@prisma/client';
+import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { ExpensesService } from '../expenses/expenses.service';
 
@@ -20,6 +21,7 @@ export class ProfitService {
   constructor(
     private readonly db: TenantPrismaService,
     private readonly expenses: ExpensesService,
+    private readonly tenant: TenantContext,
   ) {}
 
   async summary(query: ProfitQuery): Promise<ProfitSummary> {
@@ -48,6 +50,77 @@ export class ProfitService {
       grossProfit: grossProfit.toFixed(2),
       expenses: expenses.total,
       netProfit: grossProfit.minus(expenses.total).toFixed(2),
+    };
+  }
+
+  // ---- sales views (Sales = Σ Payable Value of CONFIRMED invoices, the same base as profit) ----
+
+  /** Sales per calendar month for `months` months ending with the month of `to`, oldest first. */
+  async salesByMonth(to: string, months: number): Promise<{ month: string; sales: string }[]> {
+    const organizationId = this.tenant.requireOrganizationId();
+    const [y, m] = to.split('-').map(Number);
+    const keys = Array.from({ length: months }, (_, i) => {
+      const d = new Date(Date.UTC(y, m - 1 - (months - 1 - i), 1));
+      return d.toISOString().slice(0, 7);
+    });
+    const rows = await this.db.client.$queryRaw<{ month: string; sales: string }[]>`
+      SELECT to_char("invoiceDate", 'YYYY-MM') AS "month", SUM("payableValue")::text AS "sales"
+      FROM "Invoice"
+      WHERE "organizationId" = ${organizationId}::uuid
+        AND "status" = 'CONFIRMED'
+        AND "invoiceDate" >= ${`${keys[0]}-01`}::date
+        AND "invoiceDate" <= ${to}::date
+      GROUP BY 1`;
+    const byMonth = new Map(rows.map((r) => [r.month, new Prisma.Decimal(r.sales).toFixed(2)]));
+    return keys.map((month) => ({ month, sales: byMonth.get(month) ?? '0.00' }));
+  }
+
+  /** Top shops by Sales in [from, to] (one grouped query + one name lookup). */
+  async topShops(from: string, to: string, limit: number) {
+    const groups = await this.db.client.invoice.groupBy({
+      by: ['shopId'],
+      where: { status: 'CONFIRMED', invoiceDate: { gte: asDate(from), lte: asDate(to) } },
+      _sum: { payableValue: true },
+      _count: { _all: true },
+      orderBy: { _sum: { payableValue: 'desc' } },
+      take: limit,
+    });
+    const shops = await this.db.client.shop.findMany({
+      where: { id: { in: groups.map((g) => g.shopId) } },
+      select: { id: true, name: true },
+    });
+    const names = new Map(shops.map((s) => [s.id, s.name]));
+    return groups.map((g) => ({
+      shop: { id: g.shopId, name: names.get(g.shopId) ?? '' },
+      sales: (g._sum.payableValue ?? new Prisma.Decimal(0)).toFixed(2),
+      invoiceCount: g._count._all,
+    }));
+  }
+
+  /**
+   * Weight sold in [from, to] from the invoice item snapshots of CONFIRMED invoices. Items carry
+   * their Total Weight already converted to KG (KG / Gram products) or Liter (Liter / ML). Liters
+   * are kept apart — never converted into tons (OQ-7); items without a weight count in neither.
+   */
+  async weightSold(
+    from: string,
+    to: string,
+  ): Promise<{ kg: string; tons: string; liters: string }> {
+    const groups = await this.db.client.invoiceItem.groupBy({
+      by: ['totalWeightUnit'],
+      where: {
+        totalWeightUnit: { not: null },
+        invoice: { status: 'CONFIRMED', invoiceDate: { gte: asDate(from), lte: asDate(to) } },
+      },
+      _sum: { totalWeight: true },
+    });
+    const sum = (unit: 'KG' | 'LITER') =>
+      groups.find((g) => g.totalWeightUnit === unit)?._sum.totalWeight ?? new Prisma.Decimal(0);
+    const kg = sum('KG');
+    return {
+      kg: kg.toFixed(3),
+      tons: kg.dividedBy(1000).toFixed(3),
+      liters: sum('LITER').toFixed(3),
     };
   }
 }

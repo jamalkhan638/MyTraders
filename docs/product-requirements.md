@@ -209,16 +209,20 @@ Net Profit     = Gross Profit − Expenses                          (GET /profit
 - Partner split is **not** shown. Only Net Profit.
 - **Future business-rule review:** tax treatment inside profit (e.g. excluding GST, Advance Tax or Further Tax from profit).
 
-### 4.12 Dashboard (Admin)
-1. Pending Orders (clickable → pending list) + latest pending orders list with "Create Invoice" action
-2. Total Market Credit (all-time outstanding)
-3. This Month Sales
-4. Total Weight Sold This Month (tons; from confirmed invoices only) + sales value
-5. This Month Expenses
-6. This Month Net Profit
-7. Cash Collected This Month
+### 4.12 Dashboard (Admin) — D-34
+Admin only (bookers are redirected to their app; the API returns 403). One request: `GET /dashboard/summary`, built only from the existing orders, shop ledger, expense and profit logic — no formula is repeated. **This month** = calendar month in the organization timezone.
 
-"This month" = calendar month in the organization's timezone.
+| Card | Definition | Click |
+|---|---|---|
+| Pending Orders | count of orders with status `PENDING` | Orders filtered to Pending |
+| Total Market Credit | Σ outstanding **Shop Ledger** balance of all shops, all-time (D-30); no stored credit field | Area Ledger |
+| Sales this month | Σ **Payable Value** of CONFIRMED invoices dated this month (cancelled excluded) | Invoices |
+| Cash collected this month | Σ **PAYMENT** ledger credits dated this month — manual adjustments and invoice reversals are not cash | — |
+| Weight sold this month | Σ invoice-item **Total Weight** snapshots of confirmed invoices this month: KG and Gram products in KG, shown as **tons** (KG ÷ 1000); Liter / ML products are shown **separately in liters, never converted to tons** (OQ-7); items without a weight are excluded | — |
+| Expenses this month | Σ **ACTIVE** expenses dated this month (voided excluded, D-32) | Expenses |
+| Net profit this month | `/profit/summary` for the month (D-33): Σ (Payable Value − cost snapshot) − expenses; gross profit shown underneath | — |
+
+Below the cards: **Sales, last 6 months** (column chart of monthly Payable Value of confirmed invoices, current month labelled, hover / keyboard tooltip, table for screen readers), **Top shops this month** (top 5 by Payable Value), and **Recent pending orders** (newest 5: number, shop, area, booker, date, products, *Generate invoice* → the normal order → invoice form). Refreshes every minute. Empty organizations show zeros and empty states.
 
 ### 4.13 Reports
 Sales, Shop Credit, Invoices, Product Sales, Expenses, Profit, Shop list. Filters: date range, area, shop, product, order booker. Export: Excel + PDF.
@@ -259,6 +263,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-31 | **Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount** (blank = 0), calculated and stored by the server, always printed; it is the invoice's ledger debit. Due Payment never affects Payable Value or the ledger. Payments / decreases: no future dates, backdating allowed, limited by the balance on their date and never making a later balance negative. Invoice cancellation refused if it would make the current balance negative (no advance balances in the MVP). Area Ledger exports: CSV + browser print / PDF. Later: credit-status filter (Dashboard/Reports), Credit Report (Reports), payment during invoice creation (not required) | Owner decision (Phase 5 review) |
 | D-32 | Expenses are Admin-only, per organization, with configurable Expense Categories (unique name per organization, deactivate not delete, defaults seeded); amount > 0, no future dates, active category required; editable while active; **voided with a reason instead of deleted** and then excluded from all totals; no partner splitting; Σ by date range (default current month) is the Expenses term of Net Profit | Owner decision (Phase 6) |
 | D-33 | **Profit (MVP)**: Invoice Profit = **Payable Value** (Grand Total + Advance Tax + Further Tax − ADT discount) − Product Cost (historical cost snapshot: TIN Qty Pcs × cost, POUCH Qty Ctn × cost); Due Payment never counts; Gross Profit = Σ over confirmed, non-cancelled invoices; Net Profit = Gross Profit − Expenses. GST not separately removed; tax paid is recorded as an Expense (*Tax / Government Tax*, added to the default categories). Tax treatment inside profit = future business-rule review | Owner decision (Phase 6) |
+| D-34 | **Dashboard**: Sales = Payable Value of confirmed invoices; Cash Collected = PAYMENT ledger entries only; Market Credit = outstanding Shop Ledger balance; Profit = D-33 (`/profit/summary`); Expenses = active expenses; weight from invoice item snapshots in tons (KG / Gram) with liquids reported separately in liters; all from `GET /dashboard/summary` | Owner decision (Phase 6) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

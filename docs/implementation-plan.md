@@ -58,7 +58,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Finance → Area Ledger: opening / payments / closing per shop and date, filters, totals, payment entry, print, CSV
 - ☑ Total Market Credit service + `GET /ledger/market-credit` (for the Dashboard)
 - ☑ Backdated payments / decreases limited by the balance on their date and later balances; cancellation refused if the balance would go negative (D-31)
-- ☐ Shop list credit-status filter → Dashboard / Reports phase
+- ☐ Shop list credit-status filter → Reports phase
 - ☐ Credit Report → Reports phase
 - ☐ Real `.xlsx` / server-generated PDF for the area sheet (CSV + browser print are the MVP)
 - Payment during invoice creation — not required (payments are recorded from Shop Details and the Area Ledger)
@@ -68,7 +68,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Expense totals by date range / current month (`GET /expenses/summary`) for Dashboard and Net Profit
 - ☑ Profit service (D-33): `GET /profit/summary?from&to` — Gross Profit = Σ (Payable Value − cost snapshot), Net Profit = Gross − Expenses
 - ☐ Future review: tax treatment inside profit
-- ☐ `GET /dashboard/summary` + Dashboard page (cards + latest pending orders)
+- ☑ `GET /dashboard/summary` + Dashboard page (7 cards, 6-month sales chart, top shops, recent pending orders) — D-34
 
 ## Phase 7 — Reports
 - ☐ Sales, Shop Credit, Invoices, Product Sales, Expenses, Profit — filters + Excel/PDF

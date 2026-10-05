@@ -7,7 +7,7 @@ import {
 import { type ColumnDef } from '@tanstack/react-table';
 import { ClipboardList, Eye, FileText, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { DataTable } from '@/components/data-table/DataTable';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,12 @@ export function OrdersPage() {
   const [search, setSearch] = useState('');
   const [areaId, setAreaId] = useState('');
   const [orderBookerId, setOrderBookerId] = useState('');
-  const [status, setStatus] = useState<OrderStatus | ''>('');
+  // ?status=PENDING (e.g. from the Dashboard card) preselects the status filter.
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status');
+  const [status, setStatus] = useState<OrderStatus | ''>(
+    initialStatus && initialStatus in OrderStatus ? (initialStatus as OrderStatus) : '',
+  );
   const [page, setPage] = useState(1);
 
   const q = useDebouncedValue(search.trim());

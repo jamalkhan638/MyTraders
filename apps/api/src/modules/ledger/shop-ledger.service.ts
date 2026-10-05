@@ -134,6 +134,18 @@ export class ShopLedgerService {
     return { marketCredit: money(new Decimal(row.total)), shopsWithBalance: row.shops };
   }
 
+  /**
+   * Cash Collected = Σ PAYMENT credits dated in [from, to]. Manual adjustments and invoice
+   * reversals are credits too, but they are not cash and are never counted here.
+   */
+  async cashCollected(from: string, to: string): Promise<string> {
+    const sums = await this.db.client.shopLedgerEntry.aggregate({
+      where: { type: 'PAYMENT', transactionDate: { gte: asDate(from), lte: asDate(to) } },
+      _sum: { creditAmount: true },
+    });
+    return money(sums._sum.creditAmount ?? new Decimal(0));
+  }
+
   // ---- history -------------------------------------------------------------------------------
 
   /** Shop credit history, newest first, with the running balance after each entry. */

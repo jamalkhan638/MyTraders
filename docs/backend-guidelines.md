@@ -89,7 +89,7 @@ Prefix `/api`. All require auth unless marked public.
 | `POST /shops/:id/payments` | ADMIN | ✅ `{ amount, paymentDate, method, reference?, notes? }`; shop row lock; 422 if above the balance on the payment date, if it would make a later balance negative, or future date |
 | `POST /shops/:id/adjustments` | ADMIN | ✅ `{ direction: INCREASE\|DECREASE, amount, adjustmentDate, reason }`; decrease follows the same date-aware limit |
 | `GET /ledger/areas/:areaId?date&q&outstandingOnly` | ADMIN | ✅ area collection sheet computed from ledger entries (one SQL aggregate) |
-| `GET /ledger/market-credit` | ADMIN | ✅ Σ outstanding of all shops (Dashboard later) |
+| `GET /ledger/market-credit` | ADMIN | ✅ Σ outstanding of all shops (used by the Dashboard) |
 | `GET /orders?page&pageSize&q&areaId&orderBookerId&status`, `GET /orders/:id` | ADMIN all / BOOKER own | ✅ Phase 3; booker filters are forced to their own orders; another booker's order → 404 |
 | `POST /orders` | BOOKER | ✅ `{ shopId, items: [{ productId, quantity }], notes? }`; each line's `quantityUnit` (PIECE for TIN, CARTON for POUCH) is set by the server, a client-sent unit is ignored; summaries return `totalPieces` / `totalCartons` (never mixed); number generated in the transaction; 422 per field for unassigned/inactive shop or inactive/unknown product |
 | `POST /orders/:id/cancel` | ADMIN / BOOKER own | ✅ only `PENDING` (409 otherwise) |
@@ -104,28 +104,33 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /expenses/summary?from&to` | ADMIN | ✅ Σ ACTIVE expenses by category; default current month (org tz) — Dashboard / Net Profit |
 | `GET /profit/summary?from&to` | ADMIN | ✅ D-33: Σ (Payable Value − totalCost) of CONFIRMED invoices by invoice date (Due Payment never counts); Net = Gross − active expenses; default current month |
 | `GET/POST /expense-categories`, `GET/PATCH /expense-categories/:id` | ADMIN | ✅ Phase 6; unique name per org; deactivate, never delete |
-| `GET /dashboard/summary` | ADMIN | one aggregated call |
+| `GET /dashboard/summary` | ADMIN | ✅ D-34: all cards + 6-month sales + top shops + recent pending orders in one response; composed from OrdersService, ShopLedgerService, ProfitService (no repeated formulas) |
 | `GET /reports/{sales,shop-credit,invoices,product-sales,expenses,profit}` | ADMIN | `?format=json\|xlsx\|pdf` |
 
 Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is present the order is validated as `PENDING` (same shop) and flipped to `INVOICED` in the same transaction. Formulas live only in `packages/shared-types/src/invoices.ts`. Ledger integration goes through `modules/ledger/shop-ledger.service.ts` (`outstandingBalance` for Due Payment, `invoiceConfirmed` / `invoiceCancelled` called inside the invoice transactions). Raw ledger SQL always filters `organizationId` explicitly (raw queries bypass the tenant client). Numbers: `common/numbering/document-number.ts` (shared by orders and invoices).
 
-### Dashboard summary response
+### Dashboard summary response (D-34)
 ```json
 {
-  "period": { "from": "2026-09-01", "to": "2026-09-30", "timezone": "Asia/Karachi" },
-  "currency": "PKR",
-  "pendingOrders": 12,
-  "marketCredit": "2850000.00",
-  "monthlySales": "8450000.00",
-  "monthlyWeightKg": "24600.000",
-  "monthlyExpenses": "320000.00",
-  "monthlyNetProfit": "930000.00",
-  "monthlyCashCollected": "6100000.00",
-  "latestPendingOrders": [
-    { "id": "…", "orderNumber": "ORD-000123", "shopName": "…", "areaName": "…", "bookerName": "…", "itemCount": 3, "createdAt": "…" }
-  ]
+  "period": { "from": "2026-10-01", "to": "2026-10-31" },
+  "pendingOrders": 1,
+  "marketCredit": "225297.40",
+  "shopsWithBalance": 3,
+  "monthlySales": "110353.86",
+  "monthlyInvoiceCount": 7,
+  "monthlyWeightKg": "171.000",
+  "monthlyWeightTons": "0.171",
+  "monthlyVolumeLiters": "50.000",
+  "monthlyExpenses": "2600.00",
+  "monthlyGrossProfit": "21387.36",
+  "monthlyNetProfit": "18787.36",
+  "monthlyCashCollected": "87606.16",
+  "salesByMonth": [{ "month": "2026-05", "sales": "19847.60" }, "… 6 months, oldest first …"],
+  "topShops": [{ "shop": { "id": "…", "name": "Ali General Store" }, "sales": "82606.16", "invoiceCount": 5 }],
+  "recentPendingOrders": [{ "id": "…", "orderNumber": "ORD-000001", "shop": {…}, "area": {…}, "orderBooker": {…}, "itemCount": 2, "createdAt": "…" }]
 }
 ```
+Amounts are decimal strings. Sales / profit come from `ProfitService` (D-31, D-33), market credit and cash collected from `ShopLedgerService` (D-30), expenses via the profit summary (D-32), pending orders from `OrdersService`.
 
 ## 4. Testing (minimum)
 
@@ -136,6 +141,7 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds one debit; payment credit reduces; overpayment rejected; concurrent payments can't overdraw (row lock); adjustments; running balance with backdated entries; reversal once on cancel; Due Payment prefill and no ledger change from it; area sheet opening/payments/closing incl. same-day invoices/adjustments, filters, totals; append-only triggers; tenant isolation; permissions.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
+- **Dashboard**: each card vs its definition (pending count, Payable Value sales with cancelled excluded, PAYMENT-only cash, active expenses, profit = /profit/summary, market credit = ledger, weight from snapshots with liters apart), empty org zeros, tenant isolation, Admin only.
 - **Profit**: D-33 rule from the owner's numbers; cancelled invoices and voided expenses excluded; cost snapshot survives product cost changes; negative net; tenant isolation; Admin only.
 
 e2e tests run against a dedicated Postgres test database (docker-compose), reset per test file.

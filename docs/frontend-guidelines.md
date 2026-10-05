@@ -98,3 +98,7 @@ Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolute
 
 - **Expenses** page (`/expenses`, Admin): filters (date range + This month / Last month, category, Active / Voided, search), a **Total expenses** card showing the server's `totalAmount` for the filters, table / mobile cards, *Add expense* and *Edit* in `ExpenseFormDialog`, *Void* in `VoidExpenseDialog` (reason required).
 - **Settings → Expense Categories**: same table + dialog + activate / deactivate pattern as Shop Categories.
+
+## 10. Dashboard
+
+`/dashboard` (Admin): stat cards (white cards, muted label + icon, large tabular value, one-line note; clickable cards link to Orders?status=PENDING, Area Ledger, Invoices, Expenses), a single-series column chart (`SalesChart`: primary green — validated against the card surface — 24px columns with a 4px rounded cap, hairline grid, current month labelled, hover / focus tooltip, sr-only table, drawn at the container's measured width so text stays legible on phones), Top shops, Recent pending orders (table on desktop, cards on phones). `/orders?status=PENDING` preselects the status filter.

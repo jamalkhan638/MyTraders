@@ -15,3 +15,4 @@ export * from './ledger';
 export * from './expense-categories';
 export * from './expenses';
 export * from './profit';
+export * from './dashboard';
