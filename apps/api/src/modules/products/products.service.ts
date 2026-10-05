@@ -1,9 +1,15 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   type CreateProduct,
   type ListProductsQuery,
   type Paginated,
   type Product,
+  productRuleIssues,
   type UpdateProduct,
 } from '@mytraders/shared-types';
 import { Prisma } from '@prisma/client';
@@ -14,12 +20,15 @@ const PRODUCT_FIELDS = {
   id: true,
   name: true,
   code: true,
+  type: true,
   rateCode: true,
   retailPrice: true,
   tradePrice: true,
-  costPrice: true,
+  invoiceCostPrice: true,
+  defaultTaxRate: true,
   weight: true,
-  unit: true,
+  weightUnit: true,
+  weightBasis: true,
   piecesPerCarton: true,
   isActive: true,
   createdAt: true,
@@ -31,8 +40,8 @@ type ProductRow = Prisma.ProductGetPayload<{ select: typeof PRODUCT_FIELDS }>;
 const DUPLICATE_CODE = 'A product with this code already exists';
 
 /**
- * Products of the caller's organization (docs/product-requirements.md §4.6). Prices are
- * passed to Prisma as decimal strings and stored as numeric — never JS floats.
+ * Products of the caller's organization (docs/product-requirements.md §4.6, D-26). Prices and
+ * rates are passed to Prisma as decimal strings and stored as numeric — never JS floats.
  */
 @Injectable()
 export class ProductsService {
@@ -44,6 +53,7 @@ export class ProductsService {
   async list(query: ListProductsQuery): Promise<Paginated<Product>> {
     const where: Prisma.ProductWhereInput = {
       ...(query.status ? { isActive: query.status === 'active' } : {}),
+      ...(query.type ? { type: query.type } : {}),
       ...(query.q
         ? {
             OR: [
@@ -81,12 +91,15 @@ export class ProductsService {
           name: input.name,
           code: input.code ?? null,
           codeNormalized: normalizeCode(input.code),
+          type: input.type,
           rateCode: input.rateCode ?? null,
           retailPrice: input.retailPrice,
           tradePrice: input.tradePrice,
-          costPrice: input.costPrice,
+          invoiceCostPrice: input.invoiceCostPrice,
+          defaultTaxRate: input.defaultTaxRate,
           weight: input.weight ?? null,
-          unit: input.unit ?? null,
+          weightUnit: input.weightUnit ?? null,
+          weightBasis: input.weightBasis ?? null,
           piecesPerCarton: input.piecesPerCarton ?? null,
         },
         select: PRODUCT_FIELDS,
@@ -96,6 +109,32 @@ export class ProductsService {
   }
 
   async update(id: string, input: UpdateProduct): Promise<Product> {
+    const current = await this.db.client.product.findFirst({
+      where: { id },
+      select: {
+        type: true,
+        weight: true,
+        weightUnit: true,
+        weightBasis: true,
+        piecesPerCarton: true,
+      },
+    });
+    if (!current) throw new NotFoundException('Product not found');
+
+    // The cross-field rules (POUCH needs pieces per carton, a weight needs unit + basis) apply to
+    // the product as it will be after this change: stored values merged with the new ones.
+    const issues = productRuleIssues({
+      type: input.type ?? current.type,
+      weight: input.weight !== undefined ? input.weight : current.weight,
+      weightUnit: input.weightUnit !== undefined ? input.weightUnit : current.weightUnit,
+      weightBasis: input.weightBasis !== undefined ? input.weightBasis : current.weightBasis,
+      piecesPerCarton:
+        input.piecesPerCarton !== undefined ? input.piecesPerCarton : current.piecesPerCarton,
+    });
+    if (issues.length > 0) {
+      throw new BadRequestException({ message: 'Validation failed', details: issues });
+    }
+
     const { code, ...rest } = input;
     const data: Prisma.ProductUpdateManyMutationInput = { ...rest };
     if (code !== undefined) {
@@ -130,7 +169,8 @@ function toProduct(row: ProductRow): Product {
     ...row,
     retailPrice: row.retailPrice.toFixed(2),
     tradePrice: row.tradePrice.toFixed(2),
-    costPrice: row.costPrice.toFixed(2),
+    invoiceCostPrice: row.invoiceCostPrice.toFixed(2),
+    defaultTaxRate: row.defaultTaxRate.toString(),
     weight: row.weight?.toString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

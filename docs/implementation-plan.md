@@ -26,7 +26,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 ## Phase 2 — Master data
 - ☑ Areas (table + dialog) — Settings → Areas; `GET/POST /areas`, `GET/PATCH /areas/:id`
 - ☑ Shop Categories (shop types) — Settings → Shop Categories; `GET/POST /shop-categories`, `GET/PATCH /shop-categories/:id`. Product Categories removed from the MVP (D-21)
-- ☑ Products (table + drawer) — `GET/POST /products`, `GET/PATCH /products/:id`; no tax rate on products (D-22)
+- ☑ Products (table + drawer) — `GET/POST /products`, `GET/PATCH /products/:id`
+- ☑ Product invoice rules (D-26): Type TIN/POUCH, Invoice/Cost Price, Default Tax Rate, Weight Unit + Basis, POUCH requires Pieces per Carton; data-preserving migration; type filter
 - ☑ Shops (table, filters, drawer, assign booker; FK validation in organization, D-23) — `GET/POST /shops`, `GET/PATCH /shops/:id`
 - ◐ Shop details page — ☑ info/assignment/tax + placeholders; balance, ledger, Add Credit in Phase 5
 - ☐ Shops export Excel / PDF (filtered)
@@ -37,7 +38,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Booker: My Orders, order details, cancel own pending
 - ☑ Admin: Orders list (search/filters/pagination, pending polling), order details, cancel, Generate Invoice entry point (`/invoices/new?orderId=` placeholder until Phase 4)
 
-## Phase 4 — Invoices ⛔ needs OQ-1, OQ-6 (owner will provide formulas)
+## Phase 4 — Invoices ⛔ needs OQ-1 (owner will provide formulas); OQ-6 mostly answered by D-26
 - ☐ Shared invoice calculator + unit tests from real invoices
 - ☐ `POST /invoices/preview`, `POST /invoices` (unified; optional `orderId`), numbering, snapshots, ledger debit, order → INVOICED, optional paid amount — one transaction
 - ☐ Invoice form (blank + prefilled from order)

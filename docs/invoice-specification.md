@@ -30,21 +30,21 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
 |---|---|---|---|---|
 | Product Code | snapshot | Product | `productCode` | — |
 | Product Name | snapshot | Product | `productName` | — |
-| R.P / Pcs incl. tax | editable | Product.retailPrice | `retailPrice` | — |
+| R.P / Pcs incl. tax | editable, display only | Product.retailPrice | `retailPrice` | never used in invoice math (D-26) |
 | Rate Code | snapshot, display only | Product.rateCode | `rateCode` | never used in math |
-| T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | — |
-| Qty (ctn) | editable | Order qty (units) | `cartonQty` | TBC (OQ-6) |
-| Qty (pcs) | editable / derived | — | `pieceQty` | TBC (OQ-6) |
-| Total Weight | derived | Product.weightKg (per unit) | `totalWeightKg` | qty × unit weight (qty basis TBC with OQ-6) |
+| T.P / Pcs excl. FED | editable | Product.tradePrice | `tradePrice` | **drives the invoice value** (D-26); exact formula TBC |
+| Qty (ctn) | editable | Order qty | `cartonQty` | **POUCH:** the pricing quantity. TIN: TBC |
+| Qty (pcs) | editable / derived | — | `pieceQty` | **TIN:** the pricing quantity. **POUCH:** display only, auto = Qty Ctn × Pieces per Carton (D-26) |
+| Total Weight | derived | Product.weight / weightUnit / weightBasis | `totalWeightKg` | weight × pieces (basis PIECE) or × cartons (basis CARTON); Liter/ML TBC (OQ-7) |
 | Value excl. tax | derived | — | `valueExclTax` | **TBC** |
-| GST rate | editable | TBC with the invoice formulas (products carry no tax rate, D-22) | `taxRate` | — |
+| GST rate | editable | Product.defaultTaxRate (D-26) | `taxRate` | — |
 | GST amount | derived | — | `taxAmount` | **TBC** |
 | TO rate | editable | 0 | `toRate` | — |
 | ATO rate | editable | 0 | `atoRate` | — |
 | Special discount | editable | 0 | `specialDiscount` | **TBC** |
 | Total trade offer | derived | — | `tradeOffer` | **TBC** |
 | Gross invoice value | derived | — | `grossValue` | **TBC** |
-| (hidden) Cost | snapshot | Product.costPrice (per unit) | `unitCost`, `costTotal` | qty × unit cost (qty basis TBC with OQ-6) |
+| (hidden) Cost | snapshot | Product.invoiceCostPrice | `unitCost`, `costTotal` | profit only, never in invoice totals; pricing qty × unit cost (D-26) |
 
 ## 4. Totals / footer
 
@@ -84,5 +84,5 @@ For each: the rule + one worked example from a real invoice.
 8. Gross invoice value
 9. Further tax — which shops, what rate, on what base?
 10. Payable value
-11. Qty ctn vs Qty pcs — relationship; can loose pieces be sold? (OQ-6)
+11. ~~Qty ctn vs Qty pcs~~ — D-26: TIN priced by Qty Pcs, POUCH by Qty Ctn (Qty Pcs = Qty Ctn × Pieces per Carton). Still to confirm: what an order quantity means per type.
 12. Rounding

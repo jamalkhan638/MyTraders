@@ -158,20 +158,24 @@ model Product {
   name            String                                    // required
   code            String?                                   // optional
   codeNormalized  String?                                   // lower-cased code; unique per org when set
+  type            ProductType                               // TIN (invoiced by pieces) | POUCH (by cartons) — D-26
   rateCode        String?                                   // display only
-  retailPrice     Decimal      @db.Decimal(14, 2)           // R.P per unit (D-15), required
-  tradePrice      Decimal      @db.Decimal(14, 2)           // T.P per unit, required
-  costPrice       Decimal      @db.Decimal(14, 2)           // company invoice price per unit, required
-  weight          Decimal?     @db.Decimal(12, 3)           // per unit, in `unit`
-  unit            ProductUnit?                              // KG | GRAM | LITER | ML
-  piecesPerCarton Int?                                      // informational
+  retailPrice     Decimal      @db.Decimal(14, 2)           // R.P, display only
+  tradePrice      Decimal      @db.Decimal(14, 2)           // T.P, drives the invoice value
+  invoiceCostPrice Decimal     @db.Decimal(14, 2)           // company invoice price; profit only
+  defaultTaxRate  Decimal      @db.Decimal(7, 4)            // percent; default only, invoices snapshot; CHECK 0–100
+  weight          Decimal?     @db.Decimal(12, 3)           // in `weightUnit`, per `weightBasis`
+  weightUnit      ProductUnit?                              // KG | GRAM | LITER | ML; CHECK set when weight set
+  weightBasis     WeightBasis?                              // PIECE | CARTON; CHECK set when weight set
+  piecesPerCarton Int?                                      // CHECK required when type = POUCH
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now()) @db.Timestamptz
   updatedAt       DateTime     @updatedAt @db.Timestamptz
   @@unique([organizationId, codeNormalized])                // Postgres allows many NULLs
   @@index([organizationId, name])
 }
-// enum ProductUnit { KG GRAM LITER ML }   — no tax rate on products (D-22)
+// enum ProductUnit { KG GRAM LITER ML }; enum ProductType { TIN POUCH }; enum WeightBasis { PIECE CARTON }
+// Prices are per piece for a TIN, per carton for a POUCH (D-26).
 
 model Order {
   id             String      @id @default(uuid(7)) @db.Uuid

@@ -25,8 +25,10 @@ const PRODUCT_FIELDS = {
   id: true,
   name: true,
   code: true,
+  type: true,
   weight: true,
-  unit: true,
+  weightUnit: true,
+  weightBasis: true,
   piecesPerCarton: true,
 } as const satisfies Prisma.ProductSelect;
 

@@ -1,4 +1,4 @@
-import { type BookerProduct, PRODUCT_UNIT_LABELS } from '@mytraders/shared-types';
+import { type BookerProduct } from '@mytraders/shared-types';
 import { ArrowLeft, Check, Loader2, PackageSearch, Plus, Search, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -11,17 +11,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCreateOrder } from '@/features/orders/hooks/useOrders';
 import { ApiError } from '@/lib/api/client';
 import { showApiError } from '@/lib/api/form-errors';
-import { formatQuantity } from '@/lib/format/number';
+import { weightLabel } from '@/lib/format/product';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useBookerProducts, useMyShop } from '../hooks/useBooker';
 import { type DraftLine, useOrderDraft } from '../hooks/useOrderDraft';
 
-function describe(product: Pick<BookerProduct, 'code' | 'weight' | 'unit'>): string {
-  const size = product.weight
-    ? `${formatQuantity(product.weight)}${product.unit ? ` ${PRODUCT_UNIT_LABELS[product.unit]}` : ''}`
-    : null;
-  return [product.code, size].filter(Boolean).join(' · ');
+function describe(
+  product: Pick<BookerProduct, 'code' | 'type' | 'weight' | 'weightUnit' | 'weightBasis'>,
+): string {
+  const size = product.weight ? weightLabel(product) : null;
+  return [product.code, product.type, size].filter(Boolean).join(' · ');
 }
 
 /**

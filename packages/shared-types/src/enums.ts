@@ -16,7 +16,7 @@ export const OrganizationStatus = {
 } as const;
 export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];
 
-/** Unit of a product's weight/size value (docs D-22). */
+/** Unit of a product's weight value (docs D-22, D-26). */
 export const ProductUnit = {
   KG: 'KG',
   GRAM: 'GRAM',
@@ -30,4 +30,26 @@ export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
   GRAM: 'Gram',
   LITER: 'Liter',
   ML: 'ML',
+};
+
+/**
+ * How a product is invoiced (D-26): a TIN by pieces (Qty Pcs); a POUCH by cartons (Qty Ctn),
+ * with Qty Pcs = Qty Ctn × Pieces per Carton shown for reference.
+ */
+export const ProductType = {
+  TIN: 'TIN',
+  POUCH: 'POUCH',
+} as const;
+export type ProductType = (typeof ProductType)[keyof typeof ProductType];
+
+/** What a product's weight refers to. */
+export const WeightBasis = {
+  PIECE: 'PIECE',
+  CARTON: 'CARTON',
+} as const;
+export type WeightBasis = (typeof WeightBasis)[keyof typeof WeightBasis];
+
+export const WEIGHT_BASIS_LABELS: Record<WeightBasis, string> = {
+  PIECE: 'per piece',
+  CARTON: 'per carton',
 };

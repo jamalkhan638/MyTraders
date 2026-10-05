@@ -87,24 +87,30 @@ Fields: name (required), contact person / owner, phone, address, area (required)
 - **Total Market Credit** = sum of outstanding balances of all shops in the organization.
 
 ### 4.6 Products
-Product = one sellable unit ("piece"), exactly as the Admin adds it. For the first customer one unit is **one carton** (e.g. "Dalda 5L pouch" = 1 carton containing 5 × 1L pouches; the Admin adds it as one product). **All prices, cost and weight are entered per this one unit** (D-15), and all quantities (orders and invoices) count these units.
+Every product has a **Type** that decides how it is invoiced (D-26):
+
+- **TIN** — invoiced by **pieces**: the invoice quantity is `Qty Pcs`; prices are per piece.
+- **POUCH** — invoiced by **cartons**: the invoice pricing uses `Qty Ctn`; prices are per carton. `Qty Pcs` is display / reference only and is normally auto-calculated as `Qty Ctn × Pieces per Carton`.
 
 Product master (defaults, editable any time):
 
 | Field | Notes |
 |---|---|
 | Name | **Required** (max 150 chars, extra spaces removed) |
+| Type | **Required**; `TIN` or `POUCH` (see above) |
 | Product Code | Optional; unique per organization when set (case-insensitive) |
 | Rate Code | Optional; **display only**, never used in calculations |
-| Retail Price (R.P) | **Required**; per unit incl. tax; ≥ 0, max 2 decimals |
-| Trade Price (T.P) | **Required**; per unit excl. FED; ≥ 0, max 2 decimals |
-| Cost Price | **Required**; per unit; what the distributor is invoiced by the company. Used for profit. |
-| Weight | Optional; per unit, > 0, max 3 decimals |
-| Unit | Optional; unit of the weight value: KG, Gram, Liter, ML. Shown as "Weight/Unit", e.g. "4.5 KG" |
-| Pieces per Carton | Optional; whole number ≥ 1, informational (e.g. 5 for a 1×5 pouch carton) |
+| Trade Price (T.P) | **Required**; ≥ 0, max 2 decimals. **Drives the invoice value** |
+| Invoice / Cost Price | **Required**; ≥ 0, max 2 decimals; what the distributor is invoiced by the company. **Used for profit only** — never in invoice totals |
+| Retail Price (R.P) | **Required**; ≥ 0, max 2 decimals. **Display / reference only** — does not affect invoice calculations |
+| Default Tax Rate | **Required**; percent 0–100, max 2 decimals (e.g. 18, 17.5). New products are pre-filled with the organization's default tax rate. It is only a default: the invoice item stores the rate actually used. Never hard-coded |
+| Weight | Optional; > 0, max 3 decimals |
+| Weight Unit | Required when a weight is set: KG, Gram, Liter, ML |
+| Weight Basis | Required when a weight is set: `PIECE` (weight of one piece) or `CARTON` (weight of one carton). Shown e.g. "4.5 KG / pc" |
+| Pieces per Carton | Whole number ≥ 1. **Required for a POUCH**; optional (reference only) for a TIN |
 | Active | Inactive products cannot be ordered/invoiced |
 
-**No tax rate on products (D-22).** Tax (GST, FED, further tax…) is calculated only when an invoice is generated, with the owner's formulas; the invoice item snapshots the rates and amounts actually used.
+Prices are per piece for a TIN and per carton for a POUCH. The database enforces the cross-field rules too (POUCH ⇒ pieces per carton; weight ⇒ unit and basis; tax rate 0–100).
 
 Weight totals: `Total Weight = qty × weight`; Tons = kg ÷ 1000 (grams converted to kg). Converting Liter/ML products to tons is **OQ-7**.
 
@@ -195,15 +201,16 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-10 | Shop NTN / STRN / CNIC / contact / shop category (channel) are optional | Owner answer |
 | D-11 | No partner split; show Net Profit only | Owner answer |
 | D-12 | English UI only | Owner answer |
-| D-13 | GST / tax rates are data (never hard-coded); the invoice snapshots the rates actually used | Master spec, amended by D-22 |
+| D-13 | GST / tax rates are data (never hard-coded); the invoice snapshots the rates actually used | Master spec, amended by D-22 and D-26 |
 | D-14 | Invoice formulas are **not assumed**; they are confirmed by the owner before the invoice module | Owner instruction |
-| D-15 | One product = one unit as added by Admin (e.g. one carton); prices, cost and weight are per that unit | Owner answer |
+| D-15 | One product = one unit as added by Admin (e.g. one carton); prices, cost and weight are per that unit — refined by D-26 (TIN per piece, POUCH per carton) | Owner answer |
 | D-16 | Admin can cancel a confirmed invoice; cancellation automatically reverses the ledger debit | Owner answer |
 | D-17 | ~~Order Booker sees both Trade Price and Retail Price~~ — superseded by D-24 | Owner answer |
 | D-18 | Admin may set the next invoice number, only forward (never lower than the current counter) | Phase 1 implementation |
 | D-19 | In the MVP the Admin manages Order Booker accounts only; Admins are created via CLI | Owner request (Phase 1) |
 | D-20 | Logo stored as an image URL; upload deferred | Phase 1 implementation |
-| D-22 | Products carry **no tax rate**; tax is calculated at invoice time. Product Name, Retail, Trade and Cost Price are required; Code, Rate Code, Weight, Unit, Pieces per Carton optional | Owner decision (Phase 2) |
+| D-22 | ~~Products carry no tax rate~~ — superseded by D-26. Product Name and the three prices are required; Product Name, Retail, Trade and Cost Price are required; Code, Rate Code, Weight, Pieces per Carton optional | Owner decision (Phase 2) |
+| D-26 | Product **Type** `TIN \| POUCH`: a TIN is invoiced by `Qty Pcs`, a POUCH by `Qty Ctn` (`Qty Pcs = Qty Ctn × Pieces per Carton`, display only; POUCH requires Pieces per Carton). **Trade Price drives the invoice value; Invoice/Cost Price is for profit only; Retail Price is display only.** Products carry a required **Default Tax Rate** (pre-filled from the organization default) which the invoice snapshots. Weight has a unit and a basis (`PIECE \| CARTON`). Supersedes D-22, refines D-15 and OQ-6. Cost Price renamed Invoice/Cost Price | Owner decision (before Phase 4) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |
@@ -217,4 +224,4 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | OQ-2 | Are Sales / Profit based on value **excl. tax** or incl. tax? | Dashboard / Profit |
 | OQ-7 | How should Liter / ML products count toward "tons sold" (e.g. a kg-per-liter factor, or shown separately in liters)? | Dashboard weight card |
 | OQ-5 | ~~Booker estimated order total~~ — not applicable: bookers see no prices (D-24) | closed |
-| OQ-6 | Can Admin invoice loose pieces (invoice has both Qty ctn and Qty pcs columns)? | Invoice module |
+| OQ-6 | ~~Qty ctn vs Qty pcs~~ — answered by D-26 (TIN by pieces, POUCH by cartons). Still open: does an order quantity mean pieces for a TIN and cartons for a POUCH (proposed)? | Invoice module |

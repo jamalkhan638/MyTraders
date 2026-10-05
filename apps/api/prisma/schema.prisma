@@ -22,12 +22,24 @@ enum UserRole {
   ORDER_BOOKER
 }
 
-/// Unit of a product's weight/size value (docs D-22).
+/// Unit of a product's weight value (docs D-22, D-26).
 enum ProductUnit {
   KG
   GRAM
   LITER
   ML
+}
+
+/// How a product is invoiced (D-26): TIN by pieces, POUCH by cartons.
+enum ProductType {
+  TIN
+  POUCH
+}
+
+/// What a product's weight refers to.
+enum WeightBasis {
+  PIECE
+  CARTON
 }
 
 enum OrderStatus {
@@ -159,31 +171,38 @@ model ShopCategory {
   @@unique([organizationId, nameNormalized])
 }
 
-/// Sellable unit as added by the Admin (e.g. one carton, D-15). Holds defaults only: invoices
-/// snapshot the values actually used. No tax rate on products (D-22).
+/// Product master (defaults only — invoices snapshot the values actually used). Invoice rules (D-26):
+/// TIN is invoiced by pieces, POUCH by cartons (pieces = cartons × piecesPerCarton, display only);
+/// tradePrice drives the invoice value, invoiceCostPrice is for profit only, retailPrice is display
+/// only, defaultTaxRate is the starting rate the invoice snapshots.
 model Product {
-  id              String       @id @default(uuid(7)) @db.Uuid
-  organizationId  String       @db.Uuid
+  id               String       @id @default(uuid(7)) @db.Uuid
+  organizationId   String       @db.Uuid
   /// display name, trimmed with single spaces
-  name            String
-  code            String?
+  name             String
+  code             String?
   /// lower-cased code used for per-organization uniqueness (set by the service)
-  codeNormalized  String?
+  codeNormalized   String?
+  type             ProductType
   /// display only, never used in calculations
-  rateCode        String?
-  /// R.P per unit incl. tax
-  retailPrice     Decimal      @db.Decimal(14, 2)
-  /// T.P per unit excl. FED
-  tradePrice      Decimal      @db.Decimal(14, 2)
-  /// what the distributor pays the company per unit (for profit)
-  costPrice       Decimal      @db.Decimal(14, 2)
-  /// per unit, expressed in `unit`
-  weight          Decimal?     @db.Decimal(12, 3)
-  unit            ProductUnit?
-  piecesPerCarton Int?
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now()) @db.Timestamptz
-  updatedAt       DateTime     @updatedAt @db.Timestamptz
+  rateCode         String?
+  /// R.P — display / reference only
+  retailPrice      Decimal      @db.Decimal(14, 2)
+  /// T.P — drives the invoice value
+  tradePrice       Decimal      @db.Decimal(14, 2)
+  /// what the distributor pays the company — profit only
+  invoiceCostPrice Decimal      @db.Decimal(14, 2)
+  /// percent; default for new invoice lines (never hard-coded)
+  defaultTaxRate   Decimal      @db.Decimal(7, 4)
+  /// expressed in `weightUnit`, per `weightBasis`
+  weight           Decimal?     @db.Decimal(12, 3)
+  weightUnit       ProductUnit?
+  weightBasis      WeightBasis?
+  /// required for POUCH (CHECK constraint)
+  piecesPerCarton  Int?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now()) @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   orderItems   OrderItem[]

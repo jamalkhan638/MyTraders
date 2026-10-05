@@ -1,4 +1,4 @@
-import { type ListProductsQueryInput, type Product } from '@mytraders/shared-types';
+import { type ListProductsQueryInput, type Product, ProductType } from '@mytraders/shared-types';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Package, Pencil, Plus, Power, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useCurrentUser } from '@/features/auth/auth-context';
-import { formatAmount } from '@/lib/format/number';
+import { formatAmount, formatQuantity } from '@/lib/format/number';
+import { weightLabel } from '@/lib/format/product';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import { weightWithUnit } from '../components/product-display';
 import { ProductFormSheet, type ProductSheetMode } from '../components/ProductFormSheet';
 import { ToggleProductDialog } from '../components/ToggleProductDialog';
 import { useProducts } from '../hooks/useProducts';
@@ -23,6 +23,7 @@ export function ProductsPage() {
   const currency = useCurrentUser().organization?.currency ?? '';
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('');
+  const [type, setType] = useState<ProductType | ''>('');
   const [page, setPage] = useState(1);
   const [sheet, setSheet] = useState<ProductSheetMode | null>(null);
   const [toggling, setToggling] = useState<Product | null>(null);
@@ -33,14 +34,15 @@ export function ProductsPage() {
     pageSize: PAGE_SIZE,
     q: q || undefined,
     status: status || undefined,
+    type: type || undefined,
   };
   const products = useProducts(params);
-  const filtered = Boolean(q || status);
+  const filtered = Boolean(q || status || type);
 
   const columns = useMemo<ColumnDef<Product, unknown>[]>(() => {
     const amount = (
       header: string,
-      key: 'retailPrice' | 'tradePrice' | 'costPrice',
+      key: 'retailPrice' | 'tradePrice' | 'invoiceCostPrice',
     ): ColumnDef<Product, unknown> => ({
       header: () => <span className="block text-right">{header}</span>,
       id: key,
@@ -51,20 +53,35 @@ export function ProductsPage() {
     return [
       {
         header: 'Product',
-        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+        cell: ({ row }) => (
+          <div className="min-w-32">
+            <div className="font-medium">{row.original.name}</div>
+            {row.original.code && (
+              <div className="font-mono text-xs text-muted-foreground">{row.original.code}</div>
+            )}
+          </div>
+        ),
       },
       {
-        header: 'Code',
+        header: 'Type',
+        cell: ({ row }) => <Badge variant="outline">{row.original.type}</Badge>,
+      },
+      amount(`Trade (${currency})`, 'tradePrice'),
+      amount(`Inv. cost (${currency})`, 'invoiceCostPrice'),
+      amount(`Retail (${currency})`, 'retailPrice'),
+      {
+        header: () => <span className="block text-right">Tax %</span>,
+        id: 'defaultTaxRate',
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.code ?? '—'}
+          <span className="block text-right tabular-nums">
+            {formatQuantity(row.original.defaultTaxRate)}
           </span>
         ),
       },
-      amount(`Retail (${currency})`, 'retailPrice'),
-      amount(`Trade (${currency})`, 'tradePrice'),
-      amount(`Cost (${currency})`, 'costPrice'),
-      { header: 'Weight / Unit', cell: ({ row }) => weightWithUnit(row.original) },
+      {
+        header: 'Weight',
+        cell: ({ row }) => <span className="whitespace-nowrap">{weightLabel(row.original)}</span>,
+      },
       {
         header: () => <span className="block text-right">Pcs / ctn</span>,
         id: 'piecesPerCarton',
@@ -96,7 +113,7 @@ export function ProductsPage() {
     <>
       <PageHeader
         title="Products"
-        description="What you sell. Prices are per selling unit (e.g. one carton)."
+        description="What you sell. A TIN is priced per piece, a POUCH per carton."
         actions={
           <Button onClick={() => setSheet({ kind: 'create' })}>
             <Plus />
@@ -105,7 +122,7 @@ export function ProductsPage() {
         }
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -119,6 +136,21 @@ export function ProductsPage() {
             }}
           />
         </div>
+        <NativeSelect
+          value={type}
+          aria-label="Type"
+          onChange={(e) => {
+            setType(e.target.value as ProductType | '');
+            setPage(1);
+          }}
+        >
+          <option value="">Any type</option>
+          {Object.values(ProductType).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </NativeSelect>
         <NativeSelect
           value={status}
           aria-label="Status"
@@ -159,22 +191,24 @@ export function ProductsPage() {
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="font-medium">{p.name}</div>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <Badge variant="outline">{p.type}</Badge>
                 {p.code && <span className="font-mono">{p.code}</span>}
-                <span>{weightWithUnit(p)}</span>
+                {p.weight && <span>{weightLabel(p)}</span>}
                 {p.piecesPerCarton && <span>{p.piecesPerCarton} pcs/ctn</span>}
                 <ProductStatusBadge isActive={p.isActive} />
               </div>
-              <dl className="grid grid-cols-3 gap-2 pt-1 text-xs">
+              <dl className="grid grid-cols-4 gap-2 pt-1 text-xs">
                 {(
                   [
-                    ['Retail', p.retailPrice],
-                    ['Trade', p.tradePrice],
-                    ['Cost', p.costPrice],
+                    ['Trade', formatAmount(p.tradePrice)],
+                    ['Inv. cost', formatAmount(p.invoiceCostPrice)],
+                    ['Retail', formatAmount(p.retailPrice)],
+                    ['Tax', `${formatQuantity(p.defaultTaxRate)}%`],
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="font-medium tabular-nums">{formatAmount(value)}</dd>
+                    <dd className="font-medium tabular-nums">{value}</dd>
                   </div>
                 ))}
               </dl>

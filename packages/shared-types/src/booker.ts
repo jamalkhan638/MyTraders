@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginatedSchema, paginationQuerySchema } from './common';
-import { ProductUnit } from './enums';
+import { ProductType, ProductUnit, WeightBasis } from './enums';
 
 /**
  * Read-only views for the Order Booker app (docs §4.7). They deliberately contain no prices,
@@ -38,8 +38,10 @@ export const bookerProductSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   code: z.string().nullable(),
+  type: z.enum(ProductType),
   weight: z.string().nullable(),
-  unit: z.enum(ProductUnit).nullable(),
+  weightUnit: z.enum(ProductUnit).nullable(),
+  weightBasis: z.enum(WeightBasis).nullable(),
   piecesPerCarton: z.number().int().nullable(),
 });
 export type BookerProduct = z.infer<typeof bookerProductSchema>;

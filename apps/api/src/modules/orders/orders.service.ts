@@ -46,7 +46,17 @@ const DETAIL_FIELDS = {
       id: true,
       quantity: true,
       product: {
-        select: { id: true, name: true, code: true, weight: true, unit: true, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          type: true,
+          weight: true,
+          weightUnit: true,
+          weightBasis: true,
+          piecesPerCarton: true,
+          isActive: true,
+        },
       },
     },
     orderBy: { product: { name: 'asc' } },

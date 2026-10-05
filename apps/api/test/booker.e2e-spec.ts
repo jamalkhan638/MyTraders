@@ -112,7 +112,16 @@ describe('Order Booker app data (e2e)', () => {
       const res = await get(ahmedToken, '/products').expect(200);
       expect(names(res)).toEqual(['Dalda 5L Pouch', 'Dalda Ghee 1Kg']);
       const keys = Object.keys(res.body.items[0]).sort();
-      expect(keys).toEqual(['code', 'id', 'name', 'piecesPerCarton', 'unit', 'weight']);
+      expect(keys).toEqual([
+        'code',
+        'id',
+        'name',
+        'piecesPerCarton',
+        'type',
+        'weight',
+        'weightBasis',
+        'weightUnit',
+      ]);
       expect(JSON.stringify(res.body)).not.toMatch(/price|cost|tax/i);
     });
 

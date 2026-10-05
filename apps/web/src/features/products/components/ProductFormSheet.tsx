@@ -4,11 +4,14 @@ import {
   createProductSchema,
   PRODUCT_UNIT_LABELS,
   type Product,
+  ProductType,
   ProductUnit,
+  WEIGHT_BASIS_LABELS,
+  WeightBasis,
 } from '@mytraders/shared-types';
 import { Loader2 } from 'lucide-react';
 import { type ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { FormField } from '@/components/form/FormField';
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useCurrentUser } from '@/features/auth/auth-context';
+import { useOrganizationSettings } from '@/features/settings/hooks/useOrganizationSettings';
 import { showApiError } from '@/lib/api/form-errors';
 import { useCreateProduct, useUpdateProduct } from '../hooks/useProducts';
 
@@ -31,25 +35,39 @@ export type ProductSheetMode = { kind: 'create' } | { kind: 'edit'; product: Pro
 const FIELDS = [
   'name',
   'code',
+  'type',
   'rateCode',
   'retailPrice',
   'tradePrice',
-  'costPrice',
+  'invoiceCostPrice',
+  'defaultTaxRate',
   'weight',
-  'unit',
+  'weightUnit',
+  'weightBasis',
   'piecesPerCarton',
 ] as const;
 
-function toFormValues(product?: Product): CreateProductInput {
+const TYPE_HINTS: Record<ProductType, string> = {
+  TIN: 'Invoiced by pieces (Qty Pcs).',
+  POUCH: 'Invoiced by cartons (Qty Ctn). Qty Pcs = Qty Ctn × pieces per carton.',
+};
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+function toFormValues(product: Product | undefined, defaultTaxRate: string): CreateProductInput {
   return {
     name: product?.name ?? '',
     code: product?.code ?? '',
+    // Empty until chosen; the schema rejects it with "Choose TIN or POUCH".
+    type: product?.type ?? ('' as ProductType),
     rateCode: product?.rateCode ?? '',
     retailPrice: product?.retailPrice ?? '',
     tradePrice: product?.tradePrice ?? '',
-    costPrice: product?.costPrice ?? '',
+    invoiceCostPrice: product?.invoiceCostPrice ?? '',
+    defaultTaxRate: product?.defaultTaxRate ?? defaultTaxRate,
     weight: product?.weight ?? '',
-    unit: product?.unit ?? '',
+    weightUnit: product?.weightUnit ?? '',
+    weightBasis: product?.weightBasis ?? '',
     piecesPerCarton: product?.piecesPerCarton?.toString() ?? '',
   };
 }
@@ -65,29 +83,50 @@ export function ProductFormSheet({
   return (
     <Sheet open={mode !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-lg">
-        {mode && (
-          <ProductForm
-            key={mode.kind === 'edit' ? mode.product.id : 'new'}
-            product={mode.kind === 'edit' ? mode.product : undefined}
-            onDone={onClose}
-          />
+        {mode?.kind === 'edit' && (
+          <ProductForm key={mode.product.id} product={mode.product} onDone={onClose} />
         )}
+        {mode?.kind === 'create' && <NewProductForm onDone={onClose} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function ProductForm({ product, onDone }: { product?: Product; onDone: () => void }) {
+/** A new product starts with the company's default tax rate (Settings), which the Admin can change. */
+function NewProductForm({ onDone }: { onDone: () => void }) {
+  const settings = useOrganizationSettings();
+  if (settings.isPending) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading" />
+      </div>
+    );
+  }
+  return <ProductForm defaultTaxRate={settings.data?.defaultTaxRate ?? ''} onDone={onDone} />;
+}
+
+function ProductForm({
+  product,
+  defaultTaxRate = '',
+  onDone,
+}: {
+  product?: Product;
+  defaultTaxRate?: string;
+  onDone: () => void;
+}) {
   const currency = useCurrentUser().organization?.currency ?? '';
   const create = useCreateProduct();
   const update = useUpdateProduct();
   const pending = create.isPending || update.isPending;
   const form = useForm({
     resolver: zodResolver(createProductSchema),
-    defaultValues: toFormValues(product),
+    defaultValues: toFormValues(product, defaultTaxRate),
   });
   const { errors, isDirty } = form.formState;
   const err = (field: (typeof FIELDS)[number]) => errors[field]?.message as string | undefined;
+  const type = useWatch({ control: form.control, name: 'type' }) as ProductType | '';
+  const weight = useWatch({ control: form.control, name: 'weight' });
+  const hasWeight = typeof weight === 'string' && weight.trim() !== '';
 
   const onSubmit = form.handleSubmit((values) => {
     const callbacks = {
@@ -101,7 +140,11 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
     else create.mutate(values, callbacks);
   });
 
-  const money = (id: 'retailPrice' | 'tradePrice' | 'costPrice', label: string, hint: string) => (
+  const money = (
+    id: 'retailPrice' | 'tradePrice' | 'invoiceCostPrice',
+    label: string,
+    hint: string,
+  ) => (
     <FormField id={id} label={`${label} (${currency})`} required error={err(id)} hint={hint}>
       <Input
         id={id}
@@ -118,8 +161,7 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
       <SheetHeader>
         <SheetTitle>{product ? 'Edit product' : 'Add product'}</SheetTitle>
         <SheetDescription>
-          One product is one selling unit, e.g. one carton. Prices are per unit. Tax is calculated
-          on the invoice.
+          A TIN is sold by the piece, a POUCH by the carton. The trade price sets the invoice value.
         </SheetDescription>
       </SheetHeader>
 
@@ -127,6 +169,22 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
         <Group title="Product">
           <FormField id="name" label="Product name" required error={err('name')}>
             <Input id="name" autoFocus aria-invalid={!!errors.name} {...form.register('name')} />
+          </FormField>
+          <FormField
+            id="type"
+            label="Type"
+            required
+            error={err('type')}
+            hint={type ? TYPE_HINTS[type] : 'TIN or POUCH decides how invoice quantities work.'}
+          >
+            <NativeSelect id="type" aria-invalid={!!errors.type} {...form.register('type')}>
+              <option value="">Choose…</option>
+              {Object.values(ProductType).map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </NativeSelect>
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
@@ -148,21 +206,48 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
           </div>
         </Group>
 
-        <Group title="Prices per unit">
+        <Group
+          title={
+            type === 'POUCH' ? 'Prices per carton' : type === 'TIN' ? 'Prices per piece' : 'Prices'
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2">
-            {money('retailPrice', 'Retail price (R.P)', 'Including tax.')}
-            {money('tradePrice', 'Trade price (T.P)', 'Excluding FED.')}
-            {money('costPrice', 'Cost price', 'What you pay the company. Used for profit.')}
+            {money('tradePrice', 'Trade price (T.P)', 'Drives the invoice value.')}
+            {money(
+              'invoiceCostPrice',
+              'Invoice / cost price',
+              'What you pay the company. Used for profit only.',
+            )}
+            {money(
+              'retailPrice',
+              'Retail price (R.P)',
+              'Display only — not used in invoice totals.',
+            )}
+            <FormField
+              id="defaultTaxRate"
+              label="Default tax rate (%)"
+              required
+              error={err('defaultTaxRate')}
+              hint="Pre-filled on invoices; each invoice keeps the rate it used."
+            >
+              <Input
+                id="defaultTaxRate"
+                inputMode="decimal"
+                placeholder="e.g. 18"
+                aria-invalid={!!errors.defaultTaxRate}
+                {...form.register('defaultTaxRate')}
+              />
+            </FormField>
           </div>
         </Group>
 
         <Group title="Weight & packing">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <FormField
               id="weight"
               label="Weight"
               error={err('weight')}
-              hint="Per unit, used for total weight / tons."
+              hint="For total weight / tons."
             >
               <Input
                 id="weight"
@@ -172,8 +257,12 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
                 {...form.register('weight')}
               />
             </FormField>
-            <FormField id="unit" label="Unit" error={err('unit')}>
-              <NativeSelect id="unit" {...form.register('unit')}>
+            <FormField id="weightUnit" label="Unit" required={hasWeight} error={err('weightUnit')}>
+              <NativeSelect
+                id="weightUnit"
+                aria-invalid={!!errors.weightUnit}
+                {...form.register('weightUnit')}
+              >
                 <option value="">—</option>
                 {Object.values(ProductUnit).map((unit) => (
                   <option key={unit} value={unit}>
@@ -183,19 +272,45 @@ function ProductForm({ product, onDone }: { product?: Product; onDone: () => voi
               </NativeSelect>
             </FormField>
             <FormField
-              id="piecesPerCarton"
-              label="Pieces per carton"
-              error={err('piecesPerCarton')}
+              id="weightBasis"
+              label="Weight is"
+              required={hasWeight}
+              error={err('weightBasis')}
             >
-              <Input
-                id="piecesPerCarton"
-                inputMode="numeric"
-                placeholder="e.g. 5"
-                aria-invalid={!!errors.piecesPerCarton}
-                {...form.register('piecesPerCarton')}
-              />
+              <NativeSelect
+                id="weightBasis"
+                aria-invalid={!!errors.weightBasis}
+                {...form.register('weightBasis')}
+              >
+                <option value="">—</option>
+                {Object.values(WeightBasis).map((basis) => (
+                  <option key={basis} value={basis}>
+                    {capitalize(WEIGHT_BASIS_LABELS[basis])}
+                  </option>
+                ))}
+              </NativeSelect>
             </FormField>
           </div>
+          <FormField
+            id="piecesPerCarton"
+            label="Pieces per carton"
+            required={type === 'POUCH'}
+            error={err('piecesPerCarton')}
+            hint={
+              type === 'POUCH'
+                ? 'Qty Pcs on the invoice = Qty Ctn × pieces per carton.'
+                : 'Optional for a TIN — reference only.'
+            }
+          >
+            <Input
+              id="piecesPerCarton"
+              inputMode="numeric"
+              placeholder="e.g. 5"
+              className="sm:max-w-40"
+              aria-invalid={!!errors.piecesPerCarton}
+              {...form.register('piecesPerCarton')}
+            />
+          </FormField>
         </Group>
       </div>
 

@@ -2,7 +2,10 @@ import { type BookerProduct } from '@mytraders/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface DraftLine {
-  product: Pick<BookerProduct, 'id' | 'name' | 'code' | 'weight' | 'unit'>;
+  product: Pick<
+    BookerProduct,
+    'id' | 'name' | 'code' | 'type' | 'weight' | 'weightUnit' | 'weightBasis'
+  >;
   quantity: number;
 }
 

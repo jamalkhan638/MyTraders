@@ -14,7 +14,7 @@ Every request is checked for: authenticated → user active → organization not
 | Shop Categories: manage | ✅ | ❌ |
 | Areas: list (for filter) | ✅ | ✅ only areas of their assigned active shops (`GET /booker/areas`) |
 | Products: manage | ✅ | ❌ |
-| Products: list active (name, code, weight/unit, pieces per carton) | ✅ | ✅ **no prices at all** — D-24 (`GET /booker/products`) |
+| Products: list active (name, code, type, weight/unit/basis, pieces per carton) | ✅ | ✅ **no prices at all** — D-24 (`GET /booker/products`) |
 | Shops: manage / assign booker | ✅ | ❌ |
 | Shops: list / view | ✅ all | ✅ **assigned active shops only** (`GET /booker/shops`); balance added in Phase 5 |
 | Orders: create | ❌ (Admins invoice directly) | ✅ only for their assigned, active shops, active products |

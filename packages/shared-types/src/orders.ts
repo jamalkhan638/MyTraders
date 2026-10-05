@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { optionalText, paginatedSchema, paginationQuerySchema } from './common';
-import { ProductUnit } from './enums';
+import { ProductType, ProductUnit, WeightBasis } from './enums';
 
 export const OrderStatus = {
   PENDING: 'PENDING',
@@ -40,8 +40,11 @@ export const orderItemSchema = z.object({
     id: z.uuid(),
     name: z.string(),
     code: z.string().nullable(),
+    type: z.enum(ProductType),
     weight: z.string().nullable(),
-    unit: z.enum(ProductUnit).nullable(),
+    weightUnit: z.enum(ProductUnit).nullable(),
+    weightBasis: z.enum(WeightBasis).nullable(),
+    piecesPerCarton: z.number().int().nullable(),
     isActive: z.boolean(),
   }),
   quantity: z.number().int(),

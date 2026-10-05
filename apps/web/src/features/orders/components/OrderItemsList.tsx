@@ -1,5 +1,5 @@
-import { type OrderDetails, PRODUCT_UNIT_LABELS } from '@mytraders/shared-types';
-import { formatQuantity } from '@/lib/format/number';
+import { type OrderDetails } from '@mytraders/shared-types';
+import { weightLabel } from '@/lib/format/product';
 
 /** Products and quantities of an order (no prices — D-24 / orders carry none). */
 export function OrderItemsList({ order }: { order: OrderDetails }) {
@@ -17,8 +17,8 @@ export function OrderItemsList({ order }: { order: OrderDetails }) {
             <div className="text-xs text-muted-foreground">
               {[
                 item.product.code,
-                item.product.weight &&
-                  `${formatQuantity(item.product.weight)}${item.product.unit ? ` ${PRODUCT_UNIT_LABELS[item.product.unit]}` : ''}`,
+                item.product.type,
+                item.product.weight && weightLabel(item.product),
               ]
                 .filter(Boolean)
                 .join(' · ') || '—'}

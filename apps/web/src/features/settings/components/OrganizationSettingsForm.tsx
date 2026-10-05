@@ -180,7 +180,7 @@ export function OrganizationSettingsForm({ settings }: { settings: OrganizationS
             id="defaultTaxRate"
             label="Default tax rate (%)"
             error={err('defaultTaxRate')}
-            hint="Company default. Tax is calculated on invoices; each invoice stores the rate actually used."
+            hint="Pre-filled on new products. Each invoice stores the rate actually used."
           >
             <Input id="defaultTaxRate" inputMode="decimal" {...form.register('defaultTaxRate')} />
           </FormField>

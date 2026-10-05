@@ -78,8 +78,8 @@ Prefix `/api`. All require auth unless marked public.
 | Booker area list for the My Shops filter | BOOKER | Phase 3 (areas of assigned shops only) |
 | `GET /shop-categories?page&pageSize&q&status`, `GET /shop-categories/:id` | ADMIN | ✅ Phase 2, same pattern as Areas |
 | `POST /shop-categories`, `PATCH /shop-categories/:id` | ADMIN | ✅ duplicate name in org → 409; `isActive` to (de)activate; no delete |
-| `GET /products?page&pageSize&q&status`, `GET /products/:id` | ADMIN | ✅ Phase 2; `q` matches name or code |
-| `POST /products`, `PATCH /products/:id` | ADMIN | ✅ prices as decimal strings; duplicate code in org → 409; `isActive` to (de)activate; no delete |
+| `GET /products?page&pageSize&q&status&type`, `GET /products/:id` | ADMIN | ✅ Phase 2; `q` matches name or code; `type` = TIN \| POUCH |
+| `POST /products`, `PATCH /products/:id` | ADMIN | ✅ prices as decimal strings; duplicate code in org → 409; `isActive` to (de)activate; no delete; cross-field rules (D-26) re-checked on PATCH against the stored product |
 | Booker product list (no cost price) | BOOKER | Phase 3, with Book Order |
 | `GET /shops?page&pageSize&q&areaId&categoryId&orderBookerId&status`, `GET /shops/:id` | ADMIN | ✅ Phase 2; `orderBookerId=unassigned` for shops without a booker; balance & last invoice added in Phases 4–5 |
 | `POST /shops`, `PATCH /shops/:id` | ADMIN | ✅ area/category/booker validated in the organization (422 on the field); `isActive`; no delete |
