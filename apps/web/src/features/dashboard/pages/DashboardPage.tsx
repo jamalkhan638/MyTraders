@@ -1,17 +1,15 @@
 import { type DashboardSummary } from '@mytraders/shared-types';
 import {
   Banknote,
-  ClipboardList,
+  ChartColumn,
   CreditCard,
   FileText,
-  Receipt,
-  Scale,
-  ShoppingCart,
+  ReceiptText,
   TrendingUp,
+  Weight,
 } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,12 +36,17 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description={
-          month ? `${month} · figures for this month unless stated` : `Welcome back, ${user.name}.`
-        }
-      />
+      <div className="mb-6">
+        <p className="text-sm text-muted-foreground">Welcome back,</p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {user.organization?.name ?? user.name}
+        </h1>
+        {month && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {month} · Figures for this month unless stated
+          </p>
+        )}
+      </div>
       {dashboard.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
@@ -73,7 +76,8 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         <Metric
           testId="card-pending"
           to="/orders?status=PENDING"
-          icon={<ClipboardList />}
+          icon={<FileText />}
+          tone="green"
           label="Pending orders"
           value={String(data.pendingOrders)}
           note={data.pendingOrders === 0 ? 'Nothing waiting' : 'Waiting for an invoice'}
@@ -83,6 +87,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
           testId="card-credit"
           to="/finance/area-ledger"
           icon={<CreditCard />}
+          tone="blue"
           label="Total market credit"
           value={money(data.marketCredit)}
           note={`${data.shopsWithBalance} shop${data.shopsWithBalance === 1 ? '' : 's'} owe · all-time`}
@@ -90,7 +95,8 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         <Metric
           testId="card-sales"
           to="/invoices"
-          icon={<ShoppingCart />}
+          icon={<ChartColumn />}
+          tone="violet"
           label="Sales this month"
           value={money(data.monthlySales)}
           note={`${data.monthlyInvoiceCount} invoice${data.monthlyInvoiceCount === 1 ? '' : 's'} · payable value`}
@@ -98,13 +104,15 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         <Metric
           testId="card-cash"
           icon={<Banknote />}
+          tone="green"
           label="Cash collected this month"
           value={money(data.monthlyCashCollected)}
           note="Payments received"
         />
         <Metric
           testId="card-weight"
-          icon={<Scale />}
+          icon={<Weight />}
+          tone="amber"
           label="Weight sold this month"
           value={`${formatQuantity(data.monthlyWeightTons)} tons`}
           note={
@@ -117,7 +125,8 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         <Metric
           testId="card-expenses"
           to="/expenses"
-          icon={<Receipt />}
+          icon={<ReceiptText />}
+          tone="red"
           label="Expenses this month"
           value={money(data.monthlyExpenses)}
           note="Active expenses"
@@ -125,6 +134,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         <Metric
           testId="card-profit"
           icon={<TrendingUp />}
+          tone="green"
           label="Net profit this month"
           value={money(data.monthlyNetProfit)}
           note={`Gross profit ${formatAmount(data.monthlyGrossProfit)} − expenses`}
@@ -287,8 +297,17 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
   );
 }
 
+const TONES = {
+  green: 'bg-emerald-50 text-emerald-700',
+  blue: 'bg-blue-50 text-blue-600',
+  violet: 'bg-violet-50 text-violet-600',
+  amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-red-50 text-red-600',
+} as const;
+
 function Metric({
   icon,
+  tone,
   label,
   value,
   note,
@@ -298,6 +317,7 @@ function Metric({
   testId,
 }: {
   icon: ReactNode;
+  tone: keyof typeof TONES;
   label: string;
   value: string;
   note: ReactNode;
@@ -307,18 +327,26 @@ function Metric({
   testId: string;
 }) {
   const body = (
-    <CardContent className="space-y-1 px-5">
-      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>{label}</span>
-        <span className={cn('[&_svg]:size-4', highlight && 'text-primary')}>{icon}</span>
-      </div>
-      <div
-        className="text-2xl font-semibold tracking-tight tabular-nums"
-        data-testid={`${testId}-value`}
+    <CardContent className="flex items-start gap-3.5 px-5">
+      <span
+        className={cn(
+          'flex size-11 shrink-0 items-center justify-center rounded-xl [&_svg]:size-[22px]',
+          TONES[tone],
+        )}
+        aria-hidden
       >
-        {value}
+        {icon}
+      </span>
+      <div className="min-w-0 space-y-0.5">
+        <div className="text-sm text-muted-foreground">{label}</div>
+        <div
+          className="text-xl font-semibold tracking-tight tabular-nums xl:text-[1.375rem]"
+          data-testid={`${testId}-value`}
+        >
+          {value}
+        </div>
+        <div className="text-xs text-muted-foreground">{note}</div>
       </div>
-      <div className="text-xs text-muted-foreground">{note}</div>
     </CardContent>
   );
   return (
