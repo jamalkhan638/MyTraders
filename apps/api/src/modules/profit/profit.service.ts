@@ -98,29 +98,20 @@ export class ProfitService {
   }
 
   /**
-   * Weight sold in [from, to] from the invoice item snapshots of CONFIRMED invoices. Items carry
-   * their Total Weight already converted to KG (KG / Gram products) or Liter (Liter / ML). Liters
-   * are kept apart — never converted into tons (OQ-7); items without a weight count in neither.
+   * Weight sold in [from, to] from the invoice item snapshots of CONFIRMED invoices (D-35). Items
+   * carry their Total Weight already converted to KG (KG / Gram ÷ 1000) or Liter (Liter / ML ÷ 1000);
+   * by the business rule 1 Liter = 1 KG both are added together. Items without a weight add nothing.
+   * Tons = KG ÷ 1000.
    */
-  async weightSold(
-    from: string,
-    to: string,
-  ): Promise<{ kg: string; tons: string; liters: string }> {
-    const groups = await this.db.client.invoiceItem.groupBy({
-      by: ['totalWeightUnit'],
+  async weightSold(from: string, to: string): Promise<{ kg: string; tons: string }> {
+    const sums = await this.db.client.invoiceItem.aggregate({
       where: {
         totalWeightUnit: { not: null },
         invoice: { status: 'CONFIRMED', invoiceDate: { gte: asDate(from), lte: asDate(to) } },
       },
       _sum: { totalWeight: true },
     });
-    const sum = (unit: 'KG' | 'LITER') =>
-      groups.find((g) => g.totalWeightUnit === unit)?._sum.totalWeight ?? new Prisma.Decimal(0);
-    const kg = sum('KG');
-    return {
-      kg: kg.toFixed(3),
-      tons: kg.dividedBy(1000).toFixed(3),
-      liters: sum('LITER').toFixed(3),
-    };
+    const kg = sums._sum.totalWeight ?? new Prisma.Decimal(0);
+    return { kg: kg.toFixed(3), tons: kg.dividedBy(1000).toFixed(3) };
   }
 }

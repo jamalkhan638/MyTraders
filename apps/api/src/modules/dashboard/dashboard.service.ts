@@ -38,7 +38,6 @@ export class DashboardService {
       monthlyInvoiceCount: month.invoiceCount,
       monthlyWeightKg: weight.kg,
       monthlyWeightTons: weight.tons,
-      monthlyVolumeLiters: weight.liters,
       monthlyExpenses: month.expenses,
       monthlyGrossProfit: month.grossProfit,
       monthlyNetProfit: month.netProfit,

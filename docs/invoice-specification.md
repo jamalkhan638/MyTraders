@@ -125,7 +125,7 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 ## 8. Implementation choices awaiting confirmation
 
 1. TIN with a **per-carton** weight: Total Weight = weight × Qty Pcs ÷ Pieces per Carton (and it requires Pieces per Carton).
-2. Gram / ML weights converted to KG / Liter, so TO / ATO rates apply per kg (or per liter for liquid products, see OQ-7).
+2. Gram / ML weights converted to KG / Liter (÷ 1000), so TO / ATO rates apply per kg or per liter. For weight / tons sold, 1 Liter = 1 KG (D-35); the invoice row keeps its own unit (kg / L) for printing.
 3. A row whose Total Trade Offer exceeds its Value Incl GST is refused (Gross Value may not be negative).
 4. An **inactive shop** cannot be invoiced (same rule as orders); inactive products cannot be invoiced (PRD §4.6).
 5. The same product may appear on more than one row of an invoice.

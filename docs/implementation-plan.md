@@ -68,7 +68,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Expense totals by date range / current month (`GET /expenses/summary`) for Dashboard and Net Profit
 - ☑ Profit service (D-33): `GET /profit/summary?from&to` — Gross Profit = Σ (Payable Value − cost snapshot), Net Profit = Gross − Expenses
 - ☐ Future review: tax treatment inside profit
-- ☑ `GET /dashboard/summary` + Dashboard page (7 cards, 6-month sales chart, top shops, recent pending orders) — D-34
+- ☑ `GET /dashboard/summary` + Dashboard page (7 cards, 6-month sales chart, top shops, recent pending orders) — D-34; weight incl. liquids at 1 L = 1 kg (D-35)
 
 ## Phase 7 — Reports
 - ☐ Sales, Shop Credit, Invoices, Product Sales, Expenses, Profit — filters + Excel/PDF

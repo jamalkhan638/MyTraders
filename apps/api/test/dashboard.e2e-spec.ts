@@ -15,6 +15,8 @@ describe('Dashboard (e2e)', () => {
   let ideal: Id;
   let tin: Id;
   let pouchLiters: Id;
+  let mlTin: Id;
+  let gramTin: Id;
   let unweighed: Id;
   let fuel: Id;
   let monthStart: string;
@@ -54,6 +56,17 @@ describe('Dashboard (e2e)', () => {
       where: { id: pouchLiters.id },
       data: { weight: '5', weightUnit: 'LITER', weightBasis: 'CARTON', invoiceCostPrice: '1000' },
     });
+    // 500 ML per piece and 250 g per piece, priced at 0 so they only add weight
+    mlTin = await f.product(orgA.id, 'Small Oil Bottle');
+    await t.prisma.product.update({
+      where: { id: mlTin.id },
+      data: { weight: '500', weightUnit: 'ML', weightBasis: 'PIECE', invoiceCostPrice: '0' },
+    });
+    gramTin = await f.product(orgA.id, 'Ghee Sachet');
+    await t.prisma.product.update({
+      where: { id: gramTin.id },
+      data: { weight: '250', weightUnit: 'GRAM', weightBasis: 'PIECE', invoiceCostPrice: '0' },
+    });
     unweighed = await f.product(orgA.id, 'Loose Item');
     await t.prisma.product.update({
       where: { id: unweighed.id },
@@ -83,7 +96,6 @@ describe('Dashboard (e2e)', () => {
       monthlyInvoiceCount: 0,
       monthlyWeightKg: '0.000',
       monthlyWeightTons: '0.000',
-      monthlyVolumeLiters: '0.000',
       monthlyExpenses: '0.00',
       monthlyGrossProfit: '0.00',
       monthlyNetProfit: '0.00',
@@ -108,11 +120,11 @@ describe('Dashboard (e2e)', () => {
         advanceTax: '99.50',
         duePayment: '123456', // never counts
       }).expect(201);
-      // Ideal: 1 POUCH ctn of 5 L (1,100) — liters are reported apart, not in tons; cost 1,000
+      // Ideal: 1 POUCH ctn of 5 L (1,100; cost 1,000) = 5 kg, 5 × 500 ML = 2.5 kg, 2 × 250 g = 0.5 kg
       await post('invoices', {
         shopId: ideal.id,
         invoiceDate: monthStart,
-        items: [line(pouchLiters, 1, '1100')],
+        items: [line(pouchLiters, 1, '1100'), line(mlTin, 5, '0'), line(gramTin, 2, '0')],
       }).expect(201);
       // cancelled invoice: excluded from sales, weight and profit (its reversal is not cash)
       const cancelled = await post('invoices', {
@@ -181,12 +193,10 @@ describe('Dashboard (e2e)', () => {
       expect(res.body).toMatchObject({ monthlySales: '6200.00', monthlyInvoiceCount: 2 });
     });
 
-    it('weight sold comes from invoice item snapshots: KG → tons, liters apart, no-weight items skipped', () => {
-      expect(res.body).toMatchObject({
-        monthlyWeightKg: '9.000',
-        monthlyWeightTons: '0.009',
-        monthlyVolumeLiters: '5.000',
-      });
+    it('weight sold = KG + Gram/1000 + Liter (1 L = 1 kg) + ML/1000, in tons; no-weight items skipped', () => {
+      // 9 kg (2 TIN × 4.5 kg) + 5 L + 2.5 L (5 × 500 ML) + 0.5 kg (2 × 250 g) = 17 kg = 0.017 t
+      expect(res.body).toMatchObject({ monthlyWeightKg: '17.000', monthlyWeightTons: '0.017' });
+      expect(res.body).not.toHaveProperty('monthlyVolumeLiters');
     });
 
     it('Cash Collected counts PAYMENT entries only (no adjustments, no invoice reversals)', () => {

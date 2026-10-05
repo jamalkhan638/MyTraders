@@ -110,8 +110,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
           note={
             <>
               {formatQuantity(data.monthlyWeightKg)} kg
-              {data.monthlyVolumeLiters !== '0.000' &&
-                ` · plus ${formatQuantity(data.monthlyVolumeLiters)} L (liquids, not in tons)`}
+              {' · liquids counted as 1 L = 1 kg'}
             </>
           }
         />

@@ -16,12 +16,13 @@ export const dashboardSummarySchema = z.object({
   /** Σ Payable Value of CONFIRMED invoices dated this month (D-31) */
   monthlySales: z.string(),
   monthlyInvoiceCount: z.number().int(),
-  /** Σ invoice item Total Weight in KG (KG and Gram products), confirmed invoices this month */
+  /**
+   * Σ invoice item Total Weight of confirmed invoices this month, in KG: KG + Gram ÷ 1000 +
+   * Liter + ML ÷ 1000 (business rule 1 L = 1 KG, D-35); items without a weight add nothing
+   */
   monthlyWeightKg: z.string(),
   /** the same in tons (KG ÷ 1000) */
   monthlyWeightTons: z.string(),
-  /** Liter / ML products — reported separately, never converted into tons (OQ-7) */
-  monthlyVolumeLiters: z.string(),
   /** Σ ACTIVE expenses dated this month (D-32) */
   monthlyExpenses: z.string(),
   /** /profit/summary for this month (D-33) */

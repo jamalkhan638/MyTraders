@@ -137,7 +137,7 @@ Product master (defaults, editable any time):
 
 Prices are per piece for a TIN and per carton for a POUCH. The database enforces the cross-field rules too (POUCH ⇒ pieces per carton; weight ⇒ unit and basis; tax rate 0–100).
 
-Weight totals: `Total Weight = qty × weight`; Tons = kg ÷ 1000 (grams converted to kg). Converting Liter/ML products to tons is **OQ-7**.
+Weight totals: `Total Weight = qty × weight`. Simplified business rule (D-35, no density / kg-per-liter setting): `1000 Gram = 1 KG`, `1 Liter = 1 KG`, `1000 ML = 1 Liter = 1 KG`, `1000 KG = 1 Ton`. So `Total Weight KG = KG + Gram ÷ 1000 + Liter + ML ÷ 1000` and `Tons = Total Weight KG ÷ 1000` (e.g. 5 L = 5 kg, 500 ML = 0.5 kg, 2500 ML = 2.5 kg).
 
 When a product is selected on an invoice, its defaults auto-fill the invoice row. Admin can override values **on that invoice only** without changing the product master.
 
@@ -215,10 +215,10 @@ Admin only (bookers are redirected to their app; the API returns 403). One reque
 | Card | Definition | Click |
 |---|---|---|
 | Pending Orders | count of orders with status `PENDING` | Orders filtered to Pending |
-| Total Market Credit | Σ outstanding **Shop Ledger** balance of all shops, all-time (D-30); no stored credit field | Area Ledger |
+| Total Market Credit | Σ outstanding **Shop Ledger** balance of all shops, all-time (D-30); no stored credit field | **Area Ledger** — the main screen for outstanding balances and collections (the Shops list also shows an Outstanding column) |
 | Sales this month | Σ **Payable Value** of CONFIRMED invoices dated this month (cancelled excluded) | Invoices |
 | Cash collected this month | Σ **PAYMENT** ledger credits dated this month — manual adjustments and invoice reversals are not cash | — |
-| Weight sold this month | Σ invoice-item **Total Weight** snapshots of confirmed invoices this month: KG and Gram products in KG, shown as **tons** (KG ÷ 1000); Liter / ML products are shown **separately in liters, never converted to tons** (OQ-7); items without a weight are excluded | — |
+| Weight sold this month | Σ invoice-item **Total Weight** snapshots of confirmed invoices this month, all in KG: KG + Gram ÷ 1000 + **Liter (1 L = 1 KG)** + ML ÷ 1000 (D-35); shown in **tons** (KG ÷ 1000) with the KG figure underneath; items without a weight are excluded | — |
 | Expenses this month | Σ **ACTIVE** expenses dated this month (voided excluded, D-32) | Expenses |
 | Net profit this month | `/profit/summary` for the month (D-33): Σ (Payable Value − cost snapshot) − expenses; gross profit shown underneath | — |
 
@@ -263,7 +263,8 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-31 | **Payable Value = Grand Total + Advance Tax + Further Tax − ADT / invoice-level Special Discount** (blank = 0), calculated and stored by the server, always printed; it is the invoice's ledger debit. Due Payment never affects Payable Value or the ledger. Payments / decreases: no future dates, backdating allowed, limited by the balance on their date and never making a later balance negative. Invoice cancellation refused if it would make the current balance negative (no advance balances in the MVP). Area Ledger exports: CSV + browser print / PDF. Later: credit-status filter (Dashboard/Reports), Credit Report (Reports), payment during invoice creation (not required) | Owner decision (Phase 5 review) |
 | D-32 | Expenses are Admin-only, per organization, with configurable Expense Categories (unique name per organization, deactivate not delete, defaults seeded); amount > 0, no future dates, active category required; editable while active; **voided with a reason instead of deleted** and then excluded from all totals; no partner splitting; Σ by date range (default current month) is the Expenses term of Net Profit | Owner decision (Phase 6) |
 | D-33 | **Profit (MVP)**: Invoice Profit = **Payable Value** (Grand Total + Advance Tax + Further Tax − ADT discount) − Product Cost (historical cost snapshot: TIN Qty Pcs × cost, POUCH Qty Ctn × cost); Due Payment never counts; Gross Profit = Σ over confirmed, non-cancelled invoices; Net Profit = Gross Profit − Expenses. GST not separately removed; tax paid is recorded as an Expense (*Tax / Government Tax*, added to the default categories). Tax treatment inside profit = future business-rule review | Owner decision (Phase 6) |
-| D-34 | **Dashboard**: Sales = Payable Value of confirmed invoices; Cash Collected = PAYMENT ledger entries only; Market Credit = outstanding Shop Ledger balance; Profit = D-33 (`/profit/summary`); Expenses = active expenses; weight from invoice item snapshots in tons (KG / Gram) with liquids reported separately in liters; all from `GET /dashboard/summary` | Owner decision (Phase 6) |
+| D-34 | **Dashboard**: Sales = Payable Value of confirmed invoices; Cash Collected = PAYMENT ledger entries only; Market Credit = outstanding Shop Ledger balance; Profit = D-33 (`/profit/summary`); Expenses = active expenses; weight from invoice item snapshots in tons (liquids included at 1 L = 1 KG, D-35); Market Credit opens the Area Ledger; all from `GET /dashboard/summary` | Owner decision (Phase 6) |
+| D-35 | **Weight / tons**: intentional simplified rule `1000 Gram = 1 KG`, `1 Liter = 1 KG`, `1000 ML = 1 Liter = 1 KG`, `1000 KG = 1 Ton`; liquid products count toward Total Weight and Tons Sold exactly like KG products; no density or kg-per-liter setting in the MVP. Dashboard Market Credit keeps opening the Area Ledger | Owner decision (Phase 6 review) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |
@@ -275,6 +276,6 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 |---|---|---|
 | OQ-1 | ~~Exact invoice formulas~~ — answered by D-29 (see invoice-specification.md; §8 lists implementation choices awaiting review) | closed |
 | OQ-2 | ~~Sales base for profit~~ — answered by D-33 (Payable Value − cost snapshot); tax treatment inside profit is a future review | closed |
-| OQ-7 | How should Liter / ML products count toward "tons sold" (e.g. a kg-per-liter factor, or shown separately in liters)? | Dashboard weight card |
+| OQ-7 | ~~Liters toward tons~~ — answered by D-35 (1 L = 1 KG, 1000 ML = 1 L) | closed |
 | OQ-5 | ~~Booker estimated order total~~ — not applicable: bookers see no prices (D-24) | closed |
 | OQ-6 | ~~Qty ctn vs Qty pcs~~ — answered by D-26 / D-28 / D-29 (a TIN has no Qty Ctn on the invoice) | closed |

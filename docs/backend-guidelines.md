@@ -118,9 +118,8 @@ Invoice creation is **one endpoint** (`POST /invoices`); when `orderId` is prese
   "shopsWithBalance": 3,
   "monthlySales": "110353.86",
   "monthlyInvoiceCount": 7,
-  "monthlyWeightKg": "171.000",
-  "monthlyWeightTons": "0.171",
-  "monthlyVolumeLiters": "50.000",
+  "monthlyWeightKg": "221.000",
+  "monthlyWeightTons": "0.221",
   "monthlyExpenses": "2600.00",
   "monthlyGrossProfit": "21387.36",
   "monthlyNetProfit": "18787.36",
@@ -141,7 +140,7 @@ Amounts are decimal strings. Sales / profit come from `ProfitService` (D-31, D-3
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds one debit; payment credit reduces; overpayment rejected; concurrent payments can't overdraw (row lock); adjustments; running balance with backdated entries; reversal once on cancel; Due Payment prefill and no ledger change from it; area sheet opening/payments/closing incl. same-day invoices/adjustments, filters, totals; append-only triggers; tenant isolation; permissions.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
-- **Dashboard**: each card vs its definition (pending count, Payable Value sales with cancelled excluded, PAYMENT-only cash, active expenses, profit = /profit/summary, market credit = ledger, weight from snapshots with liters apart), empty org zeros, tenant isolation, Admin only.
+- **Dashboard**: each card vs its definition (pending count, Payable Value sales with cancelled excluded, PAYMENT-only cash, active expenses, profit = /profit/summary, market credit = ledger, weight from snapshots with Gram / Liter / ML converted at 1000 g = 1 L = 1 kg (D-35)), empty org zeros, tenant isolation, Admin only.
 - **Profit**: D-33 rule from the owner's numbers; cancelled invoices and voided expenses excluded; cost snapshot survives product cost changes; negative net; tenant isolation; Admin only.
 
 e2e tests run against a dedicated Postgres test database (docker-compose), reset per test file.
