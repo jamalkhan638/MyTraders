@@ -49,3 +49,10 @@ export function shiftDate(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** First and last day of the calendar month of a business date. */
+export function monthRange(date: string): { from: string; to: string } {
+  const from = `${date.slice(0, 7)}-01`;
+  const next = shiftDate(`${date.slice(0, 7)}-28`, 4); // always lands in the next month
+  return { from, to: shiftDate(`${next.slice(0, 7)}-01`, -1) };
+}

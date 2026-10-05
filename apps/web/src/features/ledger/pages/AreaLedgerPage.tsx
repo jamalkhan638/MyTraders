@@ -10,6 +10,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAreas } from '@/features/areas/hooks/useAreas';
 import { useCurrentUser } from '@/features/auth/auth-context';
+import { downloadCsv } from '@/lib/export/csv';
 import { formatBusinessDate, shiftDate, todayIn } from '@/lib/format/date';
 import { formatAmount } from '@/lib/format/number';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -28,24 +29,19 @@ function dayActivity(row: Pick<AreaLedgerRow, 'dayDebit' | 'dayOtherCredit'>): s
   return parts.join(' ');
 }
 
-/** Byte-order mark so Excel reads the file as UTF-8. */
-const BOM = String.fromCharCode(0xfeff);
-
 /** Collection sheet as CSV (opens in Excel). Values are the server's decimal strings. */
-function downloadCsv(sheet: AreaLedger) {
-  const header = [
-    'Shop',
-    'Opening balance',
-    'Invoices / adjustments (+)',
-    'Other credits (-)',
-    'Payment',
-    'Closing balance',
-    'Last payment',
-  ];
-  const quote = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const lines = [
+function exportCsv(sheet: AreaLedger) {
+  downloadCsv(`area-ledger-${sheet.area.name.replace(/\W+/g, '-')}-${sheet.date}.csv`, [
     [`Area ledger — ${sheet.area.name} — ${sheet.date}`],
-    header,
+    [
+      'Shop',
+      'Opening balance',
+      'Invoices / adjustments (+)',
+      'Other credits (-)',
+      'Payment',
+      'Closing balance',
+      'Last payment',
+    ],
     ...sheet.rows.map((r) => [
       r.shop.name,
       r.openingBalance,
@@ -64,14 +60,7 @@ function downloadCsv(sheet: AreaLedger) {
       sheet.totals.closingBalance,
       '',
     ],
-  ].map((cells) => cells.map(quote).join(','));
-  const blob = new Blob([`${BOM}${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `area-ledger-${sheet.area.name.replace(/\W+/g, '-')}-${sheet.date}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  ]);
 }
 
 /**
@@ -117,7 +106,7 @@ export function AreaLedgerPage() {
           actions={
             sheet.data && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => downloadCsv(sheet.data)}>
+                <Button variant="outline" onClick={() => exportCsv(sheet.data)}>
                   <Download />
                   Excel (CSV)
                 </Button>

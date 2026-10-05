@@ -24,7 +24,7 @@ export class DashboardService {
     const [pending, credit, weight, cash, salesByMonth, topShops] = await Promise.all([
       this.orders.list({ page: 1, pageSize: 5, status: 'PENDING' }),
       this.ledger.marketCredit(),
-      this.profit.weightSold(from, to),
+      this.profit.weightSold({ from, to }),
       this.ledger.cashCollected(from, to),
       this.profit.salesByMonth(to, 6),
       this.profit.topShops(from, to, 5),

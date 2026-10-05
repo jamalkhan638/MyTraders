@@ -34,6 +34,29 @@ const SHOP_FIELDS = {
 
 type ShopRow = Prisma.ShopGetPayload<{ select: typeof SHOP_FIELDS }>;
 
+/** Shop list filters, shared by the Shops page and the shop reports. */
+export function shopWhere(
+  query: Pick<ListShopsQuery, 'q' | 'areaId' | 'categoryId' | 'orderBookerId' | 'status'>,
+): Prisma.ShopWhereInput {
+  return {
+    ...(query.status ? { isActive: query.status === 'active' } : {}),
+    ...(query.areaId ? { areaId: query.areaId } : {}),
+    ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+    ...(query.orderBookerId
+      ? { assignedOrderBookerId: query.orderBookerId === UNASSIGNED ? null : query.orderBookerId }
+      : {}),
+    ...(query.q
+      ? {
+          OR: [
+            { name: { contains: query.q, mode: 'insensitive' } },
+            { contactPerson: { contains: query.q, mode: 'insensitive' } },
+            { phone: { contains: query.q } },
+          ],
+        }
+      : {}),
+  };
+}
+
 type References = Pick<CreateShop, 'areaId' | 'categoryId' | 'assignedOrderBookerId'>;
 type FieldError = NonNullable<ApiErrorBody['details']>[number];
 
@@ -51,23 +74,7 @@ export class ShopsService {
   ) {}
 
   async list(query: ListShopsQuery): Promise<Paginated<Shop>> {
-    const where: Prisma.ShopWhereInput = {
-      ...(query.status ? { isActive: query.status === 'active' } : {}),
-      ...(query.areaId ? { areaId: query.areaId } : {}),
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-      ...(query.orderBookerId
-        ? { assignedOrderBookerId: query.orderBookerId === UNASSIGNED ? null : query.orderBookerId }
-        : {}),
-      ...(query.q
-        ? {
-            OR: [
-              { name: { contains: query.q, mode: 'insensitive' } },
-              { contactPerson: { contains: query.q, mode: 'insensitive' } },
-              { phone: { contains: query.q } },
-            ],
-          }
-        : {}),
-    };
+    const where = shopWhere(query);
     const [rows, total] = await Promise.all([
       this.db.client.shop.findMany({
         where,

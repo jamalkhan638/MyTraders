@@ -132,6 +132,7 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 6. Invoice date is editable (default today) with no restriction on past / future dates.
 7. PDF: browser *Print / save as PDF* with a dedicated print stylesheet (A4 landscape). A server-generated PDF file is a later enhancement.
 8. ~~Ledger debit = Grand Total~~ — confirmed by the owner as **Payable Value** (D-31).
+9. **Product sales report (D-36):** per-product sales value = Σ line Gross Value and per-product profit = Σ (line Gross Value − line cost). Invoice-level Advance Tax, Further Tax and ADT discount are **not split across products** (no pro-rata allocation); the report shows them as one separate line that reconciles to Payable Value and Gross Profit.
 
 ## 9. Profit (D-33)
 

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,12 +8,15 @@ import {
   type CreateExpense,
   type Expense,
   type ExpenseList,
+  type ExpenseReport,
+  type ExpenseReportQuery,
   type ExpenseSummary,
   type ExpenseSummaryQuery,
   type ListExpensesQuery,
   type UpdateExpense,
 } from '@mytraders/shared-types';
 import { Prisma } from '@prisma/client';
+import { assertRange, monthOf } from '../../common/period/business-period';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 
@@ -60,19 +62,7 @@ export class ExpensesService {
 
   async list(query: ListExpensesQuery): Promise<ExpenseList> {
     assertRange(query.from, query.to);
-    const where: Prisma.ExpenseWhereInput = {
-      status: query.status === 'voided' ? 'VOIDED' : 'ACTIVE',
-      ...dateRange(query.from, query.to),
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-      ...(query.q
-        ? {
-            OR: [
-              { description: { contains: query.q, mode: 'insensitive' } },
-              { reference: { contains: query.q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
+    const where = expenseWhere(query, query.status === 'voided' ? 'VOIDED' : 'ACTIVE');
     const [rows, total, sum] = await Promise.all([
       this.db.client.expense.findMany({
         where,
@@ -90,6 +80,72 @@ export class ExpensesService {
       page: query.page,
       pageSize: query.pageSize,
       totalAmount: (sum._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
+    };
+  }
+
+  /**
+   * Expense report rows for a period (Active, Voided or both) with the totals of every matching
+   * expense. Only ACTIVE expenses make the total that counts (D-32); the voided sum is shown for
+   * reference. By category = the ACTIVE expenses of the filters.
+   */
+  async report(
+    query: Omit<ExpenseReportQuery, 'from' | 'to'> & { from: string; to: string },
+    limit: number,
+  ): Promise<Omit<ExpenseReport, 'period'>> {
+    const status =
+      query.status === 'active' ? 'ACTIVE' : query.status === 'voided' ? 'VOIDED' : undefined;
+    const where = expenseWhere(query, status);
+    const [rows, byStatus, byCategory, categories] = await Promise.all([
+      this.db.client.expense.findMany({
+        where,
+        select: EXPENSE_FIELDS,
+        orderBy: [{ expenseDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        take: limit,
+      }),
+      this.db.client.expense.groupBy({
+        by: ['status'],
+        where,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.db.client.expense.groupBy({
+        by: ['categoryId'],
+        where: { ...where, status: 'ACTIVE' },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.db.client.expenseCategory.findMany({ select: { id: true, name: true } }),
+    ]);
+    const zero = new Prisma.Decimal(0);
+    const of = (s: 'ACTIVE' | 'VOIDED') => byStatus.find((g) => g.status === s);
+    const names = new Map(categories.map((c) => [c.id, c.name]));
+    const rowCount = byStatus.reduce((acc, g) => acc + g._count._all, 0);
+    return {
+      rows: rows.map((r) => ({
+        id: r.id,
+        expenseDate: isoDate(r.expenseDate),
+        category: { id: r.category.id, name: r.category.name },
+        description: r.description,
+        reference: r.reference,
+        amount: r.amount.toFixed(2),
+        status: r.status,
+        voidReason: r.voidReason,
+      })),
+      rowCount,
+      truncated: rowCount > rows.length,
+      totals: {
+        active: (of('ACTIVE')?._sum.amount ?? zero).toFixed(2),
+        activeCount: of('ACTIVE')?._count._all ?? 0,
+        voided: (of('VOIDED')?._sum.amount ?? zero).toFixed(2),
+        voidedCount: of('VOIDED')?._count._all ?? 0,
+      },
+      byCategory: byCategory
+        .map((g) => ({
+          category: { id: g.categoryId, name: names.get(g.categoryId) ?? '' },
+          total: (g._sum.amount ?? zero).toFixed(2),
+          count: g._count._all,
+        }))
+        .sort((a, b) => a.category.name.localeCompare(b.category.name)),
     };
   }
 
@@ -228,11 +284,24 @@ export class ExpensesService {
   }
 }
 
-function assertRange(from?: string, to?: string): void {
-  if (from && to && from > to) {
-    const message = '"To" must be on or after "From"';
-    throw new BadRequestException({ message, details: [{ path: 'to', message }] });
-  }
+/** The filters shared by the expense list and the expense report. */
+function expenseWhere(
+  query: { from?: string; to?: string; categoryId?: string; q?: string },
+  status: 'ACTIVE' | 'VOIDED' | undefined,
+): Prisma.ExpenseWhereInput {
+  return {
+    ...(status ? { status } : {}),
+    ...dateRange(query.from, query.to),
+    ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+    ...(query.q
+      ? {
+          OR: [
+            { description: { contains: query.q, mode: 'insensitive' } },
+            { reference: { contains: query.q, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 }
 
 function dateRange(from?: string, to?: string): Prisma.ExpenseWhereInput {
@@ -240,14 +309,6 @@ function dateRange(from?: string, to?: string): Prisma.ExpenseWhereInput {
   return {
     expenseDate: { ...(from ? { gte: asDate(from) } : {}), ...(to ? { lte: asDate(to) } : {}) },
   };
-}
-
-/** First and last day of the month of a business date. */
-function monthOf(date: string): { from: string; to: string } {
-  const [y, m] = date.split('-').map(Number);
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const mm = String(m).padStart(2, '0');
-  return { from: `${y}-${mm}-01`, to: `${y}-${mm}-${String(last).padStart(2, '0')}` };
 }
 
 function toExpense(row: ExpenseRow): Expense {

@@ -31,7 +31,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Rate Code removed from products (D-27)
 - ☑ Shops (table, filters, drawer, assign booker; FK validation in organization, D-23) — `GET/POST /shops`, `GET/PATCH /shops/:id`
 - ☑ Shop details page — info/assignment/tax, outstanding, ledger history, payments, adjustments, invoice history
-- ☐ Shops export Excel / PDF (filtered)
+- ☑ Shops export (filtered): Reports → Shop list — CSV + print (D-36); real `.xlsx` / server PDF later
 
 ## Phase 3 — Order Booker flow
 - ☑ Booker: My Shops (assigned active shops, area filter, search; no balance — D-24) — `GET /booker/shops|areas`
@@ -58,8 +58,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Finance → Area Ledger: opening / payments / closing per shop and date, filters, totals, payment entry, print, CSV
 - ☑ Total Market Credit service + `GET /ledger/market-credit` (for the Dashboard)
 - ☑ Backdated payments / decreases limited by the balance on their date and later balances; cancellation refused if the balance would go negative (D-31)
-- ☐ Shop list credit-status filter → Reports phase
-- ☐ Credit Report → Reports phase
+- ☑ Credit-status filter + Credit Report → Reports → Shop credit (D-36)
 - ☐ Real `.xlsx` / server-generated PDF for the area sheet (CSV + browser print are the MVP)
 - Payment during invoice creation — not required (payments are recorded from Shop Details and the Area Ledger)
 
@@ -70,8 +69,13 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Future review: tax treatment inside profit
 - ☑ `GET /dashboard/summary` + Dashboard page (7 cards, 6-month sales chart, top shops, recent pending orders) — D-34; weight incl. liquids at 1 L = 1 kg (D-35)
 
-## Phase 7 — Reports
-- ☐ Sales, Shop Credit, Invoices, Product Sales, Expenses, Profit — filters + Excel/PDF
+## Phase 7 — Reports (D-36)
+- ☑ `GET /reports/{sales,invoices,shop-credit,product-sales,expenses,profit,shops}` — composed from Profit / Shop Ledger / Expenses services; one sales definition (`salesWhere`) shared with profit and the dashboard
+- ☑ Reports pages (index + 7 tabs): filters in the URL (period, area, shop, product, order booker, status, search), server totals, CSV (Excel) download, print / PDF layout, mobile scrolling tables
+- ☑ Tenant-isolation and permission tests (`test/reports.e2e-spec.ts`)
+- ☐ Owner review: product-level profit excludes invoice-level Advance Tax / Further Tax / ADT discount (shown as a separate reconciling line)
+- ☐ Real `.xlsx` and server-generated PDF exports
+- ☐ Searchable shop / product pickers in report filters (the dropdowns list the first 100)
 
 ## Phase 8 — PWA & polish
 - ☐ PWA manifest/icons, app-shell caching, order draft persistence

@@ -18,3 +18,8 @@ export function formatQuantity(value: string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   return quantityFormat.format(value as Intl.StringNumericLiteral);
 }
+
+/** "1 shop", "3 shops" */
+export function plural(count: number, word: string): string {
+  return `${count.toLocaleString('en-US')} ${word}${count === 1 ? '' : 's'}`;
+}

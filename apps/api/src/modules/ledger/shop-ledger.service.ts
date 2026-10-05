@@ -114,6 +114,38 @@ export class ShopLedgerService {
     return result;
   }
 
+  /**
+   * Current balance of every shop matching a shop filter that has ledger entries (reports — one
+   * grouped query, no id list). Shops without entries are absent (balance 0).
+   */
+  async balancesWhere(shopWhere: Prisma.ShopWhereInput): Promise<Map<string, string>> {
+    const groups = await this.db.client.shopLedgerEntry.groupBy({
+      by: ['shopId'],
+      where: { shop: shopWhere },
+      _sum: { debitAmount: true, creditAmount: true },
+    });
+    return new Map(
+      groups.map((g) => [
+        g.shopId,
+        money((g._sum.debitAmount ?? new Decimal(0)).minus(g._sum.creditAmount ?? 0)),
+      ]),
+    );
+  }
+
+  /** Date of each shop's latest PAYMENT, for the shops matching a shop filter. */
+  async lastPaymentDates(shopWhere: Prisma.ShopWhereInput): Promise<Map<string, string>> {
+    const groups = await this.db.client.shopLedgerEntry.groupBy({
+      by: ['shopId'],
+      where: { type: 'PAYMENT', shop: shopWhere },
+      _max: { transactionDate: true },
+    });
+    return new Map(
+      groups
+        .filter((g) => g._max.transactionDate)
+        .map((g) => [g.shopId, isoDate(g._max.transactionDate!)]),
+    );
+  }
+
   /** Invoice form: Due Payment defaults to the shop's current outstanding balance. */
   async outstandingBalance(shopId: string): Promise<string> {
     return (await this.balance(shopId)).outstandingBalance;

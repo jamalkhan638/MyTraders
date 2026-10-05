@@ -1,7 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { BookerLayout } from '@/components/layout/BookerLayout';
-import { ComingSoonPage } from '@/components/layout/ComingSoonPage';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { BookerHomePage } from '@/features/booker/pages/BookerHomePage';
 import { BookerOrderDetailsPage } from '@/features/booker/pages/BookerOrderDetailsPage';
@@ -17,6 +16,15 @@ import { OrdersPage } from '@/features/orders/pages/OrdersPage';
 import { BookerProfilePage } from '@/features/booker/pages/BookerProfilePage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { ProductsPage } from '@/features/products/pages/ProductsPage';
+import { ReportsLayout } from '@/features/reports/components/ReportsLayout';
+import { ExpenseReportPage } from '@/features/reports/pages/ExpenseReportPage';
+import { InvoiceReportPage } from '@/features/reports/pages/InvoiceReportPage';
+import { ProductSalesReportPage } from '@/features/reports/pages/ProductSalesReportPage';
+import { ProfitReportPage } from '@/features/reports/pages/ProfitReportPage';
+import { ReportsHomePage } from '@/features/reports/pages/ReportsHomePage';
+import { SalesReportPage } from '@/features/reports/pages/SalesReportPage';
+import { ShopCreditReportPage } from '@/features/reports/pages/ShopCreditReportPage';
+import { ShopListReportPage } from '@/features/reports/pages/ShopListReportPage';
 import { ShopDetailsPage } from '@/features/shops/pages/ShopDetailsPage';
 import { ShopsPage } from '@/features/shops/pages/ShopsPage';
 import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
@@ -29,8 +37,6 @@ import { OrganizationSettingsPage } from '@/features/settings/pages/Organization
 import { OrderBookersPage } from '@/features/users/pages/OrderBookersPage';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole, RoleHomeRedirect } from './guards';
 import { NotFoundPage } from './NotFoundPage';
-
-const adminPlaceholders = [{ path: 'reports', title: 'Reports', phase: 'Phase 7' }];
 
 export const router = createBrowserRouter([
   {
@@ -70,10 +76,20 @@ export const router = createBrowserRouter([
                   { path: 'expense-categories', element: <ExpenseCategoriesPage /> },
                 ],
               },
-              ...adminPlaceholders.map(({ path, title, phase }) => ({
-                path: `/${path}`,
-                element: <ComingSoonPage title={title} phase={phase} />,
-              })),
+              {
+                path: '/reports',
+                element: <ReportsLayout />,
+                children: [
+                  { index: true, element: <ReportsHomePage /> },
+                  { path: 'sales', element: <SalesReportPage /> },
+                  { path: 'invoices', element: <InvoiceReportPage /> },
+                  { path: 'shop-credit', element: <ShopCreditReportPage /> },
+                  { path: 'product-sales', element: <ProductSalesReportPage /> },
+                  { path: 'expenses', element: <ExpenseReportPage /> },
+                  { path: 'profit', element: <ProfitReportPage /> },
+                  { path: 'shops', element: <ShopListReportPage /> },
+                ],
+              },
             ],
           },
         ],

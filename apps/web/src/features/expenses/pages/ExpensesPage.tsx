@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useCurrentUser } from '@/features/auth/auth-context';
 import { useExpenseCategories } from '@/features/expense-categories/hooks/useExpenseCategories';
-import { formatBusinessDate, shiftDate, todayIn } from '@/lib/format/date';
+import { formatBusinessDate, monthRange, shiftDate, todayIn } from '@/lib/format/date';
 import { formatAmount } from '@/lib/format/number';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { ExpenseFormDialog, type ExpenseDialogMode } from '../components/ExpenseFormDialog';
@@ -20,13 +20,6 @@ import { useExpenses } from '../hooks/useExpenses';
 
 const PAGE_SIZE = 20;
 type Status = 'active' | 'voided';
-
-/** First and last day of the month of a business date. */
-function monthRange(date: string): { from: string; to: string } {
-  const from = `${date.slice(0, 7)}-01`;
-  const next = shiftDate(`${date.slice(0, 7)}-28`, 4); // always lands in the next month
-  return { from, to: shiftDate(`${next.slice(0, 7)}-01`, -1) };
-}
 
 /** Expenses (Admin) — docs §4.10. The total is the server's Σ for the filters, not the page. */
 export function ExpensesPage() {

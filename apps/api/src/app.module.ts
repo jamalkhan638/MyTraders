@@ -26,6 +26,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { ProfitModule } from './modules/profit/profit.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ShopsModule } from './modules/shops/shops.module';
@@ -100,6 +101,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ExpensesModule,
     ProfitModule,
     DashboardModule,
+    ReportsModule,
     BookerModule,
   ],
   controllers: [HealthController],
