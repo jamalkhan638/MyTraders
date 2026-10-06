@@ -40,7 +40,8 @@ docker compose up -d
 # 3. API environment
 cp apps/api/.env.example apps/api/.env     # then set a long random JWT_ACCESS_SECRET
 
-# 4. Create tables and demo data
+# 4. Create tables and demo data (the seed needs the shared package built once)
+pnpm --filter @mytraders/shared-types build
 pnpm --filter @mytraders/api prisma:deploy
 pnpm --filter @mytraders/api db:seed
 
