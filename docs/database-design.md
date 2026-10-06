@@ -79,6 +79,10 @@ model Organization {
   orderPrefix         String             @default("ORD-")
   orderNumberDigits   Int                @default(6)
   defaultTaxRate      Decimal            @default(0) @db.Decimal(7, 4)
+  // platform tenant management (D-38): last activate / suspend by a Super Admin
+  statusChangedAt     DateTime?          @db.Timestamptz
+  statusChangedById   String?            @db.Uuid     // FK User (the Super Admin)
+  suspensionReason    String?                         // cleared on reactivation
   createdAt           DateTime           @default(now()) @db.Timestamptz
   updatedAt           DateTime           @updatedAt @db.Timestamptz
 }

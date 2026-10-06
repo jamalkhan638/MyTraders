@@ -78,7 +78,7 @@ Rules:
    - sets `organizationId` on `create / createMany`;
    - **forbids** `findUnique / update / delete / upsert` on tenant models (these cannot be scoped safely) — services use `findFirst` / `updateMany` with the tenant filter, then check the affected count (0 → 404).
 4. Cross-entity references are validated inside the tenant: e.g. creating a shop with `areaId` first loads the area through the tenant client; not found → 404/422. This prevents linking to another tenant's IDs.
-5. A raw unscoped Prisma client exists only for: auth (login lookup), counters inside transactions, platform (Super Admin) module, seeds. Its use is limited to those modules and reviewed.
+5. A raw unscoped Prisma client exists only for: auth (login lookup), counters inside transactions, the platform (Super Admin) module — which reads tenant identity, status, Admin accounts and usage counts only (D-38) — and seeds. Its use is limited to those modules and reviewed.
 6. **Every module ships tenant-isolation e2e tests** (Org A token cannot read/update Org B record by ID).
    Implementation: `apps/api/src/prisma/tenant-scope.ts` (`TENANT_MODELS` must list every tenant-owned model; models not listed are unreachable through the tenant client — default deny). The Organization row itself is reachable only as `id = current organization`.
 7. Future defense-in-depth: PostgreSQL Row-Level Security. Not in MVP.

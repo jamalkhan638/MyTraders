@@ -93,9 +93,17 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ PWA manifest/icons, app-shell caching, order draft persistence
 - ☐ Mobile review of all Admin pages
 
-## Phase 9 — SaaS platform
-- ☐ Super Admin: organizations list, status TRIAL/ACTIVE/SUSPENDED, usage counts
-- ☐ Subscription foundation (status only, no billing)
+## Phase 9 — SaaS platform (D-38)
+- ☑ Super Admin tenant management: `/api/platform/*` (summary, list / search / status filter, create tenant + first Admin, details with usage counts, activate / suspend / reactivate, reset tenant Admin password); `Organization.statusChangedAt / statusChangedById / suspensionReason`
+- ☑ Suspension blocks every tenant user on the next request and revokes refresh tokens; reactivation restores sign-in; data untouched
+- ☑ Platform app (`/platform`): overview cards, tenants table, create tenant, tenant details, confirm dialogs
+- ☑ Permission / isolation / lifecycle tests (`platform.e2e-spec.ts`)
+- ☐ Platform audit log (who did what, beyond the last status change)
+- ☑ `super-admin:create` CLI for the first platform Super Admin
+- ☐ Super Admin accounts managed in the app and Super Admin password change
+- ☐ Tenant rename / settings edit from the platform, deactivate a tenant Admin, add a second Admin
+- ☐ Optional "suspended" message page for tenant users (today: the login form shows the reason)
+- Billing / subscriptions / plans / payment gateways / usage metering — **not started** (owner instruction)
 
 ## Later
 Stock (transactions, purchases, suppliers, returns, warehouses, damaged), route/visit-day planning, partner share reports, offline order queue, WhatsApp invoice sharing, Postgres RLS.

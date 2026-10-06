@@ -113,9 +113,15 @@ model Organization {
   orderPrefix         String             @default("ORD-")
   orderNumberDigits   Int                @default(6)
   defaultTaxRate      Decimal            @default(0) @db.Decimal(7, 4)
+  /// last activate / suspend by a Super Admin (platform tenant management, D-38)
+  statusChangedAt     DateTime?          @db.Timestamptz
+  statusChangedById   String?            @db.Uuid
+  /// why the tenant was suspended; cleared on reactivation
+  suspensionReason    String?
   createdAt           DateTime           @default(now()) @db.Timestamptz
   updatedAt           DateTime           @updatedAt @db.Timestamptz
 
+  statusChangedBy   User?                 @relation("OrganizationStatusChanges", fields: [statusChangedById], references: [id], onDelete: Restrict)
   users             User[]
   counters          OrganizationCounter[]
   areas             Area[]
@@ -146,18 +152,20 @@ model User {
   createdAt      DateTime  @default(now()) @db.Timestamptz
   updatedAt      DateTime  @updatedAt @db.Timestamptz
 
-  organization      Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  refreshTokens     RefreshToken[]
-  assignedShops     Shop[]
-  bookedOrders      Order[]           @relation("BookedOrders")
-  cancelledOrders   Order[]           @relation("CancelledOrders")
-  createdInvoices   Invoice[]         @relation("CreatedInvoices")
-  cancelledInvoices Invoice[]         @relation("CancelledInvoices")
-  ledgerEntries     ShopLedgerEntry[]
-  payments          Payment[]
-  createdExpenses   Expense[]         @relation("CreatedExpenses")
-  updatedExpenses   Expense[]         @relation("UpdatedExpenses")
-  voidedExpenses    Expense[]         @relation("VoidedExpenses")
+  organization              Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  refreshTokens             RefreshToken[]
+  assignedShops             Shop[]
+  bookedOrders              Order[]           @relation("BookedOrders")
+  cancelledOrders           Order[]           @relation("CancelledOrders")
+  createdInvoices           Invoice[]         @relation("CreatedInvoices")
+  cancelledInvoices         Invoice[]         @relation("CancelledInvoices")
+  ledgerEntries             ShopLedgerEntry[]
+  payments                  Payment[]
+  createdExpenses           Expense[]         @relation("CreatedExpenses")
+  updatedExpenses           Expense[]         @relation("UpdatedExpenses")
+  voidedExpenses            Expense[]         @relation("VoidedExpenses")
+  /// tenants whose status this Super Admin changed
+  organizationStatusChanges Organization[]    @relation("OrganizationStatusChanges")
 
   @@index([organizationId, role])
 }

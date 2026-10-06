@@ -16,7 +16,7 @@ Each organization (distributor) has fully isolated users, order bookers, areas, 
 
 | Role | Scope | Summary |
 |---|---|---|
-| `SUPER_ADMIN` | Platform | Manages organizations / subscription status. **Built after the MVP.** |
+| `SUPER_ADMIN` | Platform | Manages tenants (organizations): create with the first Admin, activate / suspend / reactivate, reset a tenant Admin's password. Sees usage counts only, never tenant business data (D-38) |
 | `ADMIN` | One organization | Full control of that organization's data. Not unnecessarily restricted. |
 | `ORDER_BOOKER` | One organization, own shops only | Views assigned shops, books orders, sees own orders. Nothing else. |
 
@@ -45,7 +45,7 @@ Currency is an organization setting — it is never hard-coded in the domain mod
 - Admin can deactivate a user; a deactivated user loses access immediately.
 - MVP user management (D-19): the Admin lists all users of the organization and creates / edits / activates / deactivates **Order Booker** accounts (role is always `ORDER_BOOKER`, organization is always the Admin's). Admin accounts are not editable from the app yet; further Admins are created with the CLI.
 - Deactivating a booker or resetting their password signs them out everywhere immediately.
-- MVP: organizations and their first Admin are created by a seed/CLI script (Super Admin UI comes later).
+- Organizations (tenants) and their first Admin are created by the Super Admin (Platform → Create tenant) or the `org:create` CLI — both use the same code (D-38).
 
 ### 4.3 Areas
 - List, search, add, edit, activate/deactivate.
@@ -253,6 +253,19 @@ Rules (owner, Phase 7): Sales = Payable Value of confirmed, non-cancelled invoic
 - **Exports**: *Excel (CSV)* downloads exactly the rows and totals on screen (server decimal strings, UTF-8 for Excel, the filters in the first line); *Print / PDF* prints the report with the company, report name, period / filters and print time, without the app chrome. A report lists at most **5,000 rows** (a warning asks to narrow the filters); its totals always cover every matching row. Real `.xlsx` and server-generated PDF are later enhancements.
 - Filters are kept in the URL (shareable, survive reload). The **Shop** and **Product** filter dropdowns list the first 100 shops (of the chosen area) / products; as the catalogue grows they need a server-backed searchable picker (planned).
 
+### 4.13a Platform tenant management (Super Admin) — D-38
+A **tenant** is an Organization. The Super Admin works only in the platform app (`/platform`) through dedicated `/api/platform/*` routes; every tenant business route (shops, orders, invoices, ledger, expenses, dashboard, reports, settings, users, booker) refuses the Super Admin (403), and the platform routes refuse tenant Admins and Order Bookers (403).
+
+- **Overview**: cards Total / Active / Suspended tenants (legacy Trial tenants noted under Active), newest tenants.
+- **Tenants**: table (name, status badge, primary Admin name + email, users, shops, products, invoices, last sign-in, created), search by name, status filter, Suspend / Reactivate from the row.
+- **Create tenant**: company name, currency, timezone, invoice prefix / digits, first Admin (name, email, password). Created **ACTIVE** in one transaction with its counters and default expense categories (same code as the CLI). Admin email must be unused on the platform (409 on the field).
+- **Tenant details**: name, status, tenant id, created date, company basics (town, phone, currency, timezone, invoice prefix), last sign-in, last status change (when, by whom, suspension reason), counts (users by role and active, shops, products, invoices), the tenant's Admins with *Reset password*. Order Bookers are counted, not listed. **No business records or amounts** (no market credit, sales or balances) — usage counts only.
+- **Statuses**: `ACTIVE`, `SUSPENDED` (the existing `TRIAL` value stays in the schema for old rows and is treated like active; *Activate* moves it to ACTIVE). New tenants are ACTIVE.
+- **Suspend** (confirmation + reason): status → SUSPENDED and, in the same transaction, every refresh token of the tenant's users is revoked. Access tokens stop working on the **next request** (the auth guard re-reads the organization status on every request), sign-in is refused with *"Your organization is suspended"*. No tenant data is changed.
+- **Reactivate / Activate** (confirmation): status → ACTIVE, reason cleared. Users sign in again (sessions ended at suspension stay ended) and find all data unchanged.
+- **Reset a tenant Admin's password**: the Super Admin sets a new password (same model as an Admin resetting an Order Booker); the Admin's sessions end. Only ADMIN accounts of that tenant.
+- No billing, plans, subscriptions, payment gateways or usage metering.
+
 ### 4.14 Later (not MVP)
 Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purchases / suppliers / returns / warehouses, route/visit-day planning, partner share reporting, offline order queue, WhatsApp sharing.
 
@@ -293,6 +306,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-35 | **Weight / tons**: intentional simplified rule `1000 Gram = 1 KG`, `1 Liter = 1 KG`, `1000 ML = 1 Liter = 1 KG`, `1000 KG = 1 Ton`; liquid products count toward Total Weight and Tons Sold exactly like KG products; no density or kg-per-liter setting in the MVP. Dashboard Market Credit keeps opening the Area Ledger | Owner decision (Phase 6 review) |
 | D-36 | **Reports** (Phase 7): Sales = Payable Value of confirmed, non-cancelled invoices; Market Credit = Shop Ledger outstanding; Cash Collected = PAYMENT entries only; Product Cost = historical cost snapshots; Gross Profit = Payable Value − Product Cost; Net Profit = Gross Profit − active expenses; cancelled invoices and voided expenses excluded; weight per D-35. Seven reports (Sales, Invoices, Shop credit, Product sales, Expenses, Profit, Shop list) composed from the existing services — no report formula; filters period / area / shop / product / order booker / status; CSV + browser print; `.xlsx` / server PDF later | Owner decision (Phase 7) |
 | D-37 | **Reports, final (owner):** (1) Product Sales never prorates Advance Tax, Further Tax or invoice-level ADT / Special Discount: Product Line Profit = Line Gross Value − Line Cost snapshot; the invoice-level amounts are shown separately (Product Profit Subtotal + Advance Tax + Further Tax − ADT = Gross Profit), reconciling exactly with the Profit report. (2) Historical area: invoices snapshot the shop's area id on confirm (`Invoice.shopAreaId`, existing invoices back-filled from the area name snapshot); Sales / Invoice / Product Sales reports use it, so moving a shop never moves its old invoices; Shop list and Shop credit use the current area. `.xlsx` / server PDF and searchable shop / product filters later | Owner decision (Phase 7 review) |
+| D-38 | **Platform tenant management (Super Admin)**: dedicated `/api/platform/*` APIs and `/platform` app; Super Admin creates tenants (ACTIVE, with first Admin), activates / suspends (reason, revokes all refresh tokens; access tokens blocked on the next request) / reactivates, resets tenant Admin passwords; sees tenant identity, status, Admins and usage counts only — never business data or amounts; cannot use tenant business APIs (403), tenant users cannot use platform APIs (403). Statuses ACTIVE / SUSPENDED (legacy TRIAL kept, activatable). No billing / subscriptions | Owner decision (Phase 9) |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

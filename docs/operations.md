@@ -69,12 +69,18 @@ Restoring one organization alone is not supported by the tools yet (all organiza
 
 ## 5. Organizations, users and demo data
 
-- **Create a customer** with the CLI (no sign-up page in the MVP):
+- **Create a customer** in the platform app (Super Admin → Tenants → Create tenant) or with the CLI — both run the same code:
   ```bash
   ADMIN_PASSWORD='…' pnpm --filter @mytraders/api org:create -- --name "Ali Akbar Traders" \
     --admin-name "Owner" --admin-email owner@example.com --invoice-prefix M- --invoice-digits 8
   ```
   It creates the organization, its number counters, the default expense categories and the first Admin in one transaction. Passing the password through `ADMIN_PASSWORD` keeps it out of the shell history.
+- **Create the platform Super Admin** (once per deployment; there is no sign-up for this role):
+  ```bash
+  SUPER_ADMIN_PASSWORD='…' pnpm --filter @mytraders/api super-admin:create -- \
+    --name "Platform Owner" --email owner@mytraders.example
+  ```
+  The Super Admin signs in at `/login` and lands on `/platform` (tenants: create, suspend, reactivate, reset an Admin's password). Suspending a tenant revokes its users' sessions at once.
 - **Demo data never reaches production**: `prisma/seed.ts` refuses to run when `NODE_ENV=production` **or** when the database name does not end in `_dev` / `_test`. `prisma migrate deploy` never seeds.
 - An Admin manages Order Bookers in the app (create, reset password, deactivate — deactivation and password reset end their sessions at once). Admin accounts and Admin password changes are CLI / database operations in the MVP (see the TODO in implementation-plan).
 

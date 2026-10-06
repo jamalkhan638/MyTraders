@@ -34,6 +34,7 @@ apps/api/
       expenses/
       expense-categories/
       dashboard/
+      platform/             # Super Admin tenant management (only cross-organization module)
       reports/
   test/                     # e2e (supertest) + helpers (org factory, login helper)
   scripts/
@@ -104,6 +105,10 @@ Prefix `/api`. All require auth unless marked public.
 | `GET /expenses/summary?from&to` | ADMIN | ✅ Σ ACTIVE expenses by category; default current month (org tz) — Dashboard / Net Profit |
 | `GET /profit/summary?from&to` | ADMIN | ✅ D-33: Σ (Payable Value − totalCost) of CONFIRMED invoices by invoice date (Due Payment never counts); Net = Gross − active expenses; default current month |
 | `GET/POST /expense-categories`, `GET/PATCH /expense-categories/:id` | ADMIN | ✅ Phase 6; unique name per org; deactivate, never delete |
+| `GET /platform/summary` | SUPER_ADMIN | ✅ D-38: tenants by status |
+| `GET /platform/tenants?q&status&page&pageSize` · `POST /platform/tenants` | SUPER_ADMIN | ✅ list with primary Admin, usage counts, last sign-in · create tenant + first Admin (ACTIVE; shared `create-organization.ts` with the CLI) |
+| `GET /platform/tenants/:id` · `POST /platform/tenants/:id/activate` · `POST /platform/tenants/:id/suspend` | SUPER_ADMIN | ✅ details (Admins, counts — no business data) · activate / reactivate · suspend with reason (+ revoke all refresh tokens, one transaction) |
+| `POST /platform/tenants/:id/admins/:userId/password` | SUPER_ADMIN | ✅ new password for a tenant ADMIN; ends their sessions |
 | `GET /dashboard/summary` | ADMIN | ✅ D-34: all cards + 6-month sales + top shops + recent pending orders in one response; composed from OrdersService, ShopLedgerService, ProfitService (no repeated formulas) |
 | `GET /reports/{sales,invoices,shop-credit,product-sales,expenses,profit,shops}` | ADMIN | ✅ D-36: JSON rows (≤ 5,000, `rowCount` / `truncated`) + server totals over every matching row; dated reports default to the current month. Composed by `ReportsService` from ProfitService (`sales`, `weightSold`, `weightByInvoice`, `productSales`, `lastSaleDates`, `summary`), ShopLedgerService (`balancesWhere`, `lastPaymentDates`, `marketCredit`), ExpensesService (`report`) and the shared `shopWhere` filter; the one definition of a sale is `profit/sales-scope.ts` (`salesWhere`). CSV / print are built in the browser from the response; `xlsx` / server PDF later |
 
@@ -140,6 +145,7 @@ Amounts are decimal strings. Sales / profit come from `ProfitService` (D-31, D-3
 - **Cancellation**: cancel reverses the debit exactly; cancelled invoice excluded from sales/profit/weight; cancelling twice → 409.
 - **Ledger**: invoice adds one debit; payment credit reduces; overpayment rejected; concurrent payments can't overdraw (row lock); adjustments; running balance with backdated entries; reversal once on cancel; Due Payment prefill and no ledger change from it; area sheet opening/payments/closing incl. same-day invoices/adjustments, filters, totals; append-only triggers; tenant isolation; permissions.
 - **Numbering**: concurrent confirmations produce unique, gapless numbers.
+- **Platform** (`test/platform.e2e-spec.ts`): create tenant (+ Admin signs in, client status / organizationId ignored, duplicate email 409, validation 400), summary / list / search / filter / details with counts and no business data, suspend (reason required; existing access tokens of Admin and booker → 401 on the next request, refresh 401, tokens revoked, sign-in refused; other tenant unaffected; business data byte-for-byte unchanged), reactivate (sign in again, data intact), legacy TRIAL activation, Admin password reset (sessions end; booker / other tenant's Admin → 404), tenant Admin / booker / other tenant Admin → 403 on every platform route, Super Admin → 403 on tenant operational APIs, tenants still isolated.
 - **Workflow** (`test/workflow.e2e-spec.ts`): the whole MVP chain through HTTP (CLI organization → area → category → products → booker → shop → order → invoice → ledger → payment → area ledger → expenses → dashboard → reports → cancellation) with every figure reconciled across screens.
 - **Hardening** (`test/hardening.e2e-spec.ts`): permission matrix over every route, cross-tenant id attacks, concurrent cancels / payment-vs-cancel / decreases, rollback of failed invoices (incl. values too large for a column → 422), cent precision and the largest amounts, snapshot immutability, database append-only guards, ledger invariants, inactive entities, standard error shapes (400 / 404 / 413).
 - **Reports** (`test/reports.e2e-spec.ts`): every report's rows and totals vs the rules (Sales total = `/profit/summary`, credit total = `/ledger/market-credit`, product quantities TIN pcs / POUCH ctn, weight D-35, invoice totals confirmed only, expenses active only, profit report = `/profit/summary` per month, product reconciliation = Profit report gross profit with no proration, a shop moved to another area keeps its old invoices in the old area — D-37), each filter, 400 on bad filters, Admin only (booker / Super Admin 403, anonymous 401), Organization B sees nothing of A (also with A's ids as filters or a client `organizationId`).

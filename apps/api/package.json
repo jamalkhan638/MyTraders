@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "org:create": "tsx scripts/create-organization.ts"
+    "org:create": "tsx scripts/create-organization.ts",
+    "super-admin:create": "tsx scripts/create-super-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

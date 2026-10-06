@@ -4,12 +4,23 @@ import { NavLink, Outlet } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { useAuth, useCurrentUser } from '@/features/auth/auth-context';
 import { cn } from '@/lib/utils';
-import { ADMIN_NAV } from './admin-nav';
+import { ADMIN_NAV, type NavGroup } from './admin-nav';
 import { UserBadge } from './UserBadge';
 
-/** Desktop-first Admin shell: dark slate sidebar + white top bar (docs/frontend-guidelines.md §4–5). */
-export function AdminLayout() {
+/**
+ * Desktop-first shell: dark slate sidebar + white top bar (docs/frontend-guidelines.md §4–5).
+ * Tenant Admins get the business navigation; the Super Admin the platform navigation.
+ */
+export function AdminLayout({
+  nav = ADMIN_NAV,
+  subtitle,
+}: {
+  nav?: NavGroup[];
+  /** shown under the product name and in the top bar; defaults to the organization name */
+  subtitle?: string;
+} = {}) {
   const user = useCurrentUser();
+  const context = subtitle ?? user.organization?.name;
   const { signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -34,9 +45,7 @@ export function AdminLayout() {
             <img src="/favicon.svg" alt="" className="size-7" />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-sidebar-accent-foreground">MyTraders</div>
-              <div className="max-w-40 truncate text-xs text-sidebar-muted">
-                {user.organization?.name}
-              </div>
+              <div className="max-w-40 truncate text-xs text-sidebar-muted">{context}</div>
             </div>
           </div>
           <button
@@ -50,7 +59,7 @@ export function AdminLayout() {
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label="Main">
-          {ADMIN_NAV.map((group, index) => (
+          {nav.map((group, index) => (
             <div key={group.label ?? index}>
               {group.label && (
                 <div className="mb-1.5 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-muted">
@@ -62,6 +71,7 @@ export function AdminLayout() {
                   <li key={item.to}>
                     <NavLink
                       to={item.to}
+                      end={item.end}
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) =>
                         cn(
@@ -105,9 +115,7 @@ export function AdminLayout() {
           >
             <Menu className="size-5" />
           </Button>
-          <div className="hidden text-sm text-muted-foreground lg:block">
-            {user.organization?.name}
-          </div>
+          <div className="hidden text-sm text-muted-foreground lg:block">{context}</div>
           <UserBadge user={user} />
         </header>
         <main className="px-4 py-6 lg:px-8 print:p-0">

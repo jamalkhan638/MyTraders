@@ -27,7 +27,11 @@ import { ShopCreditReportPage } from '@/features/reports/pages/ShopCreditReportP
 import { ShopListReportPage } from '@/features/reports/pages/ShopListReportPage';
 import { ShopDetailsPage } from '@/features/shops/pages/ShopDetailsPage';
 import { ShopsPage } from '@/features/shops/pages/ShopsPage';
-import { PlatformHomePage } from '@/features/platform/pages/PlatformHomePage';
+import { CreateTenantPage } from '@/features/platform/pages/CreateTenantPage';
+import { PlatformDashboardPage } from '@/features/platform/pages/PlatformDashboardPage';
+import { TenantDetailsPage } from '@/features/platform/pages/TenantDetailsPage';
+import { TenantsPage } from '@/features/platform/pages/TenantsPage';
+import { PLATFORM_NAV } from '@/components/layout/admin-nav';
 import { AreasPage } from '@/features/areas/pages/AreasPage';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { ShopCategoriesPage } from '@/features/shop-categories/pages/ShopCategoriesPage';
@@ -113,7 +117,17 @@ export const router = createBrowserRouter([
       },
       {
         element: <RequireRole roles={['SUPER_ADMIN']} />,
-        children: [{ path: '/platform', element: <PlatformHomePage /> }],
+        children: [
+          {
+            element: <AdminLayout nav={PLATFORM_NAV} subtitle="Platform administration" />,
+            children: [
+              { path: '/platform', element: <PlatformDashboardPage /> },
+              { path: '/platform/tenants', element: <TenantsPage /> },
+              { path: '/platform/tenants/new', element: <CreateTenantPage /> },
+              { path: '/platform/tenants/:id', element: <TenantDetailsPage /> },
+            ],
+          },
+        ],
       },
     ],
   },

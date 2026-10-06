@@ -28,13 +28,13 @@ export const organizationSettingsSchema = z.object({
 });
 export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;
 
-const prefix = z
+export const documentPrefixSchema = z
   .string()
   .trim()
   .max(10, 'Prefix must be at most 10 characters')
   .regex(/^[A-Za-z0-9\-/_.]*$/, 'Use only letters, numbers and - / _ .');
 
-const numberDigits = z.coerce
+export const documentDigitsSchema = z.coerce
   .number({ message: 'Enter a number' })
   .int('Enter a whole number')
   .min(3, 'At least 3 digits')
@@ -63,10 +63,10 @@ export const updateOrganizationSettingsSchema = z.object({
     .regex(/^[A-Z]{3}$/, 'Use a 3-letter currency code, e.g. PKR')
     .optional(),
   timezone: z.string().trim().refine(isValidTimeZone, 'Unknown timezone').optional(),
-  invoicePrefix: prefix.optional(),
-  invoiceNumberDigits: numberDigits.optional(),
-  orderPrefix: prefix.optional(),
-  orderNumberDigits: numberDigits.optional(),
+  invoicePrefix: documentPrefixSchema.optional(),
+  invoiceNumberDigits: documentDigitsSchema.optional(),
+  orderPrefix: documentPrefixSchema.optional(),
+  orderNumberDigits: documentDigitsSchema.optional(),
   defaultTaxRate: z
     .string()
     .trim()

@@ -66,6 +66,8 @@ Every list has loading skeleton, empty state, error state. Destructive/financial
 
 **Admin (desktop sidebar)**: Dashboard · Sales (Orders, Invoices) · Shops · Products · Expenses · Reports · Order Bookers · Settings (Organization, Areas, Shop Categories, Expense Categories). Order Bookers have their own sidebar entry.
 
+**Super Admin (platform app, D-38)**: the same shell (`AdminLayout` with `PLATFORM_NAV`, subtitle *Platform administration*): Overview (`/platform` — Total / Active / Suspended cards, newest tenants), Tenants (`/platform/tenants` — search, status filter, table with status badges and Suspend / Reactivate), Create tenant (`/platform/tenants/new`), Tenant details (`/platform/tenants/:id`). Activate / suspend always go through a confirmation dialog (suspend needs a reason). No tenant business screens are reachable for this role.
+
 Reports are tabs under `/reports/*` (`ReportsLayout`): All reports (`/reports`, one card per report), `sales`, `invoices`, `shop-credit`, `product-sales`, `expenses`, `profit`, `shops`. Every report uses `ReportView` (title, Excel (CSV) / Print buttons, print header with company, period, filters and print time, loading / error / truncated states), `FilterBar` filters kept in the URL (`useReportParams`), and `ReportTable` (server totals in the footer, sideways scroll on phones). CSV comes from `lib/export/csv.ts` (also used by the Area Ledger) with the server's decimal strings; the browser never re-calculates a total.
 
 Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implemented: Organization (`/settings`), Areas (`/settings/areas`), Shop Categories (`/settings/shop-categories`).

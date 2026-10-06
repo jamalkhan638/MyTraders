@@ -17,3 +17,4 @@ export * from './expenses';
 export * from './profit';
 export * from './dashboard';
 export * from './reports';
+export * from './platform';

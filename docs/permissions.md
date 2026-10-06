@@ -28,8 +28,11 @@ Every request is checked for: authenticated → user active → organization not
 | Ledger: view history, area ledger, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
 | Expenses & categories (add, edit, void; categories add / rename / deactivate) | ✅ | ❌ (no partner access in the MVP) |
 | Dashboard / profit / reports / exports (`GET /reports/*`: sales, invoices, shop-credit, product-sales, expenses, profit, shops) | ✅ | ❌ (403; Super Admin 403 too) |
+| Platform tenant management (`/api/platform/*`) | ❌ 403 | ❌ 403 |
 
-`SUPER_ADMIN` (later): platform module only (organizations, status, usage). Has no organization and cannot use tenant endpoints.
+`SUPER_ADMIN` (D-38): **platform routes only** — `GET /platform/summary`, `GET|POST /platform/tenants`, `GET /platform/tenants/:id`, `POST /platform/tenants/:id/activate|suspend`, `POST /platform/tenants/:id/admins/:userId/password` — plus `GET /auth/me`. Has no organization: every tenant route answers 403 (and the tenant-scoped Prisma client refuses to run without an organization, a second line of defence). The platform module is the only code that reads across organizations; it returns identity, status, Admin accounts and usage counts, never business records or amounts. Tenant ids in platform URLs are only accepted on SUPER_ADMIN routes; a tenant Admin targeting their own or another tenant there gets 403.
+
+**Suspended tenant**: every request of its users fails with 401 (the guard re-reads the organization status per request), its refresh tokens are revoked at suspension, sign-in is refused. Reactivation restores sign-in; data is untouched.
 
 ## 2. Field-level rules
 

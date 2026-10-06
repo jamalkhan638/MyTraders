@@ -67,6 +67,8 @@ ADMIN_PASSWORD='choose-a-strong-one' pnpm --filter @mytraders/api org:create -- 
   --invoice-prefix M- --invoice-digits 8
 ```
 
+Create a platform Super Admin: `SUPER_ADMIN_PASSWORD='…' pnpm --filter @mytraders/api super-admin:create -- --name "Owner" --email owner@example.com` (signs in at `/login`, lands on `/platform`).
+
 Production deployment, configuration, migrations and backup / restore: [docs/operations.md](docs/operations.md).
 
 ## Checks

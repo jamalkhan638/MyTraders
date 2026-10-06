@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Building2,
   BookOpenText,
   ClipboardList,
   FileText,
@@ -16,6 +17,8 @@ export interface NavItem {
   label: string;
   to: string;
   icon: LucideIcon;
+  /** active only on this exact path (for a section home such as /platform) */
+  end?: boolean;
 }
 
 export interface NavGroup {
@@ -45,6 +48,16 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Reports', to: '/reports', icon: BarChart3 },
       { label: 'Order Bookers', to: '/order-bookers', icon: Users },
       { label: 'Settings', to: '/settings', icon: Settings },
+    ],
+  },
+];
+
+/** Super Admin sidebar — platform tenant management only (D-38). */
+export const PLATFORM_NAV: NavGroup[] = [
+  {
+    items: [
+      { label: 'Overview', to: '/platform', icon: LayoutDashboard, end: true },
+      { label: 'Tenants', to: '/platform/tenants', icon: Building2 },
     ],
   },
 ];
