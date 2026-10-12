@@ -102,13 +102,60 @@
   }
 }
 
-/* Area collection sheet prints portrait. */
+/* Area collection sheet: A4 portrait, ruled table with tall rows for handwriting, header on
+   every page. */
 @media print {
-  @page area-sheet {
+  @page collection-sheet {
     size: A4 portrait;
     margin: 10mm;
   }
-  .area-ledger {
-    page: area-sheet;
+  /* named on the root, not on the sheet: a page name that starts mid-document forces page breaks */
+  html:has(.collection-sheet) {
+    page: collection-sheet;
+  }
+}
+.collection-sheet .sheet-table {
+  border-collapse: collapse;
+}
+.collection-sheet .sheet-table th,
+.collection-sheet .sheet-table td {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+}
+.collection-sheet .sheet-table thead th {
+  background: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.collection-sheet .sheet-table tbody td {
+  height: 2.75rem;
+}
+.collection-sheet .sheet-table .sheet-total td {
+  height: auto;
+  border-top-width: 2px;
+}
+@media print {
+  .collection-sheet .sheet-table {
+    font-size: 11px;
+  }
+  .collection-sheet .sheet-table th,
+  .collection-sheet .sheet-table td {
+    border-color: #000;
+    padding: 4px 6px;
+  }
+  .collection-sheet .sheet-table thead {
+    display: table-header-group; /* repeat on every printed page */
+  }
+  .collection-sheet .sheet-table thead th {
+    background: #eee;
+  }
+  .collection-sheet .sheet-table tbody td {
+    height: 11mm; /* room for handwriting */
+  }
+  .collection-sheet .sheet-table .sheet-total td {
+    height: auto;
+  }
+  .collection-sheet .sheet-table tr {
+    break-inside: avoid;
   }
 }

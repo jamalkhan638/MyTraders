@@ -6,10 +6,12 @@ export type ReportName =
   'sales' | 'invoices' | 'shop-credit' | 'product-sales' | 'expenses' | 'profit' | 'shops';
 
 /** One report from GET /reports/:name — every figure is computed by the server. */
-export function useReport<T>(name: ReportName, params: object) {
+/** `params: null` waits (e.g. until an area is chosen). */
+export function useReport<T>(name: ReportName, params: object | null) {
   return useQuery({
     queryKey: ['reports', name, params],
-    queryFn: () => apiFetch<T>(`/reports/${name}${toQueryString(params)}`),
+    queryFn: () => apiFetch<T>(`/reports/${name}${toQueryString(params ?? {})}`),
+    enabled: params !== null,
     placeholderData: keepPreviousData,
   });
 }

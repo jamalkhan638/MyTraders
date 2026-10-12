@@ -24,8 +24,8 @@ Every request is checked for: authenticated → user active → organization not
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
 | Invoices: list / view / print / draft / preview | ✅ | ❌ |
 | Invoices: cancel with reason (ledger reversal credit) | ✅ | ❌ |
-| Ledger: record payment / adjust credit (shop details or area ledger) | ✅ | ❌ |
-| Ledger: view history, area ledger, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
+| Ledger: record payment / adjust credit (shop details) | ✅ | ❌ |
+| Ledger: view history, collection sheet, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
 | Expenses & categories (add, edit, void; categories add / rename / deactivate) | ✅ | ❌ (no partner access in the MVP) |
 | Dashboard / profit / reports / exports (`GET /reports/*`: sales, invoices, shop-credit, product-sales, expenses, profit, shops) | ✅ | ❌ (403; Super Admin 403 too) |
 | Platform tenant management (`/api/platform/*`) | ❌ 403 | ❌ 403 |

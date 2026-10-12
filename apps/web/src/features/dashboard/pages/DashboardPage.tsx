@@ -85,7 +85,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         />
         <Metric
           testId="card-credit"
-          to="/finance/area-ledger"
+          to="/finance/collection-sheet"
           icon={<CreditCard />}
           tone="blue"
           label="Total market credit"

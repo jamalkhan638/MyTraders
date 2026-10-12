@@ -55,12 +55,12 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Invoice confirm → INVOICE debit; cancel → INVOICE_REVERSAL credit; Due Payment prefilled from the ledger
 - ☑ Record Payment (row lock, overpayment rejected, no future dates); Adjust Credit (increase / decrease with reason)
 - ☑ Shop details: current outstanding, ledger history with running balance; shop list Outstanding column (grouped query)
-- ☑ Finance → Area Ledger: opening / payments / closing per shop and date, filters, totals, payment entry, print, CSV
+- ☑ ~~Finance → Area Ledger~~ → **Area Collection Sheet** (D-40): printable read-only sheet per area (Balance, blank Payment / Remaining, Bill date, Area), filters, print, CSV
 - ☑ Total Market Credit service + `GET /ledger/market-credit` (for the Dashboard)
 - ☑ Backdated payments / decreases limited by the balance on their date and later balances; cancellation refused if the balance would go negative (D-31)
 - ☑ Credit-status filter + Credit Report → Reports → Shop credit (D-36)
 - ☐ Real `.xlsx` / server-generated PDF for the area sheet (CSV + browser print are the MVP)
-- Payment during invoice creation — not required (payments are recorded from Shop Details and the Area Ledger)
+- Payment during invoice creation — not required (payments are recorded from Shop Details)
 
 ## Phase 6 — Expenses & dashboard
 - ☑ Expense categories (Settings), Expenses (table + dialog, filters, period total, edit, void) — D-32

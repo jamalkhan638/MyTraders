@@ -92,7 +92,7 @@ Outstanding Balance = Σ debit − Σ credit   (over the shop's ledger entries)
 | `MANUAL_ADJUSTMENT` | debit (*Increase*) or credit (*Decrease*) | *Adjust Credit* with a required reason — e.g. old khata balance (D-5) or a correction |
 | `INVOICE_REVERSAL` | credit | cancelling an invoice: exactly the original debit, dated the cancellation day; the debit stays; at most one per invoice |
 
-- **Record Payment** (Admin, Shop Details or Area Ledger): amount > 0, date not in the future (backdating allowed). The amount may not exceed what the shop owed **on the payment date**, and may not make any **later** running balance negative (D-6, D-31) — so a backdated payment can never create a negative balance anywhere in the history. Payments never modify invoices.
+- **Record Payment** (Admin, Shop Details): amount > 0, date not in the future (backdating allowed). The amount may not exceed what the shop owed **on the payment date**, and may not make any **later** running balance negative (D-6, D-31) — so a backdated payment can never create a negative balance anywhere in the history. Payments never modify invoices.
 - **Adjust Credit** (Admin): Increase or Decrease, amount, date (not in the future, backdating allowed), reason. A decrease follows the same date-aware limit as a payment.
 - Payments, decreases and reversals on one shop are serialized with a row lock, so concurrent postings cannot overdraw a shop.
 - Ledger entries and payments are **append-only** (database triggers); corrections are new entries.
@@ -101,16 +101,18 @@ Outstanding Balance = Σ debit − Σ credit   (over the shop's ledger entries)
 - **No negative / advance balances in the MVP.** Cancelling an invoice whose reversal would take the shop's current balance below zero is **refused** with a message to correct the related payment or adjustment first (e.g. *Adjust Credit → Increase*), then cancel.
 - **Total Market Credit** = Σ outstanding balances of all shops of the organization (`GET /ledger/market-credit`; shown on the Dashboard later).
 
-**Area Ledger (Finance → Area Ledger; also Settings → Areas → "View ledger")** — the digital paper collection sheet, an aggregated view over shop ledger entries (no area balances are stored). For an area and a date, each shop shows:
+**Area Collection Sheet (Finance → Collection Sheet; also Settings → Areas → "Collection sheet") — D-40** — a **printable sheet for market collection**, like the manual collection register. The Admin picks an area, the shops of that area are listed, the sheet is printed, and the collector writes *Payment* and *Remaining Balance* by hand. It is **read-only**: no payment entry and no ledger movements on this screen (payments are recorded from Shop Details).
 
-```
-Previous (opening) = Σ(debit − credit) before the date
-Invoices / adj.    = debits on the date (+) and non-payment credits on the date (−)
-Payment            = Σ PAYMENT credits on the date
-Remaining (closing)= Σ(debit − credit) up to and including the date
-                   = Previous + invoices/increases − decreases/reversals − Payment
-```
-Totals of every column come from the server. Filters: area, date (previous day / today / next day), shop search, "only shops with a balance" (opening, closing or payment ≠ 0). Lists the area's active shops plus inactive shops that have ledger entries. A payment entered from the sheet is the normal *Record Payment* (same endpoint, the sheet's date prefilled). Print view (A4 portrait) / browser *Save as PDF* and CSV download for Excel — sufficient for the MVP; real `.xlsx` and server-generated PDF are later enhancements.
+| Column | Content |
+|---|---|
+| Shop name | the shop (inactive shops only while they still owe) |
+| Balance | current outstanding from the Shop Ledger |
+| Payment | **blank** — written by hand |
+| Remaining balance | **blank** — written by hand |
+| Bill date | date of the shop's latest confirmed invoice |
+| Area | the shop's current area |
+
+Filters: area, shop search, "only shops with outstanding balance". Ordered by shop name; total balance at the bottom. Print (A4 portrait): company name, area, print date, ruled table with tall rows and wide Payment / Remaining columns for handwriting, header repeated on every page, collector / signature / date lines; sidebar, filters and buttons hidden. CSV download (Payment / Remaining empty). Data: `GET /reports/shop-credit?areaId&q&balance` — no new formula. (`GET /ledger/areas/:areaId?date`, the opening / payments / closing view per date, remains in the API but is no longer a screen.)
 
 ### 4.6 Products
 Every product has a **Type** that decides how it is invoiced (D-26):
@@ -215,7 +217,7 @@ Admin only (bookers are redirected to their app; the API returns 403). One reque
 | Card | Definition | Click |
 |---|---|---|
 | Pending Orders | count of orders with status `PENDING` | Orders filtered to Pending |
-| Total Market Credit | Σ outstanding **Shop Ledger** balance of all shops, all-time (D-30); no stored credit field | **Area Ledger** — the main screen for outstanding balances and collections (the Shops list also shows an Outstanding column) |
+| Total Market Credit | Σ outstanding **Shop Ledger** balance of all shops, all-time (D-30); no stored credit field | **Collection Sheet** — the area-wise list of outstanding balances for collection (the Shops list also shows an Outstanding column) |
 | Sales this month | Σ **Payable Value** of CONFIRMED invoices dated this month (cancelled excluded) | Invoices |
 | Cash collected this month | Σ **PAYMENT** ledger credits dated this month — manual adjustments and invoice reversals are not cash | — |
 | Weight sold this month | Σ invoice-item **Total Weight** snapshots of confirmed invoices this month, all in KG: KG + Gram ÷ 1000 + **Liter (1 L = 1 KG)** + ML ÷ 1000 (D-35); shown in **tons** (KG ÷ 1000) with the KG figure underneath; items without a weight are excluded | — |
@@ -308,6 +310,7 @@ Super Admin + subscription status (`TRIAL / ACTIVE / SUSPENDED`), stock / purcha
 | D-37 | **Reports, final (owner):** (1) Product Sales never prorates Advance Tax, Further Tax or invoice-level ADT / Special Discount: Product Line Profit = Line Gross Value − Line Cost snapshot; the invoice-level amounts are shown separately (Product Profit Subtotal + Advance Tax + Further Tax − ADT = Gross Profit), reconciling exactly with the Profit report. (2) Historical area: invoices snapshot the shop's area id on confirm (`Invoice.shopAreaId`, existing invoices back-filled from the area name snapshot); Sales / Invoice / Product Sales reports use it, so moving a shop never moves its old invoices; Shop list and Shop credit use the current area. `.xlsx` / server PDF and searchable shop / product filters later | Owner decision (Phase 7 review) |
 | D-38 | **Platform tenant management (Super Admin)**: dedicated `/api/platform/*` APIs and `/platform` app; Super Admin creates tenants (ACTIVE, with first Admin), activates / suspends (reason, revokes all refresh tokens; access tokens blocked on the next request) / reactivates, resets tenant Admin passwords; sees tenant identity, status, Admins and usage counts only — never business data or amounts; cannot use tenant business APIs (403), tenant users cannot use platform APIs (403). Statuses ACTIVE / SUSPENDED (legacy TRIAL kept, activatable). No billing / subscriptions | Owner decision (Phase 9) |
 | D-39 | **Printed invoice summary**: Total gross value, Advance tax, Further tax, ADT / special discount (each "—" when not entered), Due payment, then **Payable value (bold) = gross + advance tax + further tax − ADT discount + Due Payment**. Display only: the ledger debit, sales and profit still use the invoice's own value (gross + taxes − ADT, D-31 / D-33), so a previous balance is never charged twice | Owner decision |
+| D-40 | **Area Collection Sheet** replaces the ledger-style Area Ledger screen: printable, read-only list of an area's shops with Balance (Shop Ledger), blank Payment and Remaining Balance for handwriting, Bill Date (latest confirmed invoice) and Area; filters area / search / only outstanding; print + CSV. Payments are entered from Shop Details only | Owner decision |
 | D-23 | Shop foreign keys (area, category, order booker) are validated inside the current organization and must be active when chosen; the booker must have role ORDER_BOOKER; shop names are not unique | Phase 2 implementation |
 | D-24 | Order Bookers see **no prices at all** (no cost / trade / retail price, tax, discount, payment, credit) — products and quantities only. Supersedes D-17 | Owner decision (Phase 3) |
 | D-25 | Orders are created only by Order Bookers for their own active assigned shops; quantities are whole units (1–100,000); duplicate products in one order are rejected; Admin and booker may cancel a `PENDING` order (booker only their own) | Phase 3 implementation |

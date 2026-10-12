@@ -92,11 +92,11 @@ Invoice view `/invoices/:id` is also the print layout (print CSS: A4 landscape, 
 
 Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolutely positioned children (e.g. `sr-only` labels) widen the whole page.
 
-## 8. Shop credit and Area Ledger
+## 8. Shop credit and Collection Sheet
 
 - **Shop details**: a prominent *Current outstanding* card (from `GET /shops/:id`, which carries the ledger balance) with *Record payment* and *Adjust credit* dialogs (`features/ledger/components`), then the *Ledger / credit history* table (server running balance) and the separate *Invoice history*.
-- **Finance → Area Ledger** (`/finance/area-ledger?areaId&date`): area select, date with previous / next / today, shop search, "only shops with a balance"; Previous / Invoices-adj. / Payment / Remaining / Last payment per shop; totals row from the server; per-row *Payment* opens the same `RecordPaymentDialog` with the sheet's date. Print (A4 portrait) and CSV download (opens in Excel; built from the server's decimal strings).
-- Every ledger posting (payment, adjustment, invoice confirm / cancel) invalidates ledger, shop and invoice-draft queries (`invalidateBalances`), so Shop Details, the shop list, the area sheet and Due Payment always show the server's numbers.
+- **Finance → Collection Sheet** (`/finance/collection-sheet?areaId`, D-40; the old `/finance/area-ledger` redirects here): area select, shop search, "only shops with outstanding balance"; columns Shop name, Balance, Payment (blank), Remaining balance (blank), Bill date, Area, total row from the server. Read-only. Print: A4 portrait (`html:has(.collection-sheet)` named page), ruled table, 11 mm rows, header repeated per page, total as the last body row (a `<tfoot>` on a named print page makes Chrome break before it). CSV download.
+- Every ledger posting (payment, adjustment, invoice confirm / cancel) invalidates ledger, shop and invoice-draft queries (`invalidateBalances`), so Shop Details, the shop list, the collection sheet / reports and Due Payment always show the server's numbers.
 
 ## 9. Expenses
 

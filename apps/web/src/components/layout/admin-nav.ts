@@ -38,7 +38,7 @@ export const ADMIN_NAV: NavGroup[] = [
   },
   {
     label: 'Finance',
-    items: [{ label: 'Area Ledger', to: '/finance/area-ledger', icon: BookOpenText }],
+    items: [{ label: 'Collection Sheet', to: '/finance/collection-sheet', icon: BookOpenText }],
   },
   {
     items: [

@@ -169,10 +169,10 @@ function AreaActions({
 }) {
   return (
     <div className="flex justify-end gap-1">
-      <Button variant="ghost" size="icon" asChild title="View ledger">
+      <Button variant="ghost" size="icon" asChild title="Collection sheet">
         <Link
-          to={`/finance/area-ledger?areaId=${area.id}`}
-          aria-label={`View ledger of ${area.name}`}
+          to={`/finance/collection-sheet?areaId=${area.id}`}
+          aria-label={`Collection sheet of ${area.name}`}
         >
           <BookOpenText />
         </Link>

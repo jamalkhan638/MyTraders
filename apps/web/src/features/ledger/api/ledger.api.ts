@@ -1,7 +1,5 @@
 import {
   type AdjustCreditInput,
-  type AreaLedger,
-  type AreaLedgerQueryInput,
   type LedgerPosting,
   type RecordPaymentInput,
   type ShopLedger,
@@ -17,6 +15,4 @@ export const ledgerApi = {
     apiFetch<LedgerPosting>(`/shops/${shopId}/payments`, { method: 'POST', json: body }),
   adjust: (shopId: string, body: AdjustCreditInput) =>
     apiFetch<LedgerPosting>(`/shops/${shopId}/adjustments`, { method: 'POST', json: body }),
-  areaLedger: (areaId: string, params: AreaLedgerQueryInput) =>
-    apiFetch<AreaLedger>(`/ledger/areas/${areaId}${toQueryString(params)}`),
 };
