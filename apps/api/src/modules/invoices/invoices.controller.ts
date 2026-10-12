@@ -21,6 +21,7 @@ import {
 import {
   cancelInvoiceSchema,
   createInvoiceSchema,
+  voidInvoiceSchema,
   editInvoiceSchema,
   invoiceBatchQuerySchema,
   invoiceDetailsSchema,
@@ -43,6 +44,7 @@ class ListInvoicesQueryDto extends createZodDto(listInvoicesQuerySchema) {}
 class InvoiceDraftQueryDto extends createZodDto(invoiceDraftQuerySchema) {}
 class CreateInvoiceDto extends createZodDto(createInvoiceSchema) {}
 class CancelInvoiceDto extends createZodDto(cancelInvoiceSchema) {}
+class VoidInvoiceDto extends createZodDto(voidInvoiceSchema) {}
 class EditInvoiceDto extends createZodDto(editInvoiceSchema) {}
 class InvoiceBatchQueryDto extends createZodDto(invoiceBatchQuerySchema) {}
 
@@ -149,5 +151,22 @@ export class InvoicesController {
   @ApiConflictResponse({ description: 'Already cancelled' })
   cancel(@Param('id', ParseUUIDPipe) id: string, @Body() body: CancelInvoiceDto) {
     return this.invoices.cancel(id, body.reason);
+  }
+
+  @Post(':id/void')
+  @HttpCode(200)
+  @ApiOkResponse({
+    type: InvoiceDetailsDto,
+    description:
+      '"Delete invoice" (D-42): soft delete — status VOIDED with reason, ledger reversal credit; ' +
+      'nothing is physically deleted',
+  })
+  @ApiNotFoundResponse({ description: 'Not in your organization' })
+  @ApiConflictResponse({
+    description:
+      "Not confirmed (cancelled / already voided), or the shop's balance would go negative",
+  })
+  void(@Param('id', ParseUUIDPipe) id: string, @Body() body: VoidInvoiceDto) {
+    return this.invoices.void(id, body.reason);
   }
 }

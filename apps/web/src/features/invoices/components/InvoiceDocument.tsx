@@ -11,7 +11,7 @@ import { InvoiceStatusBadge } from './InvoiceStatusBadge';
  * product, shop or company data. The invoice/cost price is internal and never printed.
  */
 export function InvoiceDocument({ invoice }: { invoice: InvoiceDetails }) {
-  const cancelled = invoice.status === 'CANCELLED';
+  const cancelled = invoice.status !== 'CONFIRMED';
   return (
     <article
       className="invoice-print relative rounded-lg border bg-card p-6 text-sm shadow-sm print:rounded-none print:border-0 print:p-0 print:text-[10px] print:shadow-none"
@@ -19,7 +19,9 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceDetails }) {
     >
       {cancelled && (
         <div className="pointer-events-none absolute inset-0 hidden items-center justify-center print:flex">
-          <span className="-rotate-12 text-7xl font-bold text-destructive/20">CANCELLED</span>
+          <span className="-rotate-12 text-7xl font-bold text-destructive/20">
+            {invoice.status === 'VOIDED' ? 'VOID' : 'CANCELLED'}
+          </span>
         </div>
       )}
 

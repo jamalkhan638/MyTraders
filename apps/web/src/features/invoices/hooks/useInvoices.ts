@@ -76,6 +76,7 @@ export function useCancelInvoice() {
         queryClient.invalidateQueries({ queryKey: invoicesKeys.all }),
         // the reversal credit changed the shop's balance
         invalidateBalances(queryClient),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
       ]);
     },
   });
@@ -116,6 +117,25 @@ export function useEditInvoice(id: string) {
         // the edit's reversal + new debit changed the shop's balance; reports / dashboard read
         // the invoice values
         invalidateBalances(queryClient, { drafts: false }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ]);
+    },
+  });
+}
+
+/** "Delete invoice" (D-42): a soft delete with a reason; the ledger gets a reversal credit. */
+export function useVoidInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => invoicesApi.void(id, reason),
+    onSuccess: (invoice) => {
+      queryClient.setQueryData(invoicesKeys.detail(invoice.id), invoice);
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: invoicesKeys.all,
+          predicate: (query) => query.queryKey[1] !== 'detail',
+        }),
+        invalidateBalances(queryClient),
         queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
       ]);
     },

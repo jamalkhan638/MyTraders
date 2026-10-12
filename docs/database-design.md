@@ -212,7 +212,7 @@ model OrderItem {               // reachable only through its Order (not a tenan
   @@unique([orderId, productId])  // a product appears once per order
 }
 
-model Invoice {                                   // append-only (DB triggers): only CONFIRMED → CANCELLED, or a controlled edit (D-41: values / lines only, inside the edit transaction; also editCount, lastEditedAt, lastEditedById)
+model Invoice {                                   // append-only (DB triggers): only CONFIRMED → CANCELLED, CONFIRMED → VOIDED (D-42: voidedAt, voidedById, voidReason; CHECK status = VOIDED ⇔ all three set), or a controlled edit (D-41: values / lines only, inside the edit transaction; also editCount, lastEditedAt, lastEditedById)
   id                 String        @id @default(uuid(7)) @db.Uuid
   organizationId     String        @db.Uuid
   invoiceNumber      String                        // prefix + padded counter, allocated on confirm
@@ -302,7 +302,7 @@ model ShopLedgerEntry {                           // append-only; the source of 
   id              String          @id @default(uuid(7)) @db.Uuid
   organizationId  String          @db.Uuid
   shopId          String          @db.Uuid
-  type            LedgerEntryType // INVOICE | PAYMENT | MANUAL_ADJUSTMENT | INVOICE_REVERSAL | INVOICE_EDIT_REVERSAL | INVOICE_EDIT
+  type            LedgerEntryType // INVOICE | PAYMENT | MANUAL_ADJUSTMENT | INVOICE_REVERSAL | INVOICE_VOID_REVERSAL | INVOICE_EDIT_REVERSAL | INVOICE_EDIT
   debitAmount     Decimal         @default(0) @db.Decimal(14, 2)
   creditAmount    Decimal         @default(0) @db.Decimal(14, 2)
   transactionDate DateTime        @db.Date
@@ -318,6 +318,8 @@ model ShopLedgerEntry {                           // append-only; the source of 
   @@index([organizationId, type, transactionDate])
   // CHECK: amounts ≥ 0, exactly one side > 0; INVOICE ⇒ debit + invoiceId; INVOICE_REVERSAL ⇒ credit +
   //        invoiceId; PAYMENT ⇒ credit + paymentId; MANUAL_ADJUSTMENT ⇒ no links, notes required;
+  //        INVOICE_VOID_REVERSAL ⇒ credit + invoiceId; at most one INVOICE_REVERSAL / INVOICE_VOID_REVERSAL
+  //        per invoice (partial unique index);
   //        INVOICE_EDIT_REVERSAL ⇒ credit + invoiceRevisionId; INVOICE_EDIT ⇒ debit + invoiceRevisionId
 }
 

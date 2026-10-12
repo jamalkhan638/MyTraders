@@ -1,4 +1,4 @@
-import { type InvoiceDetails } from '@mytraders/shared-types';
+import { type InvoiceSummary } from '@mytraders/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ export function CancelInvoiceDialog({
   open,
   onClose,
 }: {
-  invoice: InvoiceDetails;
+  invoice: Pick<InvoiceSummary, 'id' | 'invoiceNumber' | 'order'>;
   open: boolean;
   onClose: () => void;
 }) {

@@ -1,5 +1,5 @@
 import { type InvoiceDetails } from '@mytraders/shared-types';
-import { ArrowLeft, Ban, History, Pencil, Printer } from 'lucide-react';
+import { ArrowLeft, Ban, History, Pencil, Printer, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -9,13 +9,15 @@ import { useCurrentUser } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format/date';
 import { formatAmount } from '@/lib/format/number';
+import { cn } from '@/lib/utils';
 import { CancelInvoiceDialog } from '../components/CancelInvoiceDialog';
+import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { InvoiceDocument } from '../components/InvoiceDocument';
 import { useInvoice } from '../hooks/useInvoices';
 
 /**
- * Invoice view and print layout (`InvoiceDocument`), with Edit / Cancel for a confirmed invoice
- * and its edit history (D-41, not printed).
+ * Invoice view and print layout (`InvoiceDocument`), with Edit / Cancel / Delete (void) for a
+ * confirmed invoice and the invoice's lifecycle history (D-41 / D-42, not printed).
  */
 export function InvoiceDetailsPage() {
   const { id = '' } = useParams();
@@ -49,8 +51,26 @@ export function InvoiceDetailsPage() {
 
 function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
   const timeZone = useCurrentUser().organization?.timezone;
-  const [cancelling, setCancelling] = useState(false);
-  const cancelled = invoice.status === 'CANCELLED';
+  const [dialog, setDialog] = useState<'cancel' | 'void' | null>(null);
+  const confirmed = invoice.status === 'CONFIRMED';
+  const closedBanner =
+    invoice.status === 'VOIDED'
+      ? {
+          label: 'Deleted (voided)',
+          at: invoice.voidedAt,
+          by: invoice.voidedBy,
+          reason: invoice.voidReason,
+          note: ' Kept for audit only — not counted in sales, profit or reports; its value was reversed in the shop ledger.',
+        }
+      : invoice.status === 'CANCELLED'
+        ? {
+            label: 'Cancelled',
+            at: invoice.cancelledAt,
+            by: invoice.cancelledBy,
+            reason: invoice.cancelReason,
+            note: '',
+          }
+        : null;
 
   return (
     <div>
@@ -62,7 +82,7 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
           </Link>
         </Button>
         <div className="flex flex-wrap gap-2">
-          {!cancelled && (
+          {confirmed && (
             <>
               <Button variant="outline" asChild>
                 <Link to={`/invoices/${invoice.id}/edit`}>
@@ -70,9 +90,17 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
                   Edit invoice
                 </Link>
               </Button>
-              <Button variant="outline" onClick={() => setCancelling(true)}>
+              <Button variant="outline" onClick={() => setDialog('cancel')}>
                 <Ban />
                 Cancel invoice
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDialog('void')}
+              >
+                <Trash2 />
+                Delete invoice
               </Button>
             </>
           )}
@@ -83,10 +111,14 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
         </div>
       </div>
 
-      {cancelled && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive print:hidden">
-          <strong>Cancelled</strong> {formatDateTime(invoice.cancelledAt, timeZone)}
-          {invoice.cancelledBy && ` by ${invoice.cancelledBy.name}`} — {invoice.cancelReason}
+      {closedBanner && (
+        <div
+          className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive print:hidden"
+          role="status"
+        >
+          <strong>{closedBanner.label}</strong> {formatDateTime(closedBanner.at, timeZone)}
+          {closedBanner.by && ` by ${closedBanner.by.name}`} — {closedBanner.reason}.
+          {closedBanner.note}
         </div>
       )}
 
@@ -94,83 +126,150 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
 
       <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground print:hidden">
         <span>
-          Created by {invoice.createdBy.name} · {formatDateTime(invoice.createdAt, timeZone)}
-        </span>
-        {invoice.lastEditedAt && (
-          <span>
-            Last edited by {invoice.lastEditedBy?.name} ·{' '}
-            {formatDateTime(invoice.lastEditedAt, timeZone)}
-          </span>
-        )}
-        <span>
           Internal (not printed): cost {invoice.currency} {formatAmount(invoice.totalCost)}
         </span>
       </div>
 
-      {invoice.revisions.length > 0 && <EditHistory invoice={invoice} timeZone={timeZone} />}
+      <InvoiceHistory invoice={invoice} timeZone={timeZone} />
 
       <CancelInvoiceDialog
         invoice={invoice}
-        open={cancelling}
-        onClose={() => setCancelling(false)}
+        open={dialog === 'cancel'}
+        onClose={() => setDialog(null)}
+      />
+      <VoidInvoiceDialog
+        invoice={invoice}
+        open={dialog === 'void'}
+        onClose={() => setDialog(null)}
       />
     </div>
   );
 }
 
-/** Every edit of the invoice, newest first: who, when, why, and each value before → after. */
-function EditHistory({ invoice, timeZone }: { invoice: InvoiceDetails; timeZone?: string }) {
+interface LifecycleEvent {
+  key: string;
+  action: string;
+  tone: 'default' | 'edit' | 'danger';
+  at: string;
+  by: string;
+  reason?: string | null;
+  revision?: InvoiceDetails['revisions'][number];
+}
+
+/**
+ * The invoice's lifecycle, newest first (D-41, D-42): created & confirmed, every edit (with each
+ * value before → after), cancelled, deleted (voided) — action, user, date / time and reason.
+ */
+function InvoiceHistory({ invoice, timeZone }: { invoice: InvoiceDetails; timeZone?: string }) {
+  const events: LifecycleEvent[] = [
+    {
+      key: 'created',
+      action: `Created and confirmed (invoice value ${formatAmount(
+        invoice.revisions.at(-1)?.previousPayableValue ?? invoice.payableValue,
+      )})`,
+      tone: 'default',
+      at: invoice.createdAt,
+      by: invoice.createdBy.name,
+    },
+    ...invoice.revisions.map((rev): LifecycleEvent => ({
+      key: rev.id,
+      action: `Edited (edit ${rev.revisionNo}) — invoice value ${formatAmount(
+        rev.previousPayableValue,
+      )} → ${formatAmount(rev.newPayableValue)}`,
+      tone: 'edit',
+      at: rev.createdAt,
+      by: rev.editedBy.name,
+      reason: rev.reason,
+      revision: rev,
+    })),
+  ];
+  if (invoice.cancelledAt) {
+    events.push({
+      key: 'cancelled',
+      action: 'Cancelled — value reversed in the shop ledger',
+      tone: 'danger',
+      at: invoice.cancelledAt,
+      by: invoice.cancelledBy?.name ?? '',
+      reason: invoice.cancelReason,
+    });
+  }
+  if (invoice.voidedAt) {
+    events.push({
+      key: 'voided',
+      action: 'Deleted (voided) — value reversed in the shop ledger',
+      tone: 'danger',
+      at: invoice.voidedAt,
+      by: invoice.voidedBy?.name ?? '',
+      reason: invoice.voidReason,
+    });
+  }
+  events.sort((x, y) => y.at.localeCompare(x.at));
+
   return (
-    <Card className="mt-6 gap-0 py-0 print:hidden" aria-labelledby="edit-history">
+    <Card className="mt-6 gap-0 py-0 print:hidden" aria-labelledby="invoice-history">
       <CardHeader className="border-b px-4 py-3">
-        <CardTitle id="edit-history" className="flex items-center gap-2 text-base">
+        <CardTitle id="invoice-history" className="flex items-center gap-2 text-base">
           <History className="size-4" />
-          Edit history{' '}
-          <span className="font-normal text-muted-foreground">({invoice.revisions.length})</span>
+          History <span className="font-normal text-muted-foreground">({events.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="divide-y px-0">
-        {invoice.revisions.map((rev) => (
-          <section key={rev.id} className="space-y-2 px-4 py-3" data-testid="invoice-revision">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div className="text-sm">
-                <span className="font-semibold">Edit {rev.revisionNo}</span>{' '}
-                <span className="text-muted-foreground">
-                  by {rev.editedBy.name} · {formatDateTime(rev.createdAt, timeZone)}
-                </span>
-              </div>
-              <div className="text-sm tabular-nums">
-                Invoice value {formatAmount(rev.previousPayableValue)} →{' '}
-                <span className="font-semibold">{formatAmount(rev.newPayableValue)}</span>
-              </div>
+        {events.map((event) => (
+          <section
+            key={event.key}
+            className="space-y-2 px-4 py-3"
+            data-testid={`invoice-event-${event.key === event.revision?.id ? 'edited' : event.key}`}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+              <span
+                className={cn(
+                  'font-semibold',
+                  event.tone === 'danger' && 'text-destructive',
+                  event.tone === 'edit' && 'text-primary',
+                )}
+              >
+                {event.action}
+              </span>
+              <span className="text-muted-foreground">
+                {event.by} · {formatDateTime(event.at, timeZone)}
+              </span>
             </div>
-            <p className="text-sm">
-              <span className="text-muted-foreground">Reason:</span> {rev.reason}
-            </p>
-            <div className="relative overflow-x-auto">
-              <table className="w-full min-w-[420px] text-xs">
-                <thead className="text-muted-foreground">
-                  <tr className="[&>th]:py-1 [&>th]:pr-3 [&>th]:text-left [&>th]:font-medium">
-                    <th>Changed</th>
-                    <th>Before</th>
-                    <th>After</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {rev.changes.map((c) => (
-                    <tr key={c.field} className="[&>td]:py-1 [&>td]:pr-3 [&>td]:align-top">
-                      <td>{c.label}</td>
-                      <td className="text-muted-foreground tabular-nums">{display(c.from)}</td>
-                      <td className="font-medium tabular-nums">{display(c.to)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {event.reason && (
+              <p className="text-sm">
+                <span className="text-muted-foreground">Reason:</span> {event.reason}
+              </p>
+            )}
+            {event.revision && <Changes revision={event.revision} />}
           </section>
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+/** The values an edit changed, before → after. */
+function Changes({ revision }: { revision: InvoiceDetails['revisions'][number] }) {
+  return (
+    <div className="relative overflow-x-auto">
+      <table className="w-full min-w-[420px] text-xs" data-testid="invoice-revision">
+        <thead className="text-muted-foreground">
+          <tr className="[&>th]:py-1 [&>th]:pr-3 [&>th]:text-left [&>th]:font-medium">
+            <th>Changed</th>
+            <th>Before</th>
+            <th>After</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {revision.changes.map((c) => (
+            <tr key={c.field} className="[&>td]:py-1 [&>td]:pr-3 [&>td]:align-top">
+              <td>{c.label}</td>
+              <td className="text-muted-foreground tabular-nums">{display(c.from)}</td>
+              <td className="font-medium tabular-nums">{display(c.to)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

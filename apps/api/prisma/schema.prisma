@@ -56,6 +56,8 @@ enum LedgerEntryType {
   INVOICE_EDIT_REVERSAL
   /// debit: an edit applies the invoice's corrected Payable Value (D-41)
   INVOICE_EDIT
+  /// voiding (deleting) a confirmed invoice: credit of its current Payable Value (D-42)
+  INVOICE_VOID_REVERSAL
 }
 
 enum PaymentMethod {
@@ -75,6 +77,8 @@ enum ExpenseStatus {
 enum InvoiceStatus {
   CONFIRMED
   CANCELLED
+  /// deleted / voided (D-42): kept for audit, excluded from every business figure
+  VOIDED
 }
 
 /// Unit of an invoice row's Total Weight: KG (KG / Gram products) or Liter (Liter / ML products)
@@ -170,6 +174,7 @@ model User {
   updatedExpenses           Expense[]         @relation("UpdatedExpenses")
   voidedExpenses            Expense[]         @relation("VoidedExpenses")
   editedInvoices            Invoice[]         @relation("EditedInvoices")
+  voidedInvoices            Invoice[]         @relation("VoidedInvoices")
   invoiceRevisions          InvoiceRevision[] @relation("InvoiceRevisions")
   /// tenants whose status this Super Admin changed
   organizationStatusChanges Organization[]    @relation("OrganizationStatusChanges")
@@ -430,6 +435,9 @@ model Invoice {
   cancelledAt    DateTime? @db.Timestamptz
   cancelledById  String?   @db.Uuid
   cancelReason   String?
+  voidedAt       DateTime? @db.Timestamptz
+  voidedById     String?   @db.Uuid
+  voidReason     String?
   /// edits of a confirmed invoice (D-41); the history is in InvoiceRevision
   editCount      Int       @default(0)
   lastEditedAt   DateTime? @db.Timestamptz
@@ -444,6 +452,7 @@ model Invoice {
   createdBy     User              @relation("CreatedInvoices", fields: [createdById], references: [id], onDelete: Restrict)
   cancelledBy   User?             @relation("CancelledInvoices", fields: [cancelledById], references: [id], onDelete: Restrict)
   lastEditedBy  User?             @relation("EditedInvoices", fields: [lastEditedById], references: [id], onDelete: Restrict)
+  voidedBy      User?             @relation("VoidedInvoices", fields: [voidedById], references: [id], onDelete: Restrict)
   items         InvoiceItem[]
   ledgerEntries ShopLedgerEntry[]
   revisions     InvoiceRevision[]

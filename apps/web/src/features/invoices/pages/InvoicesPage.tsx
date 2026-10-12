@@ -1,6 +1,16 @@
 import { type InvoiceStatus, type InvoiceSummary } from '@mytraders/shared-types';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Eye, FileText, Pencil, Printer, Search, X } from 'lucide-react';
+import {
+  Ban,
+  Eye,
+  FileText,
+  MoreHorizontal,
+  Pencil,
+  Printer,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { DataTable } from '@/components/data-table/DataTable';
@@ -8,17 +18,26 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useCurrentUser } from '@/features/auth/auth-context';
 import { formatBusinessDate, monthRange, todayIn } from '@/lib/format/date';
 import { formatAmount, plural } from '@/lib/format/number';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { cn } from '@/lib/utils';
+import { CancelInvoiceDialog } from '../components/CancelInvoiceDialog';
 import { InvoiceStatusBadge } from '../components/InvoiceStatusBadge';
+import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { useInvoices } from '../hooks/useInvoices';
 
 const PAGE_SIZE = 20;
-const STATUSES = ['CONFIRMED', 'CANCELLED'] as const;
+const STATUSES = ['CONFIRMED', 'CANCELLED', 'VOIDED'] as const;
 
 /**
  * All invoices of the company (D-41): search, status and invoice-date filters (kept in the URL),
@@ -42,6 +61,12 @@ export function InvoicesPage() {
   const [search, setSearch] = useState(params.get('q') ?? '');
   const q = useDebouncedValue(search.trim());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [closing, setClosing] = useState<{
+    kind: 'cancel' | 'void';
+    invoice: InvoiceSummary;
+  } | null>(null);
+  const onClose = (kind: 'cancel' | 'void') => (invoice: InvoiceSummary) =>
+    setClosing({ kind, invoice });
 
   /**
    * Changes filters in the URL; any filter change goes back to page 1. Starts from the live URL,
@@ -168,7 +193,14 @@ export function InvoicesPage() {
       {
         id: 'actions',
         header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) => <RowActions invoice={row.original} printUrl={printUrl} />,
+        cell: ({ row }) => (
+          <RowActions
+            invoice={row.original}
+            printUrl={printUrl}
+            onCancel={onClose('cancel')}
+            onVoid={onClose('void')}
+          />
+        ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +232,7 @@ export function InvoicesPage() {
           <option value="">Any status</option>
           <option value="CONFIRMED">Confirmed</option>
           <option value="CANCELLED">Cancelled</option>
+          <option value="VOIDED">Voided / deleted</option>
         </NativeSelect>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -341,10 +374,29 @@ export function InvoicesPage() {
                 <InvoiceStatusBadge status={i.status} />
               </div>
             </Link>
-            <RowActions invoice={i} printUrl={printUrl} compact />
+            <RowActions
+              invoice={i}
+              printUrl={printUrl}
+              onCancel={onClose('cancel')}
+              onVoid={onClose('void')}
+            />
           </div>
         )}
       />
+      {closing && (
+        <>
+          <CancelInvoiceDialog
+            invoice={closing.invoice}
+            open={closing.kind === 'cancel'}
+            onClose={() => setClosing(null)}
+          />
+          <VoidInvoiceDialog
+            invoice={closing.invoice}
+            open={closing.kind === 'void'}
+            onClose={() => setClosing(null)}
+          />
+        </>
+      )}
     </>
   );
 }
@@ -382,38 +434,67 @@ function EditedBadge() {
   );
 }
 
-/** View / Edit / Print for one row; a cancelled invoice cannot be edited. */
+/**
+ * Row actions menu: View, Edit, Print, Cancel, Delete (void). Edit / Cancel / Delete only for a
+ * confirmed invoice; cancelled and voided invoices stay viewable and printable for audit.
+ */
 function RowActions({
   invoice,
   printUrl,
-  compact = false,
+  onCancel,
+  onVoid,
 }: {
   invoice: InvoiceSummary;
   printUrl: (ids: string[]) => string;
-  compact?: boolean;
+  onCancel: (invoice: InvoiceSummary) => void;
+  onVoid: (invoice: InvoiceSummary) => void;
 }) {
-  const editable = invoice.status === 'CONFIRMED';
+  const navigate = useNavigate();
+  const confirmed = invoice.status === 'CONFIRMED';
   return (
-    <div className={cn('flex justify-end gap-0.5', compact && 'flex-col')}>
-      {!compact && (
-        <Button variant="ghost" size="icon" className="size-8" asChild>
-          <Link to={`/invoices/${invoice.id}`} aria-label={`View ${invoice.invoiceNumber}`}>
+    <div className="flex justify-end">
+      {/* non-modal: a dialog opened from an item must not leave the page unclickable */}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Actions for ${invoice.invoiceNumber}`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => navigate(`/invoices/${invoice.id}`)}>
             <Eye />
-          </Link>
-        </Button>
-      )}
-      {editable && (
-        <Button variant="ghost" size="icon" className="size-8" asChild>
-          <Link to={`/invoices/${invoice.id}/edit`} aria-label={`Edit ${invoice.invoiceNumber}`}>
-            <Pencil />
-          </Link>
-        </Button>
-      )}
-      <Button variant="ghost" size="icon" className="size-8" asChild>
-        <Link to={printUrl([invoice.id])} aria-label={`Print ${invoice.invoiceNumber}`}>
-          <Printer />
-        </Link>
-      </Button>
+            View
+          </DropdownMenuItem>
+          {confirmed && (
+            <DropdownMenuItem onSelect={() => navigate(`/invoices/${invoice.id}/edit`)}>
+              <Pencil />
+              Edit
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => navigate(printUrl([invoice.id]))}>
+            <Printer />
+            Print
+          </DropdownMenuItem>
+          {confirmed && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onCancel(invoice)}>
+                <Ban />
+                Cancel
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => onVoid(invoice)}>
+                <Trash2 />
+                Delete (void)
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

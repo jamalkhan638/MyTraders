@@ -102,6 +102,9 @@ const DETAIL_FIELDS = {
   cancelledAt: true,
   cancelledBy: REF,
   cancelReason: true,
+  voidedAt: true,
+  voidedBy: REF,
+  voidReason: true,
   items: { orderBy: { lineNo: 'asc' } },
 } as const satisfies Prisma.InvoiceSelect;
 
@@ -625,16 +628,35 @@ export class InvoicesService {
    * ledger — its debit, adjusted by any edits (D-30, D-41).
    */
   async cancel(id: string, reason: string): Promise<InvoiceDetails> {
+    return this.close(id, reason, 'CANCELLED');
+  }
+
+  /**
+   * Admin deletes a confirmed invoice (D-42) — a soft delete ("void"), never a physical one: the
+   * invoice, its lines and snapshots stay, status becomes VOIDED with who / when / why, and in the
+   * same transaction the ledger gets an INVOICE_VOID_REVERSAL credit of the invoice's current
+   * Payable Value (the original debit stays). Refused when the shop's balance would go negative.
+   * Voided invoices leave every business figure (they are not CONFIRMED) but stay viewable.
+   */
+  async void(id: string, reason: string): Promise<InvoiceDetails> {
+    return this.close(id, reason, 'VOIDED');
+  }
+
+  /** CONFIRMED → CANCELLED / VOIDED with its reversal credit, in one transaction. */
+  private async close(
+    id: string,
+    reason: string,
+    status: 'CANCELLED' | 'VOIDED',
+  ): Promise<InvoiceDetails> {
     const auth = this.tenant.require();
+    const now = new Date();
     await this.db.client.$transaction(async (tx) => {
       const { count } = await tx.invoice.updateMany({
         where: { id, status: 'CONFIRMED' },
-        data: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-          cancelledById: auth.userId,
-          cancelReason: reason,
-        },
+        data:
+          status === 'CANCELLED'
+            ? { status, cancelledAt: now, cancelledById: auth.userId, cancelReason: reason }
+            : { status, voidedAt: now, voidedById: auth.userId, voidReason: reason },
       });
       const invoice = await tx.invoice.findFirst({
         where: { id },
@@ -648,13 +670,20 @@ export class InvoicesService {
         },
       });
       if (!invoice) throw new NotFoundException('Invoice not found');
-      if (count === 0) throw new ConflictException('This invoice is already cancelled');
-      // Refused (and the cancel rolled back) if the reversal would leave the shop owing < 0.
-      await this.ledger.invoiceCancelled(
+      if (count === 0) {
+        throw new ConflictException(
+          invoice.status === 'VOIDED'
+            ? 'This invoice has already been deleted (voided)'
+            : 'This invoice is already cancelled',
+        );
+      }
+      // Refused (and everything rolled back) if the reversal would leave the shop owing < 0.
+      await this.ledger.invoiceReversed(
         tx,
         { ...invoice, amount: invoice.payableValue.toFixed(2) },
         auth.userId,
         reason,
+        status === 'CANCELLED' ? 'INVOICE_REVERSAL' : 'INVOICE_VOID_REVERSAL',
       );
     });
     return this.get(id);
@@ -662,6 +691,9 @@ export class InvoicesService {
 }
 
 function assertEditable(status: string): void {
+  if (status === 'VOIDED') {
+    throw new ConflictException('A deleted (voided) invoice cannot be edited');
+  }
   if (status !== 'CONFIRMED') {
     throw new ConflictException('A cancelled invoice cannot be edited');
   }
@@ -978,6 +1010,9 @@ function toDetails(row: DetailRow): InvoiceDetails {
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelledBy: row.cancelledBy,
     cancelReason: row.cancelReason,
+    voidedAt: row.voidedAt?.toISOString() ?? null,
+    voidedBy: row.voidedBy,
+    voidReason: row.voidReason,
     lastEditedAt: row.lastEditedAt?.toISOString() ?? null,
     lastEditedBy: row.lastEditedBy,
     revisions: row.revisions.map((r): InvoiceRevision => ({

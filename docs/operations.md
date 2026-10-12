@@ -40,7 +40,8 @@ Secrets come from the platform's secret store, never from a committed file.
 - Deploy with **`pnpm --filter @mytraders/api prisma:deploy`** (`prisma migrate deploy`) — applies committed migrations only. **Never** run `migrate dev`, `migrate reset` or `db push` against production.
 - Run migrations as a release step **before** starting the new API version; the API itself never migrates.
 - Migrations are hand-reviewed SQL in `apps/api/prisma/migrations` (timestamped, applied in order). Invoices, invoice items, ledger entries, payments and expenses are protected by append-only triggers; a migration that must correct such rows disables the trigger for that statement only and enables it again in the same migration (see `20261005180000_invoice_payable_value`, `20261005210000_invoice_area_snapshot`). Treat any such migration as a data change: take a backup first and check the counts after. Invoice edits (D-41) do not need this: the app sets the transaction-local flag `mytraders.invoice_edit` and the invoice triggers then allow only value / line changes of a CONFIRMED invoice; never set that flag by hand.
-- Book check after restore also covers edits: for each invoice, Σ of its INVOICE / INVOICE_EDIT* / INVOICE_REVERSAL entries = its Payable Value (0 when cancelled).
+- Book check after restore also covers edits and voids: for each invoice, Σ of its INVOICE / INVOICE_EDIT* / INVOICE_REVERSAL / INVOICE_VOID_REVERSAL entries = its Payable Value (0 when cancelled or voided).
+- "Deleting" an invoice in the app is a void (D-42); invoices are never physically deleted, and the database refuses it.
 - Before each release: `prisma migrate status` (nothing pending in the repo that is not committed) and the drift check from the README (`migrate diff --from-migrations … --to-schema-datamodel … --exit-code`).
 - Prefer additive changes (new nullable column → back-fill → `SET NOT NULL`) so the previous API version keeps working during a rolling deploy.
 

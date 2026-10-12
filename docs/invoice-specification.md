@@ -126,6 +126,8 @@ Each **InvoiceItem** snapshots: product id / code / name / type, retail, trade a
 
 **Editing (D-41):** a CONFIRMED invoice may be edited by an Admin with a reason. Header snapshots (shop, distributor, currency), number, shop, order and creation stay; the editable inputs are the invoice date, lines, Advance Tax, Further Tax, ADT discount, Due Payment and notes, and every value is recomputed with the formulas above. Lines of products already on the invoice keep their product snapshot (incl. invoice cost price); new lines snapshot the current product. The lines are replaced inside the edit transaction (DB session flag `mytraders.invoice_edit`; triggers refuse any other change), and the previous values are kept in `InvoiceRevision`.
 
+**Lifecycle (D-41, D-42):** `CONFIRMED` → (edited any number of times) → `CANCELLED` or `VOIDED` (deleted). Cancel and void change only the status and their own who / when / why columns; nothing is ever physically deleted (DB trigger). Every value counted anywhere (sales, profit, product sales, dashboard, invoice totals) comes from CONFIRMED invoices only, with their current values.
+
 **Invoice number:** `organization invoice prefix + zero-padded counter` (first customer `M-` + 8 digits), allocated by the server inside the confirm transaction with a row-locked UPSERT on `OrganizationCounter(INVOICE)` → concurrent invoices never share a number, a rolled-back invoice leaves no gap, `@@unique([organizationId, invoiceNumber])` is the final net. The form shows the *proposed* next number; the real one is assigned on confirm. Admin may move the counter forward only (D-18).
 
 ## 7. Order → invoice (D-28)

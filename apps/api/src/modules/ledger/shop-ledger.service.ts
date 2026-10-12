@@ -80,6 +80,7 @@ const asDate = (value: string) => new Date(`${value}T00:00:00Z`);
  *   PAYMENT           credit  (money received)
  *   MANUAL_ADJUSTMENT debit (increase) | credit (decrease), with a reason
  *   INVOICE_REVERSAL  credit  (cancelled invoice, what it still owes: its debit ± edits)
+ *   INVOICE_VOID_REVERSAL credit (deleted / voided invoice, the same amount)      D-42
  *   INVOICE_EDIT_REVERSAL credit (edited invoice, its previous Invoice Value)   D-41
  *   INVOICE_EDIT      debit   (edited invoice, its corrected Invoice Value)      D-41
  *
@@ -378,18 +379,21 @@ export class ShopLedgerService {
   }
 
   /**
-   * Cancelling an invoice keeps its entries and adds an INVOICE_REVERSAL credit of what the invoice
+   * Cancelling (INVOICE_REVERSAL) or deleting / voiding (INVOICE_VOID_REVERSAL, D-42) an invoice
+   * keeps its entries and adds one reversal credit of what the invoice
    * still owes in the ledger — its debit, adjusted by any edits (= its current Invoice Value) —
    * dated the cancellation day. Runs in the cancel transaction; the unique index makes a second
    * reversal impossible. Negative (advance) balances are not supported in the MVP: if the
    * reversal would take the shop's current balance below zero, the cancellation is refused.
    */
-  async invoiceCancelled(
+  async invoiceReversed(
     tx: TenantTx,
     invoice: LedgerInvoice,
     userId: string,
     reason: string,
+    type: 'INVOICE_REVERSAL' | 'INVOICE_VOID_REVERSAL',
   ): Promise<void> {
+    const voiding = type === 'INVOICE_VOID_REVERSAL';
     const organizationId = this.tenant.requireOrganizationId();
     await this.lockShop(tx, organizationId, invoice.shopId);
     const [row] = await tx.$queryRaw<{ net: string }[]>`
@@ -404,22 +408,23 @@ export class ShopLedgerService {
     const { outstandingBalance } = await this.balance(invoice.shopId, tx);
     const after = new Decimal(outstandingBalance).minus(owed);
     if (after.isNegative()) {
+      const action = voiding ? 'delete' : 'cancel';
       throw new ConflictException(
-        `Cannot cancel invoice ${invoice.invoiceNumber}: the shop's balance would become ` +
+        `Cannot ${action} invoice ${invoice.invoiceNumber}: the shop's balance would become ` +
           `${money(after)} (it owes ${outstandingBalance}, the invoice is ${money(owed)}). ` +
-          'Payments already cover this invoice — correct the related payment or adjustment first ' +
-          '(e.g. Adjust Credit → Increase), then cancel.',
+          'Payments already cover this invoice — resolve the payment / credit first (correct the ' +
+          `related payment or adjustment, e.g. Adjust Credit → Increase), then ${action}.`,
       );
     }
     await tx.shopLedgerEntry.create({
       data: {
         organizationId,
         shopId: invoice.shopId,
-        type: 'INVOICE_REVERSAL',
+        type,
         creditAmount: money(owed),
         transactionDate: asDate(await this.today(tx)),
         invoiceId: invoice.id,
-        notes: `Invoice ${invoice.invoiceNumber} cancelled: ${reason}`,
+        notes: `Invoice ${invoice.invoiceNumber} ${voiding ? 'deleted (voided)' : 'cancelled'}: ${reason}`,
         createdById: userId,
       },
     });

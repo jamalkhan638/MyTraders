@@ -110,7 +110,7 @@ export const invoiceReportSchema = z.object({
     }),
   ),
   ...listMeta,
-  /** confirmed invoices only — cancelled invoices never count */
+  /** confirmed invoices only — cancelled and voided invoices never count */
   totals: z.object({
     invoiceCount: z.number().int(),
     grandTotal: z.string(),
@@ -120,6 +120,8 @@ export const invoiceReportSchema = z.object({
     payableValue: z.string(),
   }),
   cancelledCount: z.number().int(),
+  /** voided (deleted) invoices matching the filters — listed for audit, never counted (D-42) */
+  voidedCount: z.number().int(),
 });
 export type InvoiceReport = z.infer<typeof invoiceReportSchema>;
 

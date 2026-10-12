@@ -4,7 +4,7 @@ import { useCurrentUser } from '@/features/auth/auth-context';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { downloadCsv } from '@/lib/export/csv';
 import { formatBusinessDate } from '@/lib/format/date';
-import { formatAmount } from '@/lib/format/number';
+import { formatAmount, plural } from '@/lib/format/number';
 import { cn } from '@/lib/utils';
 import { useReport } from '../api/reports.api';
 import { describeFilters, optionLabel } from '../components/filter-options';
@@ -19,6 +19,7 @@ type Row = InvoiceReport['rows'][number];
 const STATUS_OPTIONS = [
   { value: 'CONFIRMED', label: INVOICE_STATUS_LABELS.CONFIRMED },
   { value: 'CANCELLED', label: INVOICE_STATUS_LABELS.CANCELLED },
+  { value: 'VOIDED', label: INVOICE_STATUS_LABELS.VOIDED },
 ];
 
 const optional = (v: string | null) => (v === null ? '—' : formatAmount(v));
@@ -47,7 +48,8 @@ export function InvoiceReportPage() {
     ['Order booker', optionLabel(lookups.bookers, p.get('orderBookerId'))],
     ['Status', optionLabel(STATUS_OPTIONS, p.get('status'))],
   ]);
-  const cancelled = (r: Row) => r.status === 'CANCELLED';
+  // cancelled and voided (deleted) invoices are listed for audit, never counted
+  const cancelled = (r: Row) => r.status !== 'CONFIRMED';
 
   const columns: ReportColumn<Row>[] = [
     {
@@ -146,7 +148,7 @@ export function InvoiceReportPage() {
         d.totals.furtherTax,
         d.totals.adtDiscount,
         d.totals.payableValue,
-        `${d.cancelledCount} cancelled not counted`,
+        `${d.cancelledCount} cancelled, ${d.voidedCount} voided not counted`,
       ],
     ]);
 
@@ -199,10 +201,15 @@ export function InvoiceReportPage() {
             minWidth={980}
             empty="No invoices in this period."
           />
-          {data.cancelledCount > 0 && (
+          {data.cancelledCount + data.voidedCount > 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {data.cancelledCount} cancelled invoice{data.cancelledCount === 1 ? '' : 's'} listed
-              but not counted in the totals.
+              {[
+                data.cancelledCount > 0 && plural(data.cancelledCount, 'cancelled invoice'),
+                data.voidedCount > 0 && plural(data.voidedCount, 'voided (deleted) invoice'),
+              ]
+                .filter(Boolean)
+                .join(' and ')}{' '}
+              listed but not counted in the totals.
             </p>
           )}
         </>

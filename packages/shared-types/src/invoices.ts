@@ -13,12 +13,15 @@ import { productSchema } from './products';
 export const InvoiceStatus = {
   CONFIRMED: 'CONFIRMED',
   CANCELLED: 'CANCELLED',
+  /** deleted / voided (D-42): kept for audit, excluded from every business figure */
+  VOIDED: 'VOIDED',
 } as const;
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   CONFIRMED: 'Confirmed',
   CANCELLED: 'Cancelled',
+  VOIDED: 'Voided / deleted',
 };
 
 export const INVOICE_MAX_LINES = 200;
@@ -159,6 +162,16 @@ export const cancelInvoiceSchema = z.object({
     .max(300, 'Reason must be at most 300 characters'),
 });
 export type CancelInvoice = z.output<typeof cancelInvoiceSchema>;
+
+/** POST /invoices/:id/void — "Delete invoice" (D-42): a soft delete with a required reason. */
+export const voidInvoiceSchema = z.object({
+  reason: z
+    .string({ message: 'Enter the reason for deleting this invoice' })
+    .trim()
+    .min(3, 'Enter the reason for deleting this invoice')
+    .max(300, 'Reason must be at most 300 characters'),
+});
+export type VoidInvoice = z.output<typeof voidInvoiceSchema>;
 
 /**
  * PUT /invoices/:id — edit a CONFIRMED invoice (D-41). The same inputs as creating one, minus the
@@ -630,6 +643,9 @@ export const invoiceDetailsSchema = invoiceSummarySchema.extend({
   cancelledAt: z.string().nullable(),
   cancelledBy: refSchema.nullable(),
   cancelReason: z.string().nullable(),
+  voidedAt: z.string().nullable(),
+  voidedBy: refSchema.nullable(),
+  voidReason: z.string().nullable(),
   lastEditedAt: z.string().nullable(),
   lastEditedBy: refSchema.nullable(),
   /** edit history, newest first (D-41) */

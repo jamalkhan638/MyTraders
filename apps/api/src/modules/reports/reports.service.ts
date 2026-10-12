@@ -125,14 +125,17 @@ export class ReportsService {
       ...invoiceFilters(filter),
       ...(query.status ? { status: query.status } : {}),
     };
-    // Cancelled invoices are listed (status filter) but never counted in the totals.
-    const countsConfirmed = query.status !== 'CANCELLED';
-    const [rows, rowCount, cancelledCount, totals] = await Promise.all([
+    // Cancelled and voided invoices are listed (status filter) but never counted in the totals.
+    const countsConfirmed = !query.status || query.status === 'CONFIRMED';
+    const countOf = (status: 'CANCELLED' | 'VOIDED') =>
+      query.status && query.status !== status
+        ? 0
+        : this.db.client.invoice.count({ where: { ...where, status } });
+    const [rows, rowCount, cancelledCount, voidedCount, totals] = await Promise.all([
       this.invoiceRows(where),
       this.db.client.invoice.count({ where }),
-      query.status === 'CONFIRMED'
-        ? 0
-        : this.db.client.invoice.count({ where: { ...where, status: 'CANCELLED' } }),
+      countOf('CANCELLED'),
+      countOf('VOIDED'),
       countsConfirmed
         ? this.db.client.invoice.aggregate({
             where: salesWhere(filter),
@@ -175,6 +178,7 @@ export class ReportsService {
         payableValue: money(totals?._sum.payableValue),
       },
       cancelledCount,
+      voidedCount,
     };
   }
 

@@ -25,6 +25,7 @@ Every request is checked for: authenticated → user active → organization not
 | Invoices: list / view / print / draft / preview | ✅ | ❌ |
 | Invoices: cancel with reason (ledger reversal credit) | ✅ | ❌ |
 | Invoices: edit a confirmed invoice with reason (`GET /invoices/:id/edit-draft`, `PUT /invoices/:id`, D-41); cancelled → 409; another org → 404 | ✅ | ❌ |
+| Invoices: delete = void with reason (`POST /invoices/:id/void`, D-42; ledger reversal credit; not confirmed → 409; another org → 404) | ✅ | ❌ |
 | Invoices: bulk print (`GET /invoices/batch?ids=`, another org's id → 404) | ✅ | ❌ |
 | Ledger: record payment / adjust credit (shop details) | ✅ | ❌ |
 | Ledger: view history, collection sheet, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |

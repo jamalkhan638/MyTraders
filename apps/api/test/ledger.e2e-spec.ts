@@ -619,8 +619,9 @@ describe('Shop ledger & payments (e2e)', () => {
       const res = await cancel(first.id).expect(409);
       expect(res.body.message).toBe(
         `Cannot cancel invoice ${first.invoiceNumber}: the shop's balance would become -700.00 ` +
-          '(it owes 300.00, the invoice is 1000.00). Payments already cover this invoice — correct ' +
-          'the related payment or adjustment first (e.g. Adjust Credit → Increase), then cancel.',
+          '(it owes 300.00, the invoice is 1000.00). Payments already cover this invoice — resolve ' +
+          'the payment / credit first (correct the related payment or adjustment, e.g. Adjust ' +
+          'Credit → Increase), then cancel.',
       );
       await cancel(second.id).expect(409);
       const invoice = await t.prisma.invoice.findUniqueOrThrow({ where: { id: first.id } });

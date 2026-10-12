@@ -92,7 +92,7 @@ Responses for another tenant's IDs are **404** (not 403) so existence is not lea
 - The backend is the authority for invoice totals, ledger balances and profit. Client-sent totals are ignored.
 - Critical operations run in a single DB transaction (`prisma.$transaction`, interactive):
   - Confirm invoice (order status, number allocation, invoice, items with snapshots, INVOICE ledger debit).
-  - Cancel invoice (status + INVOICE_REVERSAL credit).
+  - Cancel invoice (status + INVOICE_REVERSAL credit); delete = void invoice (status VOIDED + INVOICE_VOID_REVERSAL credit, D-42); edit invoice (revision + INVOICE_EDIT_REVERSAL / INVOICE_EDIT, D-41).
   - Record payment (lock shop row `SELECT … FOR UPDATE`, compute balance, reject overpayment, insert entry).
 - Ledger is append-only. Corrections are new entries, never edits/deletes.
 

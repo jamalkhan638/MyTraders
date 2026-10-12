@@ -22,6 +22,8 @@ export const invoicesApi = {
   editDraft: (id: string) => apiFetch<InvoiceDraft>(`/invoices/${id}/edit-draft`),
   edit: (id: string, body: EditInvoiceInput) =>
     apiFetch<InvoiceDetails>(`/invoices/${id}`, { method: 'PUT', json: body }),
+  void: (id: string, reason: string) =>
+    apiFetch<InvoiceDetails>(`/invoices/${id}/void`, { method: 'POST', json: { reason } }),
   cancel: (id: string, reason: string) =>
     apiFetch<InvoiceDetails>(`/invoices/${id}/cancel`, { method: 'POST', json: { reason } }),
 };
