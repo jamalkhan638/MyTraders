@@ -135,15 +135,15 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
           testId="card-profit"
           icon={<TrendingUp />}
           tone="green"
-          label="Net profit this month"
-          value={money(data.monthlyNetProfit)}
-          note={`Gross profit ${formatAmount(data.monthlyGrossProfit)} − expenses`}
+          label="Profit this month"
+          value={money(data.monthlyGrossProfit)}
+          note="Sales − cost of the products sold (expenses shown separately)"
           className="sm:col-span-2"
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="min-w-0 lg:col-span-2">
+        <Card className="min-w-0 border-slate-300 shadow-sm lg:col-span-2">
           <CardHeader>
             <CardTitle>Sales, last 6 months</CardTitle>
             <CardDescription>Payable value of confirmed invoices ({currency})</CardDescription>
@@ -152,7 +152,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
             <SalesChart data={data.salesByMonth} currency={currency} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-300 shadow-sm">
           <CardHeader>
             <CardTitle>Top shops this month</CardTitle>
             <CardDescription>By payable value</CardDescription>
@@ -194,7 +194,7 @@ function Dashboard({ data, currency }: { data: DashboardSummary; currency: strin
         </Card>
       </div>
 
-      <Card className="gap-0 py-0">
+      <Card className="gap-0 border-slate-300 py-0 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between gap-3 border-b px-4 py-3">
           <CardTitle className="text-base">
             Recent pending orders{' '}
@@ -305,6 +305,15 @@ const TONES = {
   red: 'bg-red-50 text-red-600',
 } as const;
 
+/** Coloured left edge of each card, matching its icon. */
+const EDGES = {
+  green: 'border-l-emerald-500',
+  blue: 'border-l-blue-500',
+  violet: 'border-l-violet-500',
+  amber: 'border-l-amber-500',
+  red: 'border-l-red-500',
+} as const;
+
 function Metric({
   icon,
   tone,
@@ -352,9 +361,10 @@ function Metric({
   return (
     <Card
       className={cn(
-        'py-4',
-        to && 'transition-colors hover:border-primary/40',
-        highlight && 'border-primary/40',
+        'border-slate-300 border-l-4 py-4 shadow-sm',
+        EDGES[tone],
+        to && 'transition-colors hover:border-primary/60',
+        highlight && 'border-primary/60',
         className,
       )}
       data-testid={testId}
