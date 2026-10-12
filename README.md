@@ -20,6 +20,7 @@ Multi-tenant Distribution Management SaaS for distributors / wholesalers: areas,
 ```
 apps/api               NestJS + Prisma (REST API, /api prefix, Swagger at /api/docs)
 apps/web               React + Vite + Tailwind + shadcn/ui (Admin desktop + Order Booker mobile)
+apps/mobile-booker     SupplyBeacon Booker — offline-first Android app for Order Bookers (Expo; see its README)
 packages/shared-types  zod schemas + enums shared by api and web
 packages/config        shared tsconfig + ESLint config
 docker-compose.yml     PostgreSQL 16 (mytraders_dev + mytraders_test)

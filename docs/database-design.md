@@ -192,11 +192,13 @@ model Order {
   orderBookerId  String      @db.Uuid                   // always the signed-in booker
   status         OrderStatus @default(PENDING)
   notes          String?
+  clientOrderId  String?     @db.Uuid                   // mobile offline order id (D-46); retries return the same order
   cancelledAt    DateTime?   @db.Timestamptz
   cancelledById  String?     @db.Uuid
   createdAt      DateTime    @default(now()) @db.Timestamptz
   updatedAt      DateTime    @updatedAt @db.Timestamptz
   @@unique([organizationId, orderNumber])
+  @@unique([organizationId, clientOrderId])
   @@index([organizationId, status, createdAt])
   @@index([organizationId, orderBookerId, createdAt])
   @@index([organizationId, shopId])

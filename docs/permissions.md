@@ -18,7 +18,8 @@ Every request is checked for: authenticated → user active → organization not
 | Products: list active (name, code, type, weight/unit/basis, pieces per carton) | ✅ | ✅ **no prices at all** — D-24 (`GET /booker/products`) |
 | Shops: manage / assign booker | ✅ | ❌ |
 | Shops: list / view | ✅ all | ✅ **assigned active shops only** (`GET /booker/shops`); balance added in Phase 5 |
-| Orders: create | ❌ (Admins invoice directly) | ✅ only for their assigned, active shops, active products |
+| Orders: create | ❌ (Admins invoice directly) | ✅ only for their assigned, active shops, active products; optional `clientOrderId` makes it idempotent (D-46) — the same id returns the same order, another booker's id → 409 |
+| Mobile app sessions (`/auth/mobile/*`, SupplyBeacon Booker) | ❌ 403 (use the website) — Super Admin too | ✅ |
 | Orders: list / view | ✅ all | ✅ own orders only |
 | Orders: cancel | ✅ any pending | ✅ own pending only |
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |

@@ -109,8 +109,17 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☐ Optional "suspended" message page for tenant users (today: the login form shows the reason)
 - Billing / subscriptions / plans / payment gateways / usage metering — **not started** (owner instruction)
 
+## Phase 10 — SupplyBeacon Booker Android app (D-46)
+- ☑ API: mobile sessions (`/auth/mobile/login|refresh|logout`, booker only, refresh token in body, reasons on refusal); `Order.clientOrderId` idempotent create (also concurrent), returned in order lists; e2e `mobile-booker.e2e-spec.ts`
+- ☑ `apps/mobile-booker`: Expo SDK 57 + Expo Router; Login, My Shops (search, area filter, pull-to-refresh, last synced), Shop Details, Create Order (cached products, quantities only, TIN pcs / POUCH ctn, draft autosave), My Orders + Sync Center, order details (Retry / Correct / Discard), Profile
+- ☑ SQLite offline cache partitioned by user; local-first orders (DRAFT → PENDING_SYNC → SYNCING → SYNCED / FAILED); single-run sync queue with backoff; NetInfo reconnect sync (API `/health` reachability), foreground + timer triggers; sign-out keeps only the user's unsent orders
+- ☑ Android config: `SupplyBeacon Booker`, `com.supplybeacon.booker`, versionCode 1, icon / adaptive icon / splash, no backup, minimal permissions, cleartext only for http dev URLs; EAS profiles (preview = APK, production = AAB)
+- ☑ Tests: 17 sync / offline / isolation tests on a real SQLite (Node) with a contract fake of the API; Metro Android bundle + `expo prebuild` checks
+- ☐ Build and sign the first APK with EAS (needs the owner's Expo account) and test on real phones
+- ☐ iOS, Play Store publishing, push notifications, offline payments / invoices, change-own-password — not started (owner instruction)
+
 ## Later
-Stock (transactions, purchases, suppliers, returns, warehouses, damaged), route/visit-day planning, partner share reports, offline order queue, WhatsApp invoice sharing, Postgres RLS.
+Stock (transactions, purchases, suppliers, returns, warehouses, damaged), route/visit-day planning, partner share reports, WhatsApp invoice sharing, Postgres RLS.
 
 ## First usable milestone (end of Phase 6)
 Admin signs in → areas → products → shops → order booker → assigns shops → booker books order on phone → Admin sees pending order → same invoice form prefilled → edits → confirms → invoice on shop, balance updated → direct invoice also works → payment reduces balance → expenses → dashboard shows all cards.

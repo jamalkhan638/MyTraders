@@ -26,6 +26,7 @@ pnpm workspaces + Turborepo.
 apps/
   web/                 React 19 + Vite + TS
   api/                 NestJS + Prisma
+  mobile-booker/       SupplyBeacon Booker — Android app (React Native + Expo, offline-first, D-46)
 packages/
   shared-types/        zod schemas (request/response contracts), enums, pure calculators (Decimal)
   config/              shared tsconfig bases, eslint, prettier
@@ -65,6 +66,13 @@ The stack is pinned to the majors documented here (NestJS 11, Prisma 6, TypeScri
 - Refresh cookie: `mt_refresh`, `Path=/api/auth`. Refresh sessions are sliding: each rotation issues a new 30-day token.
 - `organizationId`/`role` used for authorization always come from the **database row loaded by the guard**, not from the token claims; a token whose claims no longer match (role changed, user moved) is rejected.
 - `User` has DB CHECK constraints: only `SUPER_ADMIN` has `organizationId = NULL`; emails are stored lower-case.
+- **Mobile (SupplyBeacon Booker, D-46)**: `POST /auth/mobile/login | refresh | logout` — same accounts, password checks, rotation and reuse detection, but the refresh token travels in the JSON body (the phone keeps it in the Android Keystore via expo-secure-store; the access token stays in memory). Only `ORDER_BOOKER` accounts get a mobile session (others: 403 before any token is issued); a refused refresh says why (`Your account is inactive` / `Your organization is suspended`).
+
+### Offline-first booker app (D-46)
+
+- `apps/mobile-booker` (Expo SDK 57, Expo Router, TanStack Query, React Hook Form + zod, expo-sqlite, expo-secure-store, NetInfo). Uses the existing booker APIs only: `/booker/shops|areas|products`, `GET/POST /orders`.
+- Shops, areas and products are copied to SQLite on every online sync (read-only on the phone). Orders are written to SQLite first (`PENDING_SYNC`) and sent by a single-run sync queue when online; every row is partitioned by the signed-in user's id.
+- **Idempotent orders**: each mobile order carries a phone-made UUID `clientOrderId`; `Order.clientOrderId` is unique per organization, and resending it returns the existing order (also under concurrent sends) — retries after a lost reply never duplicate. The server re-validates shop assignment / activity and products on every sync (D-25); refusals (422) become `FAILED` orders with a plain reason the booker can fix. Details: `apps/mobile-booker/README.md`.
 
 ## 5. Multi-tenancy
 

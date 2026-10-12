@@ -86,13 +86,20 @@ Restoring one organization alone is not supported by the tools yet (all organiza
 - **Demo data never reaches production**: `prisma/seed.ts` refuses to run when `NODE_ENV=production` **or** when the database name does not end in `_dev` / `_test`. `prisma migrate deploy` never seeds.
 - An Admin manages Order Bookers in the app (create, reset password, deactivate — deactivation and password reset end their sessions at once). Admin accounts and Admin password changes are CLI / database operations in the MVP (see the TODO in implementation-plan).
 
-## 6. Monitoring and logs
+## 6. SupplyBeacon Booker (Android app)
+
+- The app is built with its API URL baked in: `EXPO_PUBLIC_API_URL` (`eas.json` sets `https://api.supplybeacon.com/api` for `preview` APK and `production` AAB builds). One build serves all tenants.
+- Native apps do not need CORS. They use `GET /api/health` to decide whether the API is reachable — keep it public and fast.
+- Releases: bump `version` + `android.versionCode` in `apps/mobile-booker/app.config.ts`, then `eas build --platform android --profile preview` (APK for manual install) or `--profile production` (AAB for Play Store, later). Keep the EAS-managed signing key: an APK signed with another key cannot update the installed app.
+- Deploy the API before shipping an app version that relies on new endpoints (`/auth/mobile/*`, `clientOrderId` — migration `20261013090000_order_client_id`).
+
+## 7. Monitoring and logs
 
 - **Health**: `GET /api/health` → `200 {"status":"ok"}` when the API can query the database, `503` otherwise. Use it for the load balancer and an uptime monitor.
 - **Logs**: one JSON line per request (pino) with `req.id` (also returned as `X-Request-Id`; an incoming `X-Request-Id` is kept), `userId`, `organizationId`, status and time. `Authorization`, cookies and `Set-Cookie` are redacted; request bodies (passwords, amounts) are not logged. Every 5xx logs its stack trace; clients only ever see `Internal server error`.
 - Alert on: health check failures, any 5xx, a burst of 401/429 on `/api/auth/login`.
 
-## 7. Security notes
+## 8. Security notes
 
 - Passwords: argon2id. Refresh tokens: random, stored as SHA-256 hashes, rotated on every use, reuse revokes the whole family. Access tokens: 15 min; every request re-reads the user, so deactivation, a suspended organization or a role change apply immediately.
 - Tenant isolation: every query on tenant data goes through the tenant-scoped Prisma client; raw SQL filters on `organizationId` explicitly; client-sent `organizationId` is ignored (tests: `tenant-isolation`, `hardening`).

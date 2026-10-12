@@ -74,6 +74,8 @@ Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implement
 
 **Order Booker (mobile bottom nav)**: Home · My Shops · My Orders · Profile.
 
+**SupplyBeacon Booker Android app** (`apps/mobile-booker`, D-46): separate React Native + Expo app for bookers with the same tabs (My Shops · My Orders · Profile), offline-first. It does not reuse web UI components; it shares `@mytraders/shared-types` (types, order limits). See its README for screens, local schema and sync design.
+
 ## 6. Responsive / PWA
 
 - Admin: desktop-first, usable on tablet/phone (tables collapse to cards < `md`).
