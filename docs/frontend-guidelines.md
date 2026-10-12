@@ -98,7 +98,7 @@ Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolute
 
 ## 8. Shop credit and Collection Sheet
 
-- **Shop details**: a prominent *Current outstanding* card (from `GET /shops/:id`, which carries the ledger balance) with *Record payment* and *Adjust credit* dialogs (`features/ledger/components`), then the *Ledger / credit history* table (server running balance) and the separate *Invoice history*.
+- **Shop details**: a prominent *Current outstanding* card (from `GET /shops/:id`, which carries the ledger balance) with *Record payment* and *Adjust credit* dialogs (`features/ledger/components`), then the *Ledger / credit history* table (server running balance) and the separate *Invoice history* — both paged on the server, **20 per page**, newest first, with a shared `HistoryPager` footer ("1–20 of 57", Newer / Older).
 - **Finance → Collection Sheet** (`/finance/collection-sheet?areaId`, D-40; the old `/finance/area-ledger` redirects here): area select, shop search, "only shops with outstanding balance"; columns Shop name, Balance, Payment (blank), Remaining balance (blank), Bill date, Area, total row from the server. Read-only. Print: A4 portrait (`html:has(.collection-sheet)` named page), ruled table, 11 mm rows, header repeated per page, total as the last body row (a `<tfoot>` on a named print page makes Chrome break before it). CSV download.
 - Every ledger posting (payment, adjustment, invoice confirm / cancel) invalidates ledger, shop and invoice-draft queries (`invalidateBalances`), so Shop Details, the shop list, the collection sheet / reports and Due Payment always show the server's numbers.
 

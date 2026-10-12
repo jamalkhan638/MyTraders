@@ -7,14 +7,14 @@ import { History } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { HistoryPager } from '@/components/data-table/HistoryPager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatBusinessDate } from '@/lib/format/date';
 import { formatAmount } from '@/lib/format/number';
 import { useShopLedger } from '../hooks/useLedger';
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const TYPE_VARIANT = {
   INVOICE: 'secondary',
@@ -121,29 +121,7 @@ export function ShopLedgerHistory({ shopId }: { shopId: string }) {
                 </tbody>
               </table>
             </div>
-            {total > PAGE_SIZE && (
-              <div className="flex items-center justify-end gap-2 pt-3 text-sm">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Newer
-                </Button>
-                <span className="text-muted-foreground">
-                  {page} / {Math.ceil(total / PAGE_SIZE)}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page * PAGE_SIZE >= total}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Older
-                </Button>
-              </div>
-            )}
+            <HistoryPager page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </>
         )}
       </CardContent>

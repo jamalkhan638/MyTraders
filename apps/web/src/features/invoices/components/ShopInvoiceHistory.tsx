@@ -1,6 +1,7 @@
 import { FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { HistoryPager } from '@/components/data-table/HistoryPager';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +10,7 @@ import { formatAmount } from '@/lib/format/number';
 import { useInvoices } from '../hooks/useInvoices';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 /** Shop details → every invoice of the shop (from the invoices' own snapshots). */
 export function ShopInvoiceHistory({
@@ -75,29 +76,7 @@ export function ShopInvoiceHistory({
                 </li>
               ))}
             </ul>
-            {total > PAGE_SIZE && (
-              <div className="flex items-center justify-end gap-2 pt-3 text-sm">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Newer
-                </Button>
-                <span className="text-muted-foreground">
-                  {page} / {Math.ceil(total / PAGE_SIZE)}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page * PAGE_SIZE >= total}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Older
-                </Button>
-              </div>
-            )}
+            <HistoryPager page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </>
         )}
       </CardContent>
