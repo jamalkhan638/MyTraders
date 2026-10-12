@@ -33,6 +33,8 @@ export const orderSummarySchema = z.object({
   totalPieces: z.number().int(),
   /** Sum of the quantities counted in cartons (POUCH lines). */
   totalCartons: z.number().int(),
+  /** set when the order came from the mobile app (D-46) */
+  clientOrderId: z.string().nullable(),
   createdAt: z.string(),
 });
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
@@ -107,6 +109,11 @@ export const createOrderSchema = z
       .min(1, 'Add at least one product')
       .max(ORDER_MAX_LINES, `An order can have at most ${ORDER_MAX_LINES} products`),
     notes: optionalText(500),
+    /**
+     * Mobile offline orders (D-46): a UUID made on the phone. Sending the same id again returns
+     * the order already created for it instead of a duplicate (idempotent retry).
+     */
+    clientOrderId: z.uuid({ message: 'Invalid client order id' }).optional(),
   })
   .superRefine((order, ctx) => {
     const seen = new Set<string>();

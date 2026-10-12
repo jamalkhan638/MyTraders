@@ -36,3 +36,22 @@ export const authSessionResponseSchema = z.object({
   user: authUserSchema,
 });
 export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
+
+// ---- mobile (Order Booker app, D-46) -----------------------------------------------------------
+
+/**
+ * POST /auth/mobile/login and /auth/mobile/refresh response. A phone cannot use the web's
+ * httpOnly cookie, so the refresh token is returned in the body; the app keeps it in the
+ * device's secure storage. Only ORDER_BOOKER users get one.
+ */
+export const mobileSessionResponseSchema = authSessionResponseSchema.extend({
+  refreshToken: z.string(),
+  refreshTokenExpiresAt: z.string(),
+});
+export type MobileSessionResponse = z.infer<typeof mobileSessionResponseSchema>;
+
+/** POST /auth/mobile/refresh and /auth/mobile/logout body. */
+export const mobileRefreshRequestSchema = z.object({
+  refreshToken: z.string().min(1, 'Missing refresh token').max(200),
+});
+export type MobileRefreshRequest = z.infer<typeof mobileRefreshRequestSchema>;

@@ -16,7 +16,7 @@ import {
   type Paginated,
   quantityUnitFor,
 } from '@mytraders/shared-types';
-import { type Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { type AuthContext } from '../../common/types/auth-context';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
@@ -32,6 +32,7 @@ const SUMMARY_FIELDS = {
   id: true,
   orderNumber: true,
   status: true,
+  clientOrderId: true,
   createdAt: true,
   shop: { select: { id: true, name: true, area: REF } },
   orderBooker: REF,
@@ -131,17 +132,64 @@ export class OrdersService {
       throw new ForbiddenException('Only order bookers book orders');
     const organizationId = this.tenant.requireOrganizationId();
 
+    // Idempotent retry (D-46): an order already created for this client id is returned as is —
+    // a weak connection that resends an order never makes a second one.
+    if (input.clientOrderId) {
+      const existing = await this.findByClientOrderId(input.clientOrderId, auth.userId);
+      if (existing) return existing;
+    }
+
     // Shop/product checks, number allocation and the order with all its lines: one transaction.
-    const id = await this.db.client.$transaction(async (tx) => {
-      const productTypes = await assertOrderable(tx, auth.userId, input);
+    let id: string;
+    try {
+      id = await this.createOrder(input, auth.userId, organizationId);
+    } catch (error) {
+      // two simultaneous sends of one client id: the unique index lets only one through
+      if (
+        input.clientOrderId &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.findByClientOrderId(input.clientOrderId, auth.userId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+    return this.get(id);
+  }
+
+  /** The order made for a client id — only the same booker's; another booker's id is a conflict. */
+  private async findByClientOrderId(
+    clientOrderId: string,
+    bookerId: string,
+  ): Promise<OrderDetails | null> {
+    const row = await this.db.client.order.findFirst({
+      where: { clientOrderId },
+      select: { id: true, orderBookerId: true },
+    });
+    if (!row) return null;
+    if (row.orderBookerId !== bookerId) {
+      throw new ConflictException('This client order id is already used by another order');
+    }
+    return this.get(row.id);
+  }
+
+  private createOrder(
+    input: CreateOrder,
+    bookerId: string,
+    organizationId: string,
+  ): Promise<string> {
+    return this.db.client.$transaction(async (tx) => {
+      const productTypes = await assertOrderable(tx, bookerId, input);
       const orderNumber = await allocateDocumentNumber(tx, organizationId, 'ORDER');
       const order = await tx.order.create({
         data: {
           organizationId,
           orderNumber,
           shopId: input.shopId,
-          orderBookerId: auth.userId,
+          orderBookerId: bookerId,
           notes: input.notes ?? null,
+          clientOrderId: input.clientOrderId ?? null,
           items: {
             create: input.items.map((item) => ({
               productId: item.productId,
@@ -155,7 +203,6 @@ export class OrdersService {
       });
       return order.id;
     });
-    return this.get(id);
   }
 
   /** Admin: any pending order of the organization. Booker: only their own pending order. */
@@ -239,6 +286,7 @@ function toSummary(row: SummaryRow): OrderSummary {
     itemCount: row.items.length,
     totalPieces: sumOf(row.items, 'PIECE'),
     totalCartons: sumOf(row.items, 'CARTON'),
+    clientOrderId: row.clientOrderId,
     createdAt: row.createdAt.toISOString(),
   };
 }

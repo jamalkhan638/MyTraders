@@ -338,6 +338,8 @@ model Order {
   orderBookerId  String      @db.Uuid
   status         OrderStatus @default(PENDING)
   notes          String?
+  /// mobile offline order id (D-46): one order per id per organization — retries return it
+  clientOrderId  String?     @db.Uuid
   cancelledAt    DateTime?   @db.Timestamptz
   cancelledById  String?     @db.Uuid
   createdAt      DateTime    @default(now()) @db.Timestamptz
@@ -351,6 +353,7 @@ model Order {
   invoice      Invoice?
 
   @@unique([organizationId, orderNumber])
+  @@unique([organizationId, clientOrderId])
   @@index([organizationId, status, createdAt])
   @@index([organizationId, orderBookerId, createdAt])
   @@index([organizationId, shopId])
