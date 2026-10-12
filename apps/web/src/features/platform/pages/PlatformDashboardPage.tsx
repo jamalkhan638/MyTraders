@@ -24,7 +24,7 @@ export function PlatformDashboardPage() {
           <p className="text-sm text-muted-foreground">Welcome back, {user.name}</p>
           <h1 className="text-2xl font-semibold tracking-tight">Platform overview</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tenants (distributor companies) using MyTraders.
+            Tenants (distributor companies) using SupplyBeacon.
           </p>
         </div>
         <Button asChild>

@@ -1,7 +1,7 @@
 # Product Requirements
 
 > Source of truth for business rules. If a rule changes, update this file **before or together with** the code.
-> Working product name: **MyTraders**. First real customer: a Dalda distributor (Ali Akbar Traders, Abbottabad) — but nothing in the product is Dalda-specific.
+> Product name: **SupplyBeacon** (formerly the working name MyTraders; internal identifiers such as package names `@mytraders/*` and database names keep the old name). First real customer: a Dalda distributor (Ali Akbar Traders, Abbottabad) — but nothing in the product is Dalda-specific.
 
 ## 1. Product goal
 

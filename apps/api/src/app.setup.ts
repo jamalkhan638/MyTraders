@@ -29,7 +29,7 @@ export function configureApp(app: NestExpressApplication): void {
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
-        .setTitle('MyTraders API')
+        .setTitle('SupplyBeacon API')
         .setDescription('Distribution Management SaaS — see /docs in the repository')
         .setVersion('0.1.0')
         .addBearerAuth()

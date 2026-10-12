@@ -1,6 +1,6 @@
 # Operations — deployment, configuration, backups
 
-How to run MyTraders for real customers. Development setup is in the [README](../README.md).
+How to run SupplyBeacon for real customers. Development setup is in the [README](../README.md).
 
 ## 1. Shape of a deployment
 

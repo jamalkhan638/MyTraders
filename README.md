@@ -1,4 +1,4 @@
-# MyTraders
+# SupplyBeacon
 
 Multi-tenant Distribution Management SaaS for distributors / wholesalers: areas, shops, products, order booking from the market (mobile), invoicing, shop credit ledger, expenses, profit and reports.
 

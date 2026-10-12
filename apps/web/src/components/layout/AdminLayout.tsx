@@ -44,7 +44,7 @@ export function AdminLayout({
           <div className="flex items-center gap-2.5">
             <img src="/favicon.svg" alt="" className="size-7" />
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-sidebar-accent-foreground">MyTraders</div>
+              <div className="text-sm font-semibold text-sidebar-accent-foreground">SupplyBeacon</div>
               <div className="max-w-40 truncate text-xs text-sidebar-muted">{context}</div>
             </div>
           </div>

@@ -19,7 +19,7 @@ export function BookerLayout() {
       <header className="sticky top-0 z-20 flex h-14 items-center gap-2.5 border-b bg-card px-4">
         <img src="/favicon.svg" alt="" className="size-7" />
         <div className="leading-tight">
-          <div className="text-sm font-semibold">MyTraders</div>
+          <div className="text-sm font-semibold">SupplyBeacon</div>
           <div className="text-xs text-muted-foreground">{user.organization?.name}</div>
         </div>
       </header>

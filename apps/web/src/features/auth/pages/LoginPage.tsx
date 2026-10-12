@@ -45,7 +45,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
           <img src="/favicon.svg" alt="" className="size-9" />
-          <span className="text-xl font-semibold tracking-tight">MyTraders</span>
+          <span className="text-xl font-semibold tracking-tight">SupplyBeacon</span>
         </div>
         <Card>
           <CardHeader>
