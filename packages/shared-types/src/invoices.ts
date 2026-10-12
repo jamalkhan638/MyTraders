@@ -21,7 +21,7 @@ export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   CONFIRMED: 'Confirmed',
   CANCELLED: 'Cancelled',
-  VOIDED: 'Voided / deleted',
+  VOIDED: 'Deleted',
 };
 
 export const INVOICE_MAX_LINES = 200;

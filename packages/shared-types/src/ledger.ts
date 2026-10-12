@@ -27,7 +27,7 @@ export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
   PAYMENT: 'Payment',
   MANUAL_ADJUSTMENT: 'Adjustment',
   INVOICE_REVERSAL: 'Invoice cancelled',
-  INVOICE_VOID_REVERSAL: 'Invoice deleted (voided)',
+  INVOICE_VOID_REVERSAL: 'Invoice deleted',
   INVOICE_EDIT_REVERSAL: 'Invoice edited — old value reversed',
   INVOICE_EDIT: 'Invoice edited — new value',
 };

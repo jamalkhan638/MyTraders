@@ -670,7 +670,7 @@ export class InvoicesService {
       if (count === 0) {
         throw new ConflictException(
           invoice.status === 'VOIDED'
-            ? 'This invoice has already been deleted (voided)'
+            ? 'This invoice has already been deleted'
             : 'This invoice is already cancelled',
         );
       }
@@ -689,7 +689,7 @@ export class InvoicesService {
 
 function assertEditable(status: string): void {
   if (status === 'VOIDED') {
-    throw new ConflictException('A deleted (voided) invoice cannot be edited');
+    throw new ConflictException('A deleted invoice cannot be edited');
   }
   if (status !== 'CONFIRMED') {
     throw new ConflictException('A cancelled invoice cannot be edited');

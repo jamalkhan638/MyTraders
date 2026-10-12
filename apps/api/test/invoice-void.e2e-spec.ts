@@ -151,7 +151,7 @@ describe('Invoice delete / void (e2e)', () => {
         invoice: { id: a.id, invoiceNumber: a.invoiceNumber },
       });
       expect(reversal.notes).toBe(
-        `Invoice ${a.invoiceNumber} deleted (voided): Invoice created for wrong shop`,
+        `Invoice ${a.invoiceNumber} deleted: Invoice created for wrong shop`,
       );
       // net effect of A is zero; only B remains owed
       expect(balance.outstandingBalance).toBe('500.00');
@@ -219,7 +219,7 @@ describe('Invoice delete / void (e2e)', () => {
         .set(auth(adminToken))
         .send({ invoiceDate: today, items: [line(1)], reason: 'Try again' })
         .expect(409);
-      expect(edit.body.message).toMatch(/deleted \(voided\) invoice cannot be edited/);
+      expect(edit.body.message).toMatch(/deleted invoice cannot be edited/);
       await http().get(`/api/invoices/${a.id}/edit-draft`).set(auth(adminToken)).expect(409);
       const again = await voidInvoice(a.id, { reason: 'Second time' }).expect(409);
       expect(again.body.message).toMatch(/already been deleted/);

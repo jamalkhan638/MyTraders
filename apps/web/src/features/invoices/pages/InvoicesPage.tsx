@@ -232,7 +232,7 @@ export function InvoicesPage() {
           <option value="">Any status</option>
           <option value="CONFIRMED">Confirmed</option>
           <option value="CANCELLED">Cancelled</option>
-          <option value="VOIDED">Voided / deleted</option>
+          <option value="VOIDED">Deleted</option>
         </NativeSelect>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -489,7 +489,7 @@ function RowActions({
               </DropdownMenuItem>
               <DropdownMenuItem variant="destructive" onSelect={() => onVoid(invoice)}>
                 <Trash2 />
-                Delete (void)
+                Delete
               </DropdownMenuItem>
             </>
           )}

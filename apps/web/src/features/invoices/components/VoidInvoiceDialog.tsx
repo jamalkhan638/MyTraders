@@ -41,10 +41,10 @@ export function VoidInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Delete invoice {invoice.invoiceNumber}?</DialogTitle>
           <DialogDescription>
-            The invoice is voided: it stays in the history for audit (marked “Voided / deleted”,
-            with its number, lines and edit history) but no longer counts in sales, profit or
-            reports. The shop ledger gets a reversal credit of {formatAmount(invoice.payableValue)};
-            the original debit stays. This cannot be undone.
+            This invoice will no longer count in sales, profit or reports, and{' '}
+            {formatAmount(invoice.payableValue)} will be taken off the shop&apos;s balance. A copy
+            stays in your records marked “Deleted”, so you can still see or print it later. This
+            cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
@@ -79,7 +79,7 @@ export function VoidInvoiceDialog({
                 { id: invoice.id, reason: reason.trim() },
                 {
                   onSuccess: () => {
-                    toast.success(`Invoice ${invoice.invoiceNumber} deleted (voided)`);
+                    toast.success(`Invoice ${invoice.invoiceNumber} deleted`);
                     onClose();
                   },
                   onError: (err) => {

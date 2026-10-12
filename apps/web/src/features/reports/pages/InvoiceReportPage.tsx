@@ -148,7 +148,7 @@ export function InvoiceReportPage() {
         d.totals.furtherTax,
         d.totals.adtDiscount,
         d.totals.payableValue,
-        `${d.cancelledCount} cancelled, ${d.voidedCount} voided not counted`,
+        `${d.cancelledCount} cancelled, ${d.voidedCount} deleted not counted`,
       ],
     ]);
 
@@ -205,7 +205,7 @@ export function InvoiceReportPage() {
             <p className="mt-2 text-xs text-muted-foreground">
               {[
                 data.cancelledCount > 0 && plural(data.cancelledCount, 'cancelled invoice'),
-                data.voidedCount > 0 && plural(data.voidedCount, 'voided (deleted) invoice'),
+                data.voidedCount > 0 && plural(data.voidedCount, 'deleted invoice'),
               ]
                 .filter(Boolean)
                 .join(' and ')}{' '}

@@ -56,11 +56,11 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
   const closedBanner =
     invoice.status === 'VOIDED'
       ? {
-          label: 'Deleted (voided)',
+          label: 'Deleted',
           at: invoice.voidedAt,
           by: invoice.voidedBy,
           reason: invoice.voidReason,
-          note: ' Kept for audit only — not counted in sales, profit or reports; its value was reversed in the shop ledger.',
+          note: ' It is kept for your records only: it does not count in sales, profit or reports, and its amount was taken off the shop’s balance.',
         }
       : invoice.status === 'CANCELLED'
         ? {
@@ -186,7 +186,7 @@ function InvoiceHistory({ invoice, timeZone }: { invoice: InvoiceDetails; timeZo
   if (invoice.cancelledAt) {
     events.push({
       key: 'cancelled',
-      action: 'Cancelled — value reversed in the shop ledger',
+      action: 'Cancelled — amount taken off the shop’s balance',
       tone: 'danger',
       at: invoice.cancelledAt,
       by: invoice.cancelledBy?.name ?? '',
@@ -196,7 +196,7 @@ function InvoiceHistory({ invoice, timeZone }: { invoice: InvoiceDetails; timeZo
   if (invoice.voidedAt) {
     events.push({
       key: 'voided',
-      action: 'Deleted (voided) — value reversed in the shop ledger',
+      action: 'Deleted — amount taken off the shop’s balance',
       tone: 'danger',
       at: invoice.voidedAt,
       by: invoice.voidedBy?.name ?? '',

@@ -20,7 +20,7 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceDetails }) {
       {cancelled && (
         <div className="pointer-events-none absolute inset-0 hidden items-center justify-center print:flex">
           <span className="-rotate-12 text-7xl font-bold text-destructive/20">
-            {invoice.status === 'VOIDED' ? 'VOID' : 'CANCELLED'}
+            {invoice.status === 'VOIDED' ? 'DELETED' : 'CANCELLED'}
           </span>
         </div>
       )}

@@ -424,7 +424,7 @@ export class ShopLedgerService {
         creditAmount: money(owed),
         transactionDate: asDate(await this.today(tx)),
         invoiceId: invoice.id,
-        notes: `Invoice ${invoice.invoiceNumber} ${voiding ? 'deleted (voided)' : 'cancelled'}: ${reason}`,
+        notes: `Invoice ${invoice.invoiceNumber} ${voiding ? 'deleted' : 'cancelled'}: ${reason}`,
         createdById: userId,
       },
     });
