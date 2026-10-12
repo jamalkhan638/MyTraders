@@ -1,5 +1,5 @@
 import { type Shop } from '@mytraders/shared-types';
-import { ArrowLeft, Banknote, FilePlus, Pencil, Power, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Banknote, FilePlus, SlidersHorizontal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,7 @@ import {
 import { ShopLedgerHistory } from '@/features/ledger/components/ShopLedgerHistory';
 import { formatDate } from '@/lib/format/date';
 import { formatAmount } from '@/lib/format/number';
-import { ShopFormSheet, type ShopSheetMode } from '../components/ShopFormSheet';
 import { ShopStatusBadge } from '../components/ShopStatusBadge';
-import { ToggleShopDialog } from '../components/ToggleShopDialog';
 import { useShop } from '../hooks/useShops';
 
 /** Dedicated shop page (docs/product-requirements.md §4.4–4.5): info, credit, ledger, invoices. */
@@ -57,8 +55,6 @@ export function ShopDetailsPage() {
 
 function ShopDetails({ shop }: { shop: Shop }) {
   const timeZone = useCurrentUser().organization?.timezone;
-  const [sheet, setSheet] = useState<ShopSheetMode | null>(null);
-  const [toggling, setToggling] = useState<Shop | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
   const [adjusting, setAdjusting] = useState<PaymentTarget | null>(null);
   const currency = useCurrentUser().organization?.currency ?? '';
@@ -83,24 +79,15 @@ function ShopDetails({ shop }: { shop: Shop }) {
             {formatDate(shop.createdAt, timeZone)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {shop.isActive && (
-            <Button asChild>
-              <Link to={`/shops/${shop.id}/invoices/new`}>
-                <FilePlus />
-                Generate invoice
-              </Link>
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setToggling(shop)}>
-            <Power />
-            {shop.isActive ? 'Deactivate' : 'Activate'}
+        {/* Edit and activate / deactivate live on the Shops list rows. */}
+        {shop.isActive && (
+          <Button asChild>
+            <Link to={`/shops/${shop.id}/invoices/new`}>
+              <FilePlus />
+              Generate invoice
+            </Link>
           </Button>
-          <Button variant="outline" onClick={() => setSheet({ kind: 'edit', shop })}>
-            <Pencil />
-            Edit shop
-          </Button>
-        </div>
+        )}
       </div>
 
       <Card className="mb-4 py-4">
@@ -193,8 +180,6 @@ function ShopDetails({ shop }: { shop: Shop }) {
         <ShopInvoiceHistory shopId={shop.id} canInvoice={shop.isActive} />
       </div>
 
-      <ShopFormSheet mode={sheet} onClose={() => setSheet(null)} />
-      <ToggleShopDialog shop={toggling} onClose={() => setToggling(null)} />
       <RecordPaymentDialog target={paying} onClose={() => setPaying(null)} />
       <AdjustCreditDialog target={adjusting} onClose={() => setAdjusting(null)} />
     </>
