@@ -16,7 +16,7 @@ Reference: the customer's current invoice (Ali Akbar Traders, `M-00000001`).
    - **Direct** — *Shops → shop → Generate Invoice* (`/shops/:shopId/invoices/new`): the shop, no rows.
    - **From order** — *Orders → pending order → Generate Invoice* (`/invoices/new?orderId=…`): shop, products and booked quantities prefilled.
    Both open with `GET /invoices/draft` and confirm with the same `POST /invoices`.
-2. The Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO / ATO rate, line Special Discount, invoice-level values, invoice date, Due Payment.
+2. The Admin has full control before confirming: add / remove / change products, quantities, Trade Price, Retail Price (printed snapshot), GST rate, TO rate, line Special Discount, invoice-level values, invoice date, Due Payment.
 3. **The product holds defaults; the invoice item holds what was used.** Editing a value on an invoice never changes the product master.
 4. **Backend recomputes everything** from the inputs and ignores any total / number / status / organization sent by a client.
 5. **Confirm = one transaction**: (if from order) order `PENDING → INVOICED` → invoice number → products validated and priced → invoice + items with all snapshots → **`INVOICE` ledger debit of the Payable Value** (D-30, D-31). Any failure rolls all of it back: the order stays `PENDING`, the number is not used, no debit exists.
@@ -45,14 +45,15 @@ Value Excl Tax    = pricing qty × Trade Price
 GST Amount        = round2(Value Excl Tax × GST Rate / 100)
 Value Incl GST    = Value Excl Tax + GST Amount
 TO Amount         = round2(TO Rate × Total Weight)          TO Rate is an amount per unit of weight, not a %
-ATO Amount        = round2(ATO Rate × Total Weight)
-Total Trade Offer = TO Amount + ATO Amount + Special Discount    (Special Discount: amount, default 0)
+Total Trade Offer = TO Amount + Special Discount                 (Special Discount: amount, default 0)
 Gross Value       = Value Incl GST − Total Trade Offer
 Cost (profit)     = round2(pricing qty × Invoice/Cost Price)     never in the shop's totals
 ```
 
-Worked example (owner): POUCH, T.P 2,102 / carton, Qty Ctn 2, 5 pcs/ctn, 4.5 kg per carton, GST 18 %, TO 5, ATO 3, Special Discount 10 →
-Qty Pcs 10 · Value Excl Tax 4,204.00 (not 10 × 2,102) · GST 756.72 · Value Incl GST 4,960.72 · Total Weight 9 · TO 45 · ATO 27 · Total Trade Offer 82 · Gross 4,878.72.
+**No ATO (D-43):** the ATO rate was removed from the invoice by the owner — it is not entered, calculated, shown or printed, and an `atoRate` sent by a client is ignored. The `atoRate` / `atoAmount` columns stay on `InvoiceItem` so invoices confirmed before D-43 keep their stored values (new lines store 0); editing such an invoice recalculates it without ATO (visible in its edit history).
+
+Worked example (owner, without ATO): POUCH, T.P 2,102 / carton, Qty Ctn 2, 5 pcs/ctn, 4.5 kg per carton, GST 18 %, TO 5, Special Discount 10 →
+Qty Pcs 10 · Value Excl Tax 4,204.00 (not 10 × 2,102) · GST 756.72 · Value Incl GST 4,960.72 · Total Weight 9 · TO 45 · Total Trade Offer 55 · Gross 4,905.72.
 
 **Total Weight** (from the product's stored weight, unit and basis; rounded to 3 decimals):
 
@@ -63,7 +64,7 @@ Qty Pcs 10 · Value Excl Tax 4,204.00 (not 10 × 2,102) · GST 756.72 · Value I
 | POUCH | per carton | weight × Qty Ctn |
 | POUCH | per piece | weight × Qty Ctn × Pieces per Carton (the pricing quantity, not the display pieces) |
 
-Gram is converted to KG and ML to Liter (÷ 1000); the row stores the result with its unit (`KG` or `LITER`) **(to confirm)**. A product without weight has Total Weight 0, so a TO / ATO rate on it is refused.
+Gram is converted to KG and ML to Liter (÷ 1000); the row stores the result with its unit (`KG` or `LITER`) **(to confirm)**. A product without weight has Total Weight 0, so a TO rate on it is refused.
 
 **GST rate** defaults to the product's `defaultTaxRate` (itself pre-filled from the organization default), is editable per row and is snapshotted. Never hard-coded.
 
@@ -110,9 +111,9 @@ The printed **Payable value includes Due Payment** so the shop sees everything i
 ## 5. Rounding and precision
 
 - All math uses `decimal.js` (40 significant digits) with **ROUND_HALF_UP** — never JS floats.
-- Rounded to 2 decimals: GST Amount, TO Amount, ATO Amount, Cost (Value Excl Tax and the sums are exact). Total Weight: 3 decimals. Examples: 756.724 → 756.72, 756.725 → 756.73, 0.045 → 0.05.
-- Database: money `numeric(14,2)`, rates `numeric(14,4)` (TO / ATO) and `numeric(7,4)` (GST), weight `numeric(14,3)`. Strings over the API.
-- Inputs: prices / discounts ≥ 0 with ≤ 2 decimals, TO / ATO ≥ 0 with ≤ 4 decimals, GST 0–100 with ≤ 2 decimals, quantities whole numbers ≤ 100,000.
+- Rounded to 2 decimals: GST Amount, TO Amount, Cost (Value Excl Tax and the sums are exact). Total Weight: 3 decimals. Examples: 756.724 → 756.72, 756.725 → 756.73, 0.045 → 0.05.
+- Database: money `numeric(14,2)`, rates `numeric(14,4)` (TO; the old ATO columns too) and `numeric(7,4)` (GST), weight `numeric(14,3)`. Strings over the API.
+- Inputs: prices / discounts ≥ 0 with ≤ 2 decimals, TO ≥ 0 with ≤ 4 decimals, GST 0–100 with ≤ 2 decimals, quantities whole numbers ≤ 100,000.
 
 ## 6. Header, snapshots and numbering
 
@@ -122,7 +123,7 @@ The printed **Payable value includes Due Payment** so the shop sees everything i
 | Distributor information | Name, Address, Town / City, Phone, NTN, STRN; currency | `distributor*` columns + `currency`, snapshotted |
 | Invoice | Invoice Number, Invoice Date (Admin-chosen, default today in the org timezone) | `invoiceNumber`, `invoiceDate` |
 
-Each **InvoiceItem** snapshots: product id / code / name / type, retail, trade and invoice-cost price, pieces per carton, weight + unit + basis, Qty Ctn, Qty Pcs, Total Weight + unit, GST rate, Value Excl Tax, GST, Value Incl GST, TO rate + amount, ATO rate + amount, Special Discount, Total Trade Offer, Gross Value, Cost. Old invoices are always shown from these snapshots. **No Rate Code** (D-27).
+Each **InvoiceItem** snapshots: product id / code / name / type, retail, trade and invoice-cost price, pieces per carton, weight + unit + basis, Qty Ctn, Qty Pcs, Total Weight + unit, GST rate, Value Excl Tax, GST, Value Incl GST, TO rate + amount, Special Discount (ATO rate + amount columns: 0 since D-43), Total Trade Offer, Gross Value, Cost. Old invoices are always shown from these snapshots. **No Rate Code** (D-27).
 
 **Editing (D-41):** a CONFIRMED invoice may be edited by an Admin with a reason. Header snapshots (shop, distributor, currency), number, shop, order and creation stay; the editable inputs are the invoice date, lines, Advance Tax, Further Tax, ADT discount, Due Payment and notes, and every value is recomputed with the formulas above. Lines of products already on the invoice keep their product snapshot (incl. invoice cost price); new lines snapshot the current product. The lines are replaced inside the edit transaction (DB session flag `mytraders.invoice_edit`; triggers refuse any other change), and the previous values are kept in `InvoiceRevision`.
 
@@ -142,7 +143,7 @@ Prices, GST rate and cost come from the product's **current** values. Only a `PE
 ## 8. Implementation choices awaiting confirmation
 
 1. TIN with a **per-carton** weight: Total Weight = weight × Qty Pcs ÷ Pieces per Carton (and it requires Pieces per Carton).
-2. Gram / ML weights converted to KG / Liter (÷ 1000), so TO / ATO rates apply per kg or per liter. For weight / tons sold, 1 Liter = 1 KG (D-35); the invoice row keeps its own unit (kg / L) for printing.
+2. Gram / ML weights converted to KG / Liter (÷ 1000), so TO rates apply per kg or per liter. For weight / tons sold, 1 Liter = 1 KG (D-35); the invoice row keeps its own unit (kg / L) for printing.
 3. A row whose Total Trade Offer exceeds its Value Incl GST is refused (Gross Value may not be negative).
 4. An **inactive shop** cannot be invoiced (same rule as orders); inactive products cannot be invoiced (PRD §4.6).
 5. The same product may appear on more than one row of an invoice.

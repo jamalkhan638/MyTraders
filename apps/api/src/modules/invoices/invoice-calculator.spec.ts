@@ -27,7 +27,6 @@ const values = (patch: Partial<InvoiceLineValues> = {}): InvoiceLineValues => ({
   tradePrice: '2102',
   gstRate: '18',
   toRate: '0',
-  atoRate: '0',
   specialDiscount: '0',
   ...patch,
 });
@@ -88,20 +87,21 @@ describe('invoice calculator', () => {
     });
   });
 
-  describe('weight, TO and ATO', () => {
-    it('TO Amount = TO Rate × Total Weight; ATO likewise (9 kg: 5 → 45, 3 → 27)', () => {
-      const l = line(POUCH, { qtyCtn: 2, toRate: '5', atoRate: '3' });
-      expect(l).toMatchObject({
-        totalWeight: '9.000',
-        totalWeightUnit: 'KG',
-        toAmount: '45.00',
-        atoAmount: '27.00',
-      });
+  describe('weight and TO (no ATO, D-43)', () => {
+    it('TO Amount = TO Rate × Total Weight (9 kg × 5 → 45)', () => {
+      const l = line(POUCH, { qtyCtn: 2, toRate: '5' });
+      expect(l).toMatchObject({ totalWeight: '9.000', totalWeightUnit: 'KG', toAmount: '45.00' });
+      expect(l).not.toHaveProperty('atoAmount');
     });
 
-    it('Total Trade Offer = TO + ATO + Special Discount; Gross = Value Incl GST − Trade Offer', () => {
-      const l = line(POUCH, { qtyCtn: 2, toRate: '5', atoRate: '3', specialDiscount: '10' });
-      expect(l).toMatchObject({ totalTradeOffer: '82.00', grossValue: '4878.72' });
+    it('Total Trade Offer = TO + Special Discount; Gross = Value Incl GST − Trade Offer', () => {
+      const l = line(POUCH, { qtyCtn: 2, toRate: '5', specialDiscount: '10' });
+      expect(l).toMatchObject({ totalTradeOffer: '55.00', grossValue: '4905.72' });
+    });
+
+    it('an ATO rate sent by an old client is ignored', () => {
+      const l = line(POUCH, { qtyCtn: 2, toRate: '5', ...{ atoRate: '3' } });
+      expect(l).toMatchObject({ totalTradeOffer: '45.00', grossValue: '4915.72' });
     });
 
     it('weight follows the stored basis and unit, not the product name', () => {

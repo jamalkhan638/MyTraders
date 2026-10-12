@@ -12,7 +12,6 @@ export interface InvoiceSnapshotLine {
   tradePrice: string;
   gstRate: string;
   toRate: string;
-  atoRate: string;
   specialDiscount: string;
   grossValue: string;
 }
@@ -57,7 +56,6 @@ export function snapshotOf(
     tradePrice: Dec;
     gstRate: Dec;
     toRate: Dec;
-    atoRate: Dec;
     specialDiscount: Dec;
     grossValue: Dec;
   }[],
@@ -82,7 +80,6 @@ export function snapshotOf(
       tradePrice: item.tradePrice.toFixed(2),
       gstRate: item.gstRate.toString(),
       toRate: item.toRate.toString(),
-      atoRate: item.atoRate.toString(),
       specialDiscount: item.specialDiscount.toFixed(2),
       grossValue: item.grossValue.toFixed(2),
     })),
@@ -107,7 +104,6 @@ const LINE: [keyof InvoiceSnapshotLine, string][] = [
   ['tradePrice', 'T.P'],
   ['gstRate', 'GST %'],
   ['toRate', 'TO rate'],
-  ['atoRate', 'ATO rate'],
   ['specialDiscount', 'Special discount'],
   ['grossValue', 'Gross value'],
 ];

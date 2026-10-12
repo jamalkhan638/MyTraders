@@ -51,6 +51,7 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Edit a confirmed invoice (D-41): reason, recalculation, InvoiceRevision audit + Edit history, ledger reversal + new debit, balance guard, cancelled not editable
 - ☑ Invoice list: From / To / Today / This month filters with search and status (URL), row actions, checkboxes + Print selected; bulk print one invoice per page (D-41)
 - ☑ Delete invoice = void (D-42): reason, VOIDED status with audit, INVOICE_VOID_REVERSAL, balance guard, excluded from all figures, status filter / badge, row actions menu, lifecycle history
+- ☑ ATO rate removed from the invoice (D-43): calculator, API, form, print, tests, docs
 - ☐ Server-generated PDF file (browser save-as-PDF works now)
 
 ## Phase 5 — Ledger & payments (D-30)

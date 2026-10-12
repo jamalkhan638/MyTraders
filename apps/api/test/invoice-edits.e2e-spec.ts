@@ -45,7 +45,6 @@ describe('Invoice edits, date filter and batch (e2e)', () => {
     tradePrice: '100',
     gstRate: '0',
     toRate: '0',
-    atoRate: '0',
     ...patch,
   });
   const create = async (items: object[], patch: object = {}, forShop: Id = shop) =>

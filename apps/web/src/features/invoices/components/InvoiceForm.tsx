@@ -50,7 +50,6 @@ interface FormLine {
   tradePrice: string;
   gstRate: string;
   toRate: string;
-  atoRate: string;
   specialDiscount: string;
 }
 
@@ -85,7 +84,6 @@ function lineFor(
     tradePrice: values?.tradePrice ?? product.tradePrice,
     gstRate: values?.gstRate ?? product.defaultTaxRate,
     toRate: values?.toRate ?? '0',
-    atoRate: values?.atoRate ?? '0',
     specialDiscount: values?.specialDiscount ?? '0',
   };
 }
@@ -107,7 +105,6 @@ function calculate(line: FormLine) {
       tradePrice: line.tradePrice,
       gstRate: line.gstRate,
       toRate: line.toRate.trim() === '' ? '0' : line.toRate,
-      atoRate: line.atoRate.trim() === '' ? '0' : line.atoRate,
       specialDiscount: line.specialDiscount.trim() === '' ? '0' : line.specialDiscount,
     },
   );
@@ -214,7 +211,6 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
       tradePrice: line.tradePrice,
       gstRate: line.gstRate,
       toRate: line.toRate,
-      atoRate: line.atoRate,
       specialDiscount: line.specialDiscount,
     })),
     advanceTax,
@@ -424,7 +420,7 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
           </div>
         ) : (
           <div className="relative overflow-x-auto">
-            <table className="w-full min-w-[1500px] border-collapse text-sm">
+            <table className="w-full min-w-[1400px] border-collapse text-sm">
               <thead className="bg-muted/60 text-xs text-muted-foreground">
                 <tr className="[&>th]:px-2 [&>th]:py-2 [&>th]:text-right [&>th]:font-medium [&>th]:whitespace-nowrap">
                   <th className="sticky left-0 z-10 min-w-56 bg-muted !text-left">Product</th>
@@ -438,7 +434,6 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
                   <th>GST</th>
                   <th>Value incl. GST</th>
                   <th>TO rate</th>
-                  <th>ATO rate</th>
                   <th>Special disc.</th>
                   <th>Total trade offer</th>
                   <th>Gross value</th>
@@ -546,12 +541,6 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
                         {cell('toRate', 'TO rate', 'toRate')}
                         <Sub>
                           {calc && calc.toAmount !== '0.00' && `= ${formatAmount(calc.toAmount)}`}
-                        </Sub>
-                      </td>
-                      <td>
-                        {cell('atoRate', 'ATO rate', 'atoRate')}
-                        <Sub>
-                          {calc && calc.atoAmount !== '0.00' && `= ${formatAmount(calc.atoAmount)}`}
                         </Sub>
                       </td>
                       <td>{cell('specialDiscount', 'Special discount', 'specialDiscount')}</td>

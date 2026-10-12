@@ -74,7 +74,7 @@ const optionalAmount = (label: string) =>
     )
     .optional();
 
-/** Rate per unit of weight (TO / ATO): ≥ 0, up to 4 decimals; blank means 0. */
+/** Rate per unit of weight (TO): ≥ 0, up to 4 decimals; blank means 0. */
 const ratePerWeight = (label: string) =>
   z.preprocess(
     (v) => (v === undefined || v === null || (typeof v === 'string' && v.trim() === '') ? '0' : v),
@@ -122,7 +122,6 @@ export const invoiceLineInputSchema = z.object({
   tradePrice: amount('Trade price'),
   gstRate,
   toRate: ratePerWeight('TO rate'),
-  atoRate: ratePerWeight('ATO rate'),
   specialDiscount: z.preprocess(
     (v) => (v === undefined || v === null || (typeof v === 'string' && v.trim() === '') ? '0' : v),
     amount('Special discount'),
@@ -245,7 +244,6 @@ export interface InvoiceLineValues {
   tradePrice: string;
   gstRate: string;
   toRate: string;
-  atoRate: string;
   specialDiscount: string;
   /** Profit only; never part of the shop's invoice values. */
   invoiceCostPrice?: string | null;
@@ -261,7 +259,6 @@ export interface CalculatedInvoiceLine {
   gstAmount: string;
   valueInclGst: string;
   toAmount: string;
-  atoAmount: string;
   specialDiscount: string;
   totalTradeOffer: string;
   grossValue: string;
@@ -270,14 +267,7 @@ export interface CalculatedInvoiceLine {
 }
 
 export type InvoiceLineField =
-  | 'qtyCtn'
-  | 'qtyPcs'
-  | 'tradePrice'
-  | 'gstRate'
-  | 'toRate'
-  | 'atoRate'
-  | 'specialDiscount'
-  | 'productId';
+  'qtyCtn' | 'qtyPcs' | 'tradePrice' | 'gstRate' | 'toRate' | 'specialDiscount' | 'productId';
 
 export interface InvoiceLineIssue {
   field: InvoiceLineField;
@@ -344,8 +334,7 @@ function totalWeightFor(
  *   GST Amount       = Value Excl Tax × GST Rate / 100          (rounded to 2, half up)
  *   Value Incl GST   = Value Excl Tax + GST Amount
  *   TO Amount        = TO Rate × Total Weight                    (rounded to 2)
- *   ATO Amount       = ATO Rate × Total Weight                   (rounded to 2)
- *   Total Trade Offer = TO Amount + ATO Amount + Special Discount
+ *   Total Trade Offer = TO Amount + Special Discount  (no ATO — removed by the owner, D-43)
  *   Gross Value      = Value Incl GST − Total Trade Offer
  *   Cost (profit)    = pricing qty × Invoice/Cost Price          (never in the shop's totals)
  * Retail Price and the display pieces of a POUCH never take part.
@@ -379,8 +368,6 @@ export function calculateInvoiceLine(
     issues.push({ field: 'gstRate', message: 'Enter the GST rate' });
   const toRate = dec(values.toRate);
   if (!toRate) issues.push({ field: 'toRate', message: 'TO rate must be a number' });
-  const atoRate = dec(values.atoRate);
-  if (!atoRate) issues.push({ field: 'atoRate', message: 'ATO rate must be a number' });
   const specialDiscount = dec(values.specialDiscount);
   if (!specialDiscount) {
     issues.push({ field: 'specialDiscount', message: 'Special discount must be an amount' });
@@ -404,17 +391,13 @@ export function calculateInvoiceLine(
   if (!hasWeight && !toRate!.isZero()) {
     issues.push({ field: 'toRate', message: 'This product has no weight, so TO cannot apply' });
   }
-  if (!hasWeight && !atoRate!.isZero()) {
-    issues.push({ field: 'atoRate', message: 'This product has no weight, so ATO cannot apply' });
-  }
 
   const valueExclTax = money(qty.times(tradePrice!));
   const gstAmount = money(valueExclTax.times(rate!).dividedBy(100));
   const valueInclGst = valueExclTax.plus(gstAmount);
   const toAmount = money(toRate!.times(weight.value));
-  const atoAmount = money(atoRate!.times(weight.value));
   const discount = money(specialDiscount!);
-  const totalTradeOffer = toAmount.plus(atoAmount).plus(discount);
+  const totalTradeOffer = toAmount.plus(discount);
   const grossValue = valueInclGst.minus(totalTradeOffer);
   if (grossValue.isNegative()) {
     issues.push({
@@ -434,7 +417,6 @@ export function calculateInvoiceLine(
       gstAmount: gstAmount.toFixed(2),
       valueInclGst: valueInclGst.toFixed(2),
       toAmount: toAmount.toFixed(2),
-      atoAmount: atoAmount.toFixed(2),
       specialDiscount: discount.toFixed(2),
       totalTradeOffer: totalTradeOffer.toFixed(2),
       grossValue: grossValue.toFixed(2),
@@ -568,8 +550,6 @@ export const invoiceItemSchema = z.object({
   valueInclGst: z.string(),
   toRate: z.string(),
   toAmount: z.string(),
-  atoRate: z.string(),
-  atoAmount: z.string(),
   specialDiscount: z.string(),
   totalTradeOffer: z.string(),
   grossValue: z.string(),
@@ -666,7 +646,6 @@ export const invoicePreviewSchema = z.object({
       gstAmount: z.string(),
       valueInclGst: z.string(),
       toAmount: z.string(),
-      atoAmount: z.string(),
       specialDiscount: z.string(),
       totalTradeOffer: z.string(),
       grossValue: z.string(),
@@ -695,7 +674,6 @@ export const invoiceDraftLineSchema = z.object({
       tradePrice: z.string(),
       gstRate: z.string(),
       toRate: z.string(),
-      atoRate: z.string(),
       specialDiscount: z.string(),
     })
     .optional(),

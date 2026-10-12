@@ -42,7 +42,6 @@ describe('Invoice delete / void (e2e)', () => {
     tradePrice: '100',
     gstRate: '0',
     toRate: '0',
-    atoRate: '0',
   });
   const create = async (qty: number, forShop: Id = shop) =>
     (

@@ -91,7 +91,6 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceDetails }) {
               <th>GST</th>
               <th>Value incl. GST</th>
               <th>TO rate</th>
-              <th>ATO rate</th>
               <th>Special disc.</th>
               <th>Total trade offer</th>
               <th>Gross value</th>
@@ -110,7 +109,7 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceDetails }) {
               <td>{formatAmount(invoice.totalValueExclTax)}</td>
               <td>{formatAmount(invoice.totalGstAmount)}</td>
               <td>{formatAmount(invoice.totalValueInclGst)}</td>
-              <td colSpan={3} />
+              <td colSpan={2} />
               <td>{formatAmount(invoice.totalTradeOffer)}</td>
               <td>{formatAmount(invoice.grandTotal)}</td>
             </tr>
@@ -164,7 +163,6 @@ function ItemRow({ item }: { item: InvoiceItem }) {
       </td>
       <td>{formatAmount(item.valueInclGst)}</td>
       <td>{formatQuantity(item.toRate)}</td>
-      <td>{formatQuantity(item.atoRate)}</td>
       <td>{formatAmount(item.specialDiscount)}</td>
       <td>{formatAmount(item.totalTradeOffer)}</td>
       <td className="font-medium">{formatAmount(item.grossValue)}</td>

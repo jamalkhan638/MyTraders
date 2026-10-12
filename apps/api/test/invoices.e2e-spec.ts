@@ -47,8 +47,8 @@ describe('Invoices (e2e)', () => {
     retailPrice: '2180',
     tradePrice: '2102',
     gstRate: '18',
-    toRate: '5',
-    atoRate: '3',
+    // TO 8 × 9 kg = 72, + special discount 10 → trade offer 82 (there is no ATO, D-43)
+    toRate: '8',
     specialDiscount: '10',
     ...patch,
   });
@@ -59,7 +59,6 @@ describe('Invoices (e2e)', () => {
     tradePrice: '2102.50',
     gstRate: '18',
     toRate: '0',
-    atoRate: '0',
     ...patch,
   });
   const invoice = (items: object[], patch: object = {}) => ({
@@ -182,7 +181,8 @@ describe('Invoices (e2e)', () => {
 
     it('confirms an invoice with the exact formulas (POUCH 2 ctn + TIN 3 pcs)', async () => {
       first = await createInvoice(
-        invoice([pouchLine(), tinLine()], {
+        // an ATO rate from an old client is ignored (D-43)
+        invoice([pouchLine({ atoRate: '3' }), tinLine()], {
           duePayment: '85000',
           organizationId: orgB.id,
           invoiceNumber: 'HACK-1',
@@ -214,14 +214,14 @@ describe('Invoices (e2e)', () => {
         gstRate: '18',
         gstAmount: '756.72',
         valueInclGst: '4960.72',
-        toRate: '5',
-        toAmount: '45.00',
-        atoRate: '3',
-        atoAmount: '27.00',
+        toRate: '8',
+        toAmount: '72.00',
         specialDiscount: '10.00',
         totalTradeOffer: '82.00',
         grossValue: '4878.72',
       });
+      expect(body.items[0]).not.toHaveProperty('atoRate');
+      expect(body.items[0]).not.toHaveProperty('atoAmount');
       // TIN: Qty Pcs prices; no cartons. 3 × 2102.50 = 6307.50; GST 1135.35; weight 13.5 kg.
       expect(body.items[1]).toMatchObject({
         productType: 'TIN',
@@ -512,9 +512,7 @@ describe('Invoices (e2e)', () => {
     });
 
     it('uses the GST rate typed on the row (never a fixed 18%)', async () => {
-      const row = await one(
-        pouchLine({ gstRate: '17', toRate: '0', atoRate: '0', specialDiscount: '0' }),
-      );
+      const row = await one(pouchLine({ gstRate: '17', toRate: '0', specialDiscount: '0' }));
       expect(row).toMatchObject({ gstRate: '17', gstAmount: '714.68', grossValue: '4918.68' });
     });
   });
