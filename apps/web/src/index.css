@@ -102,6 +102,16 @@
   }
 }
 
+/* Bulk invoice printing: one invoice per page, no blank page after the last one. */
+@media print {
+  .invoice-batch .invoice-page {
+    break-after: page;
+  }
+  .invoice-batch .invoice-page:last-child {
+    break-after: auto;
+  }
+}
+
 /* Area collection sheet: A4 portrait, ruled table with tall rows for handwriting, header on
    every page. */
 @media print {

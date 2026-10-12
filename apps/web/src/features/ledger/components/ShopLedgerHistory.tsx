@@ -21,6 +21,8 @@ const TYPE_VARIANT = {
   PAYMENT: 'default',
   MANUAL_ADJUSTMENT: 'warning',
   INVOICE_REVERSAL: 'destructive',
+  INVOICE_EDIT_REVERSAL: 'outline',
+  INVOICE_EDIT: 'secondary',
 } as const;
 
 function Reference({ entry }: { entry: LedgerEntry }) {

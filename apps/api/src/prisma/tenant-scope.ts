@@ -14,6 +14,7 @@ export const TENANT_MODELS: ReadonlySet<string> = new Set<Prisma.ModelName>([
   'Order',
   'Invoice',
   'InvoiceItem',
+  'InvoiceRevision',
   'Payment',
   'ShopLedgerEntry',
   'ExpenseCategory',

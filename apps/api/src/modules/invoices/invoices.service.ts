@@ -10,12 +10,14 @@ import {
   calculateInvoiceLine,
   calculateInvoiceTotals,
   type CreateInvoice,
+  type EditInvoice,
   initialQuantities,
   type InvoiceDetails,
   type InvoiceDraft,
   type InvoiceDraftQuery,
   type InvoicePreview,
   type InvoiceTotals,
+  type InvoiceRevision,
   type InvoiceSummary,
   type ListInvoicesQuery,
   calculatePayableValue,
@@ -30,6 +32,7 @@ import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { type TenantPrismaClient } from '../../prisma/tenant-scope';
 import { ShopLedgerService } from '../ledger/shop-ledger.service';
 import { PRODUCT_FIELDS, type ProductRow, toProduct } from '../products/products.service';
+import { diffSnapshots, type InvoiceSnapshot, sameInputs, snapshotOf } from './invoice-snapshot';
 
 type TenantTx = Parameters<Parameters<TenantPrismaClient['$transaction']>[0]>[0];
 type Db = TenantPrismaClient | TenantTx;
@@ -45,6 +48,8 @@ const SUMMARY_FIELDS = {
   shopId: true,
   shopName: true,
   grandTotal: true,
+  payableValue: true,
+  editCount: true,
   createdAt: true,
   order: { select: { id: true, orderNumber: true } },
   _count: { select: { items: true } },
@@ -76,9 +81,24 @@ const DETAIL_FIELDS = {
   furtherTax: true,
   adtDiscount: true,
   duePayment: true,
-  payableValue: true,
   notes: true,
   createdBy: REF,
+  lastEditedAt: true,
+  lastEditedBy: REF,
+  revisions: {
+    orderBy: { revisionNo: 'desc' },
+    select: {
+      id: true,
+      revisionNo: true,
+      reason: true,
+      previousPayableValue: true,
+      newPayableValue: true,
+      previous: true,
+      current: true,
+      editedBy: REF,
+      createdAt: true,
+    },
+  },
   cancelledAt: true,
   cancelledBy: REF,
   cancelReason: true,
@@ -103,8 +123,23 @@ const SHOP_FIELDS = {
 } as const satisfies Prisma.ShopSelect;
 
 /** A row the calculator accepted, ready to be stored with its product snapshot. */
+/** The product facts a line is priced and stored with (the master, or the edited line's snapshot). */
+type LineProduct = Pick<
+  ProductRow,
+  | 'id'
+  | 'code'
+  | 'name'
+  | 'type'
+  | 'piecesPerCarton'
+  | 'weight'
+  | 'weightUnit'
+  | 'weightBasis'
+  | 'invoiceCostPrice'
+  | 'isActive'
+>;
+
 interface PricedLine {
-  product: ProductRow;
+  product: LineProduct;
   input: CreateInvoice['items'][number];
   calc: CalculatedInvoiceLine;
 }
@@ -126,6 +161,14 @@ export class InvoicesService {
     const where: Prisma.InvoiceWhereInput = {
       ...(query.shopId ? { shopId: query.shopId } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(query.from || query.to
+        ? {
+            invoiceDate: {
+              ...(query.from ? { gte: asDate(query.from) } : {}),
+              ...(query.to ? { lte: asDate(query.to) } : {}),
+            },
+          }
+        : {}),
       ...(query.q
         ? {
             OR: [
@@ -146,6 +189,18 @@ export class InvoicesService {
       this.db.client.invoice.count({ where }),
     ]);
     return { items: rows.map(toSummary), total, page: query.page, pageSize: query.pageSize };
+  }
+
+  /** Several invoices for bulk printing, in the order asked; any id not in the org → 404. */
+  async batch(ids: string[]): Promise<InvoiceDetails[]> {
+    const unique = [...new Set(ids)];
+    const rows = await this.db.client.invoice.findMany({
+      where: { id: { in: unique } },
+      select: DETAIL_FIELDS,
+    });
+    if (rows.length !== unique.length) throw new NotFoundException('Invoice not found');
+    const byId = new Map(rows.map((r) => [r.id, toDetails(r)]));
+    return unique.map((id) => byId.get(id)!);
   }
 
   async get(id: string): Promise<InvoiceDetails> {
@@ -277,7 +332,7 @@ export class InvoicesService {
         data: {
           organizationId,
           invoiceNumber,
-          invoiceDate: new Date(`${input.invoiceDate}T00:00:00Z`),
+          invoiceDate: asDate(input.invoiceDate),
           shopId: shop.id,
           orderId: input.orderId ?? null,
           shopName: shop.name,
@@ -322,40 +377,7 @@ export class InvoicesService {
         },
       });
 
-      await tx.invoiceItem.createMany({
-        data: lines.map(({ product, input: line, calc }, index) => ({
-          organizationId,
-          invoiceId: invoice.id,
-          lineNo: index + 1,
-          productId: product.id,
-          productCode: product.code,
-          productName: product.name,
-          productType: product.type,
-          retailPrice: line.retailPrice,
-          tradePrice: line.tradePrice,
-          invoiceCostPrice: product.invoiceCostPrice,
-          piecesPerCarton: product.piecesPerCarton,
-          weight: product.weight,
-          weightUnit: product.weightUnit,
-          weightBasis: product.weightBasis,
-          qtyCtn: calc.qtyCtn,
-          qtyPcs: calc.qtyPcs,
-          totalWeight: calc.totalWeight,
-          totalWeightUnit: calc.totalWeightUnit,
-          gstRate: line.gstRate,
-          valueExclTax: calc.valueExclTax,
-          gstAmount: calc.gstAmount,
-          valueInclGst: calc.valueInclGst,
-          toRate: line.toRate,
-          toAmount: calc.toAmount,
-          atoRate: line.atoRate,
-          atoAmount: calc.atoAmount,
-          specialDiscount: calc.specialDiscount,
-          totalTradeOffer: calc.totalTradeOffer,
-          grossValue: calc.grossValue,
-          costTotal: calc.costTotal ?? '0',
-        })),
-      });
+      await tx.invoiceItem.createMany({ data: itemRows(organizationId, invoice.id, lines) });
 
       // The shop is debited with this invoice's Payable Value, in the same transaction (D-30, D-31).
       await this.ledger.invoiceConfirmed(
@@ -369,9 +391,238 @@ export class InvoicesService {
   }
 
   /**
+   * The invoice form, opened to edit a CONFIRMED invoice (D-41): the saved lines with their saved
+   * prices / rates / quantities and the saved invoice-level values. Kept products carry the facts
+   * they were invoiced with (name, type, weight, pieces per carton, cost), not today's master.
+   */
+  async editDraft(id: string): Promise<InvoiceDraft> {
+    const invoice = await this.db.client.invoice.findFirst({
+      where: { id },
+      select: { ...DETAIL_FIELDS, shopId: true },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    assertEditable(invoice.status);
+    const organization = await this.db.client.organization.findFirstOrThrow({
+      select: { defaultTaxRate: true },
+    });
+    const at = invoice.createdAt.toISOString();
+    return {
+      shop: {
+        id: invoice.shopId,
+        name: invoice.shopName,
+        // the shop of a confirmed invoice never changes; editing does not depend on it being active
+        isActive: true,
+        address: invoice.shopAddress,
+        area: invoice.shopArea,
+        category: invoice.shopCategory,
+      },
+      order: invoice.order,
+      proposedInvoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate.toISOString().slice(0, 10),
+      duePayment: optional(invoice.duePayment),
+      defaultTaxRate: organization.defaultTaxRate.toString(),
+      items: invoice.items.map((item) => ({
+        product: {
+          id: item.productId,
+          name: item.productName,
+          code: item.productCode,
+          type: item.productType,
+          retailPrice: amount(item.retailPrice),
+          tradePrice: amount(item.tradePrice),
+          invoiceCostPrice: amount(item.invoiceCostPrice),
+          defaultTaxRate: item.gstRate.toString(),
+          weight: item.weight?.toString() ?? null,
+          weightUnit: item.weightUnit,
+          weightBasis: item.weightBasis,
+          piecesPerCarton: item.piecesPerCarton,
+          isActive: true,
+          createdAt: at,
+          updatedAt: at,
+        },
+        qtyCtn: item.qtyCtn,
+        qtyPcs: item.qtyPcs,
+        values: {
+          retailPrice: amount(item.retailPrice),
+          tradePrice: amount(item.tradePrice),
+          gstRate: item.gstRate.toString(),
+          toRate: item.toRate.toString(),
+          atoRate: item.atoRate.toString(),
+          specialDiscount: amount(item.specialDiscount),
+        },
+      })),
+      edit: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        editCount: invoice.editCount,
+        payableValue: amount(invoice.payableValue),
+        advanceTax: optional(invoice.advanceTax),
+        furtherTax: optional(invoice.furtherTax),
+        adtDiscount: optional(invoice.adtDiscount),
+        notes: invoice.notes,
+      },
+    };
+  }
+
+  /**
+   * Admin edits a CONFIRMED invoice (D-41), in ONE transaction:
+   *   lock the invoice → recompute every value with the shared calculator → InvoiceRevision
+   *   (reason, who, before / after) → update the invoice (same id, number, shop, order, creation
+   *   date and header snapshots) and replace its lines → ledger: INVOICE_EDIT_REVERSAL credit of the
+   *   old Invoice Value + INVOICE_EDIT debit of the new one (nothing in the ledger is changed or
+   *   deleted). Refused when the shop's balance would become negative. Reports, dashboard and
+   *   profit read the invoice, so they show the corrected values at once.
+   */
+  async edit(id: string, input: EditInvoice): Promise<InvoiceDetails> {
+    const auth = this.tenant.require();
+    const organizationId = this.tenant.requireOrganizationId();
+
+    await this.db.client.$transaction(async (tx) => {
+      // Row lock: a concurrent edit / cancel of this invoice waits for this transaction.
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "Invoice"
+        WHERE "id" = ${id}::uuid AND "organizationId" = ${organizationId}::uuid
+        FOR UPDATE`;
+      if (locked.length === 0) throw new NotFoundException('Invoice not found');
+      const invoice = await tx.invoice.findFirstOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          shopId: true,
+          invoiceNumber: true,
+          editCount: true,
+          invoiceDate: true,
+          advanceTax: true,
+          furtherTax: true,
+          adtDiscount: true,
+          duePayment: true,
+          notes: true,
+          grandTotal: true,
+          payableValue: true,
+          totalCost: true,
+          items: { orderBy: { lineNo: 'asc' } },
+        },
+      });
+      assertEditable(invoice.status);
+
+      const kept = new Map<string, LineProduct>();
+      for (const item of invoice.items) {
+        if (kept.has(item.productId)) continue;
+        kept.set(item.productId, {
+          id: item.productId,
+          code: item.productCode,
+          name: item.productName,
+          type: item.productType,
+          piecesPerCarton: item.piecesPerCarton,
+          weight: item.weight,
+          weightUnit: item.weightUnit,
+          weightBasis: item.weightBasis,
+          invoiceCostPrice: item.invoiceCostPrice,
+          isActive: true,
+        });
+      }
+      const lines = await priceLines(tx, input, kept);
+      const totals = calculateInvoiceTotals(lines.map((l) => l.calc));
+      const payableValue = payableOf(totals.grandTotal, input);
+      assertStorable(lines, totals, payableValue);
+
+      const values = {
+        invoiceDate: asDate(input.invoiceDate),
+        totalValueExclTax: totals.totalValueExclTax,
+        totalGstAmount: totals.totalGstAmount,
+        totalValueInclGst: totals.totalValueInclGst,
+        totalTradeOffer: totals.totalTradeOffer,
+        grandTotal: totals.grandTotal,
+        totalCost: totals.totalCost ?? '0',
+        advanceTax: optionalInvoiceAmount(input.advanceTax),
+        furtherTax: optionalInvoiceAmount(input.furtherTax),
+        adtDiscount: optionalInvoiceAmount(input.adtDiscount),
+        duePayment: input.duePayment ?? null,
+        payableValue,
+        notes: input.notes ?? null,
+      };
+      const rows = itemRows(organizationId, invoice.id, lines);
+      const before = snapshotOf(invoice, invoice.items);
+      const after = snapshotOf(
+        {
+          ...values,
+          advanceTax: decimalOrNull(values.advanceTax),
+          furtherTax: decimalOrNull(values.furtherTax),
+          adtDiscount: decimalOrNull(values.adtDiscount),
+          duePayment: decimalOrNull(values.duePayment),
+          grandTotal: new Prisma.Decimal(values.grandTotal),
+          payableValue: new Prisma.Decimal(values.payableValue),
+          totalCost: new Prisma.Decimal(values.totalCost),
+        },
+        rows.map((row) => ({
+          ...row,
+          retailPrice: new Prisma.Decimal(row.retailPrice),
+          tradePrice: new Prisma.Decimal(row.tradePrice),
+          gstRate: new Prisma.Decimal(row.gstRate),
+          toRate: new Prisma.Decimal(row.toRate),
+          atoRate: new Prisma.Decimal(row.atoRate),
+          specialDiscount: new Prisma.Decimal(row.specialDiscount),
+          grossValue: new Prisma.Decimal(row.grossValue),
+        })),
+      );
+      if (sameInputs(before, after)) {
+        fail([{ path: 'items', message: 'Nothing was changed — there is nothing to save' }]);
+      }
+
+      // Lets the invoice triggers accept this edit (values and lines only) until the commit.
+      await tx.$queryRaw`SELECT set_config('mytraders.invoice_edit', 'on', true)`;
+
+      const revision = await tx.invoiceRevision.create({
+        data: {
+          organizationId,
+          invoiceId: invoice.id,
+          revisionNo: invoice.editCount + 1,
+          reason: input.reason,
+          previousPayableValue: before.payableValue,
+          newPayableValue: payableValue,
+          previous: before as unknown as Prisma.InputJsonObject,
+          current: after as unknown as Prisma.InputJsonObject,
+          editedById: auth.userId,
+        },
+        select: { id: true, revisionNo: true },
+      });
+      const { count } = await tx.invoice.updateMany({
+        where: { id: invoice.id, status: 'CONFIRMED' },
+        data: {
+          ...values,
+          editCount: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedById: auth.userId,
+        },
+      });
+      if (count !== 1) throw new ConflictException('This invoice can no longer be edited');
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.invoiceItem.createMany({ data: rows });
+
+      // Old value reversed, new value applied — refused if the shop's balance would go below 0.
+      await this.ledger.invoiceEdited(
+        tx,
+        {
+          invoiceId: invoice.id,
+          shopId: invoice.shopId,
+          invoiceNumber: invoice.invoiceNumber,
+          revisionId: revision.id,
+          revisionNo: revision.revisionNo,
+          previousAmount: before.payableValue,
+          newAmount: payableValue,
+          reason: input.reason,
+        },
+        auth.userId,
+      );
+    });
+    return this.get(id);
+  }
+
+  /**
    * Admin cancels a confirmed invoice (D-16): it becomes CANCELLED with reason, user and time; all
    * its data stays. A linked order stays INVOICED (invoice-specification.md §1.6). In the same
-   * transaction the ledger gets an INVOICE_REVERSAL credit equal to the original debit (D-30).
+   * transaction the ledger gets an INVOICE_REVERSAL credit equal to what the invoice still owes in the
+   * ledger — its debit, adjusted by any edits (D-30, D-41).
    */
   async cancel(id: string, reason: string): Promise<InvoiceDetails> {
     const auth = this.tenant.require();
@@ -410,8 +661,20 @@ export class InvoicesService {
   }
 }
 
+function assertEditable(status: string): void {
+  if (status !== 'CONFIRMED') {
+    throw new ConflictException('A cancelled invoice cannot be edited');
+  }
+}
+
+const asDate = (value: string) => new Date(`${value}T00:00:00Z`);
+const decimalOrNull = (value: string | null) => (value === null ? null : new Prisma.Decimal(value));
+
 /** Payable Value of an invoice; refused when the invoice-level discount makes it negative. */
-function payableOf(grandTotal: string, input: CreateInvoice): string {
+function payableOf(
+  grandTotal: string,
+  input: Pick<CreateInvoice, 'advanceTax' | 'furtherTax' | 'adtDiscount'>,
+): string {
   const payable = calculatePayableValue({ grandTotal, ...input });
   if (payable.startsWith('-')) {
     fail([
@@ -423,6 +686,42 @@ function payableOf(grandTotal: string, input: CreateInvoice): string {
     ]);
   }
   return payable;
+}
+
+/** Invoice lines as stored: the calculated values plus the product snapshot. */
+function itemRows(organizationId: string, invoiceId: string, lines: PricedLine[]) {
+  return lines.map(({ product, input: line, calc }, index) => ({
+    organizationId,
+    invoiceId,
+    lineNo: index + 1,
+    productId: product.id,
+    productCode: product.code,
+    productName: product.name,
+    productType: product.type,
+    retailPrice: line.retailPrice,
+    tradePrice: line.tradePrice,
+    invoiceCostPrice: product.invoiceCostPrice,
+    piecesPerCarton: product.piecesPerCarton,
+    weight: product.weight,
+    weightUnit: product.weightUnit,
+    weightBasis: product.weightBasis,
+    qtyCtn: calc.qtyCtn,
+    qtyPcs: calc.qtyPcs,
+    totalWeight: calc.totalWeight,
+    totalWeightUnit: calc.totalWeightUnit,
+    gstRate: line.gstRate,
+    valueExclTax: calc.valueExclTax,
+    gstAmount: calc.gstAmount,
+    valueInclGst: calc.valueInclGst,
+    toRate: line.toRate,
+    toAmount: calc.toAmount,
+    atoRate: line.atoRate,
+    atoAmount: calc.atoAmount,
+    specialDiscount: calc.specialDiscount,
+    totalTradeOffer: calc.totalTradeOffer,
+    grossValue: calc.grossValue,
+    costTotal: calc.costTotal ?? '0',
+  }));
 }
 
 /** Column limits: money numeric(14,2) and weight numeric(14,3) hold values below these. */
@@ -506,13 +805,18 @@ async function claimOrder(tx: TenantTx, orderId: string, shopId: string): Promis
  * Loads the products of the organization and runs the calculator on every row. Unknown, foreign
  * (hidden by the tenant client) or inactive products and calculator issues → 422 per field.
  */
-async function priceLines(db: Db, input: CreateInvoice): Promise<PricedLine[]> {
-  const ids = [...new Set(input.items.map((item) => item.productId))];
+async function priceLines(
+  db: Db,
+  input: Pick<CreateInvoice, 'items'>,
+  /** editing (D-41): products already on the invoice keep the facts they were invoiced with */
+  kept: Map<string, LineProduct> = new Map(),
+): Promise<PricedLine[]> {
+  const ids = [...new Set(input.items.map((item) => item.productId))].filter((id) => !kept.has(id));
   const products = await db.product.findMany({
     where: { id: { in: ids } },
     select: PRODUCT_FIELDS,
   });
-  const byId = new Map(products.map((p) => [p.id, p]));
+  const byId = new Map<string, LineProduct>([...products.map((p) => [p.id, p] as const), ...kept]);
   const details: FieldError[] = [];
   const lines: PricedLine[] = [];
 
@@ -595,6 +899,8 @@ function toSummary(row: SummaryRow): InvoiceSummary {
     order: row.order,
     itemCount: row._count.items,
     grandTotal: amount(row.grandTotal),
+    payableValue: amount(row.payableValue),
+    editCount: row.editCount,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -672,5 +978,20 @@ function toDetails(row: DetailRow): InvoiceDetails {
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelledBy: row.cancelledBy,
     cancelReason: row.cancelReason,
+    lastEditedAt: row.lastEditedAt?.toISOString() ?? null,
+    lastEditedBy: row.lastEditedBy,
+    revisions: row.revisions.map((r): InvoiceRevision => ({
+      id: r.id,
+      revisionNo: r.revisionNo,
+      reason: r.reason,
+      previousPayableValue: amount(r.previousPayableValue),
+      newPayableValue: amount(r.newPayableValue),
+      changes: diffSnapshots(
+        r.previous as unknown as InvoiceSnapshot,
+        r.current as unknown as InvoiceSnapshot,
+      ),
+      editedBy: r.editedBy,
+      createdAt: r.createdAt.toISOString(),
+    })),
   };
 }

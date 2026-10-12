@@ -13,6 +13,10 @@ export const LedgerEntryType = {
   PAYMENT: 'PAYMENT',
   MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
   INVOICE_REVERSAL: 'INVOICE_REVERSAL',
+  /** editing a confirmed invoice (D-41): credit of its previous Payable Value… */
+  INVOICE_EDIT_REVERSAL: 'INVOICE_EDIT_REVERSAL',
+  /** …and debit of its corrected Payable Value */
+  INVOICE_EDIT: 'INVOICE_EDIT',
 } as const;
 export type LedgerEntryType = (typeof LedgerEntryType)[keyof typeof LedgerEntryType];
 
@@ -21,6 +25,8 @@ export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
   PAYMENT: 'Payment',
   MANUAL_ADJUSTMENT: 'Adjustment',
   INVOICE_REVERSAL: 'Invoice cancelled',
+  INVOICE_EDIT_REVERSAL: 'Invoice edited — old value reversed',
+  INVOICE_EDIT: 'Invoice edited — new value',
 };
 
 export const PaymentMethod = {

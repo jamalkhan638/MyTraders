@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -11,6 +21,8 @@ import {
 import {
   cancelInvoiceSchema,
   createInvoiceSchema,
+  editInvoiceSchema,
+  invoiceBatchQuerySchema,
   invoiceDetailsSchema,
   invoiceDraftQuerySchema,
   invoiceDraftSchema,
@@ -31,6 +43,8 @@ class ListInvoicesQueryDto extends createZodDto(listInvoicesQuerySchema) {}
 class InvoiceDraftQueryDto extends createZodDto(invoiceDraftQuerySchema) {}
 class CreateInvoiceDto extends createZodDto(createInvoiceSchema) {}
 class CancelInvoiceDto extends createZodDto(cancelInvoiceSchema) {}
+class EditInvoiceDto extends createZodDto(editInvoiceSchema) {}
+class InvoiceBatchQueryDto extends createZodDto(invoiceBatchQuerySchema) {}
 
 /**
  * Invoices — Admin only (docs/permissions.md). One creation endpoint for direct and order-based
@@ -63,6 +77,16 @@ export class InvoicesController {
     return this.invoices.draft(query);
   }
 
+  @Get('batch')
+  @ApiOkResponse({
+    type: [InvoiceDetailsDto],
+    description: 'Bulk print: ?ids=a,b,c (max 100), returned in that order',
+  })
+  @ApiNotFoundResponse({ description: 'An invoice is not in your organization' })
+  batch(@Query() query: InvoiceBatchQueryDto) {
+    return this.invoices.batch(query.ids);
+  }
+
   @Post('preview')
   @HttpCode(200)
   @ApiOkResponse({ type: InvoicePreviewDto, description: 'Computes all values; saves nothing' })
@@ -89,6 +113,33 @@ export class InvoicesController {
   @ApiNotFoundResponse({ description: 'Not in your organization' })
   get(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoices.get(id);
+  }
+
+  @Get(':id/edit-draft')
+  @ApiOkResponse({
+    type: InvoiceDraftDto,
+    description: 'The invoice form prefilled with the saved invoice, to edit it (D-41)',
+  })
+  @ApiNotFoundResponse({ description: 'Not in your organization' })
+  @ApiConflictResponse({ description: 'Cancelled invoices cannot be edited' })
+  editDraft(@Param('id', ParseUUIDPipe) id: string) {
+    return this.invoices.editDraft(id);
+  }
+
+  @Put(':id')
+  @ApiOkResponse({
+    type: InvoiceDetailsDto,
+    description:
+      'Edits a confirmed invoice: same number, recalculated values, revision with reason, ' +
+      'ledger reversal + new debit (D-41)',
+  })
+  @ApiNotFoundResponse({ description: 'Not in your organization' })
+  @ApiUnprocessableEntityResponse({ description: 'Invalid values, or nothing changed' })
+  @ApiConflictResponse({
+    description: "Cancelled invoice, or the shop's balance would become negative",
+  })
+  edit(@Param('id', ParseUUIDPipe) id: string, @Body() body: EditInvoiceDto) {
+    return this.invoices.edit(id, body);
   }
 
   @Post(':id/cancel')

@@ -48,6 +48,8 @@ Status legend: ☐ todo · ◐ in progress · ☑ done · ⛔ blocked on open qu
 - ☑ Cancellation — reason, user, time, order stays INVOICED, ledger reversal (Phase 5)
 - ☑ Ledger debit on confirm and Due Payment prefill (Phase 5)
 - ☑ Payable Value calculated (Grand Total + Advance Tax + Further Tax − ADT discount) and debited to the ledger (D-31)
+- ☑ Edit a confirmed invoice (D-41): reason, recalculation, InvoiceRevision audit + Edit history, ledger reversal + new debit, balance guard, cancelled not editable
+- ☑ Invoice list: From / To / Today / This month filters with search and status (URL), row actions, checkboxes + Print selected; bulk print one invoice per page (D-41)
 - ☐ Server-generated PDF file (browser save-as-PDF works now)
 
 ## Phase 5 — Ledger & payments (D-30)

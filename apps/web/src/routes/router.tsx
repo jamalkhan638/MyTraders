@@ -8,8 +8,10 @@ import { BookerOrdersPage } from '@/features/booker/pages/BookerOrdersPage';
 import { BookerShopsPage } from '@/features/booker/pages/BookerShopsPage';
 import { BookOrderPage } from '@/features/booker/pages/BookOrderPage';
 import { InvoiceDetailsPage } from '@/features/invoices/pages/InvoiceDetailsPage';
+import { InvoiceEditPage } from '@/features/invoices/pages/InvoiceEditPage';
 import { InvoiceFormPage } from '@/features/invoices/pages/InvoiceFormPage';
 import { InvoicesPage } from '@/features/invoices/pages/InvoicesPage';
+import { InvoicesPrintPage } from '@/features/invoices/pages/InvoicesPrintPage';
 import { CollectionSheetPage } from '@/features/ledger/pages/CollectionSheetPage';
 import { OrderDetailsPage } from '@/features/orders/pages/OrderDetailsPage';
 import { OrdersPage } from '@/features/orders/pages/OrdersPage';
@@ -62,7 +64,9 @@ export const router = createBrowserRouter([
               { path: '/orders/:id', element: <OrderDetailsPage /> },
               { path: '/invoices', element: <InvoicesPage /> },
               { path: '/invoices/new', element: <InvoiceFormPage /> },
+              { path: '/invoices/print', element: <InvoicesPrintPage /> },
               { path: '/invoices/:id', element: <InvoiceDetailsPage /> },
+              { path: '/invoices/:id/edit', element: <InvoiceEditPage /> },
               { path: '/shops/:shopId/invoices/new', element: <InvoiceFormPage /> },
               { path: '/finance/collection-sheet', element: <CollectionSheetPage /> },
               // old address of this page (bookmarks)

@@ -160,11 +160,50 @@ export const cancelInvoiceSchema = z.object({
 });
 export type CancelInvoice = z.output<typeof cancelInvoiceSchema>;
 
-export const listInvoicesQuerySchema = paginationQuerySchema.extend({
-  q: z.string().trim().max(100).optional(),
-  shopId: z.uuid().optional(),
-  status: z.enum(InvoiceStatus).optional(),
+/**
+ * PUT /invoices/:id — edit a CONFIRMED invoice (D-41). The same inputs as creating one, minus the
+ * shop and order (they never change), plus a required reason. The invoice keeps its number and
+ * creation date; the server recomputes every value and posts the ledger difference.
+ */
+export const editInvoiceSchema = createInvoiceSchema.omit({ shopId: true, orderId: true }).extend({
+  reason: z
+    .string({ message: 'Enter the reason for this edit' })
+    .trim()
+    .min(3, 'Enter the reason for this edit')
+    .max(300, 'Reason must be at most 300 characters'),
 });
+export type EditInvoiceInput = z.input<typeof editInvoiceSchema>;
+export type EditInvoice = z.output<typeof editInvoiceSchema>;
+
+/** GET /invoices/batch?ids=a,b,c — several invoices at once (bulk print), in the given order. */
+export const INVOICE_BATCH_MAX = 100;
+export const invoiceBatchQuerySchema = z.object({
+  ids: z.preprocess(
+    (v) => (typeof v === 'string' ? v.split(',').filter(Boolean) : v),
+    z
+      .array(z.uuid())
+      .min(1, 'Choose at least one invoice')
+      .max(INVOICE_BATCH_MAX, `At most ${INVOICE_BATCH_MAX} invoices at once`),
+  ),
+});
+export type InvoiceBatchQuery = z.output<typeof invoiceBatchQuerySchema>;
+
+/**
+ * GET /invoices. `from` / `to` filter on the invoice date (inclusive) and combine with `q`
+ * (invoice number or shop name) and `status`.
+ */
+export const listInvoicesQuerySchema = paginationQuerySchema
+  .extend({
+    q: z.string().trim().max(100).optional(),
+    shopId: z.uuid().optional(),
+    status: z.enum(InvoiceStatus).optional(),
+    from: businessDateSchema.optional(),
+    to: businessDateSchema.optional(),
+  })
+  .refine((q) => !q.from || !q.to || q.from <= q.to, {
+    path: ['to'],
+    message: '"To" cannot be before "From"',
+  });
 export type ListInvoicesQuery = z.output<typeof listInvoicesQuerySchema>;
 export type ListInvoicesQueryInput = z.input<typeof listInvoicesQuerySchema>;
 
@@ -534,10 +573,36 @@ export const invoiceSummarySchema = z.object({
   order: z.object({ id: z.uuid(), orderNumber: z.string() }).nullable(),
   itemCount: z.number().int(),
   grandTotal: z.string(),
+  /** Invoice Value (D-31) — the ledger debit */
+  payableValue: z.string(),
+  /** how many times the confirmed invoice was edited (D-41) */
+  editCount: z.number().int(),
   createdAt: z.string(),
 });
 export type InvoiceSummary = z.infer<typeof invoiceSummarySchema>;
 export const invoiceListSchema = paginatedSchema(invoiceSummarySchema);
+
+/** One changed value of an edit: what it was, what it became (display strings). */
+export const invoiceChangeSchema = z.object({
+  field: z.string(),
+  label: z.string(),
+  from: z.string(),
+  to: z.string(),
+});
+export type InvoiceChange = z.infer<typeof invoiceChangeSchema>;
+
+/** One edit of a confirmed invoice: who, when, why, and the values before / after (D-41). */
+export const invoiceRevisionSchema = z.object({
+  id: z.uuid(),
+  revisionNo: z.number().int(),
+  reason: z.string(),
+  previousPayableValue: z.string(),
+  newPayableValue: z.string(),
+  changes: z.array(invoiceChangeSchema),
+  editedBy: refSchema,
+  createdAt: z.string(),
+});
+export type InvoiceRevision = z.infer<typeof invoiceRevisionSchema>;
 
 export const invoiceDetailsSchema = invoiceSummarySchema.extend({
   shopSnapshot: invoiceShopSnapshotSchema,
@@ -565,6 +630,10 @@ export const invoiceDetailsSchema = invoiceSummarySchema.extend({
   cancelledAt: z.string().nullable(),
   cancelledBy: refSchema.nullable(),
   cancelReason: z.string().nullable(),
+  lastEditedAt: z.string().nullable(),
+  lastEditedBy: refSchema.nullable(),
+  /** edit history, newest first (D-41) */
+  revisions: z.array(invoiceRevisionSchema),
 });
 export type InvoiceDetails = z.infer<typeof invoiceDetailsSchema>;
 
@@ -603,6 +672,17 @@ export const invoiceDraftLineSchema = z.object({
   product: productSchema,
   qtyCtn: z.number().int().nullable(),
   qtyPcs: z.number().int().nullable(),
+  /** editing (D-41): the line's saved prices and rates; absent → the product's current values */
+  values: z
+    .object({
+      retailPrice: z.string(),
+      tradePrice: z.string(),
+      gstRate: z.string(),
+      toRate: z.string(),
+      atoRate: z.string(),
+      specialDiscount: z.string(),
+    })
+    .optional(),
 });
 export type InvoiceDraftLine = z.infer<typeof invoiceDraftLineSchema>;
 
@@ -625,5 +705,18 @@ export const invoiceDraftSchema = z.object({
   duePayment: z.string().nullable(),
   defaultTaxRate: z.string(),
   items: z.array(invoiceDraftLineSchema),
+  /** set when the form edits a confirmed invoice (GET /invoices/:id/edit-draft, D-41) */
+  edit: z
+    .object({
+      invoiceId: z.uuid(),
+      invoiceNumber: z.string(),
+      editCount: z.number().int(),
+      payableValue: z.string(),
+      advanceTax: z.string().nullable(),
+      furtherTax: z.string().nullable(),
+      adtDiscount: z.string().nullable(),
+      notes: z.string().nullable(),
+    })
+    .optional(),
 });
 export type InvoiceDraft = z.infer<typeof invoiceDraftSchema>;

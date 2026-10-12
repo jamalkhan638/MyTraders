@@ -88,7 +88,11 @@ Settings sub-sections are tabs under `/settings/*` (`SettingsLayout`); implement
 
 Both load `GET /invoices/draft`. Full page (not a dialog): header card (shop, proposed number, invoice date, Due Payment), a wide row grid (horizontal scroll, sticky Product column, compact right-aligned inputs; calculated cells read-only), a summary card (Grand Total read-only, optional Advance Tax / Further Tax / ADT discount inputs, Due Payment shown as display-only, and the read-only **Payable Value** = Grand Total + Advance Tax + Further Tax − ADT discount) and *Confirm invoice* behind a confirmation dialog. Products are added / swapped with `ProductPickerDialog` (active products); a new row takes the product's T.P, R.P and default tax rate. TIN rows have no Qty (Ctn) input; POUCH Qty (Pcs) follows Qty (Ctn) × pieces per carton until edited ("reset" link). Live values come from the shared calculator; the server recomputes on confirm and field errors (`items.N.field`) are shown on the cells.
 
-Invoice view `/invoices/:id` is also the print layout (print CSS: A4 landscape, app chrome hidden via `print:hidden`, cost never shown, blank optional rows omitted). Invoices list `/invoices`; shop details shows the shop's invoice history.
+Editing (D-41): `/invoices/:id/edit` opens the same `InvoiceForm` with `GET /invoices/:id/edit-draft` (`draft.edit` set; lines carry their saved `values`); *Save changes* asks for the required reason in the confirmation dialog and calls `PUT /invoices/:id`.
+
+Invoice list `/invoices`: search, status, From / To + *Today* / *This month*, all in the URL (`?q&status&from&to&page`); checkboxes (header box = visible page only), selection bar "N invoices selected" + *Print selected* → `/invoices/print?ids=` (`InvoicesPrintPage`: `GET /invoices/batch`, each invoice in `InvoiceDocument` inside `.invoice-page` with `break-after: page` except the last, `window.print()` once); row actions View / Edit (confirmed only) / Print.
+
+Invoice view `/invoices/:id` (`InvoiceDocument`) is also the print layout (print CSS: A4 landscape, app chrome hidden via `print:hidden`, cost never shown, blank optional rows omitted), with Edit / Cancel and the Edit history card (not printed). Shop details shows the shop's invoice history.
 
 Wide tables inside `overflow-x-auto` must also be `relative`, otherwise absolutely positioned children (e.g. `sr-only` labels) widen the whole page.
 

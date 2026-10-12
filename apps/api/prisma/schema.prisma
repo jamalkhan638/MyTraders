@@ -50,8 +50,12 @@ enum LedgerEntryType {
   PAYMENT
   /// debit (increase) or credit (decrease): an Admin correction with a reason
   MANUAL_ADJUSTMENT
-  /// credit: reverses a cancelled invoice's debit, exact same amount
+  /// credit: reverses a cancelled invoice's current Payable Value
   INVOICE_REVERSAL
+  /// credit: an edit reverses the invoice's previous Payable Value (D-41)
+  INVOICE_EDIT_REVERSAL
+  /// debit: an edit applies the invoice's corrected Payable Value (D-41)
+  INVOICE_EDIT
 }
 
 enum PaymentMethod {
@@ -131,6 +135,7 @@ model Organization {
   orders            Order[]
   invoices          Invoice[]
   invoiceItems      InvoiceItem[]
+  invoiceRevisions  InvoiceRevision[]
   ledgerEntries     ShopLedgerEntry[]
   payments          Payment[]
   expenseCategories ExpenseCategory[]
@@ -164,6 +169,8 @@ model User {
   createdExpenses           Expense[]         @relation("CreatedExpenses")
   updatedExpenses           Expense[]         @relation("UpdatedExpenses")
   voidedExpenses            Expense[]         @relation("VoidedExpenses")
+  editedInvoices            Invoice[]         @relation("EditedInvoices")
+  invoiceRevisions          InvoiceRevision[] @relation("InvoiceRevisions")
   /// tenants whose status this Super Admin changed
   organizationStatusChanges Organization[]    @relation("OrganizationStatusChanges")
 
@@ -419,12 +426,16 @@ model Invoice {
   payableValue Decimal  @db.Decimal(14, 2)
   notes        String?
 
-  createdById   String    @db.Uuid
-  cancelledAt   DateTime? @db.Timestamptz
-  cancelledById String?   @db.Uuid
-  cancelReason  String?
-  createdAt     DateTime  @default(now()) @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @db.Timestamptz
+  createdById    String    @db.Uuid
+  cancelledAt    DateTime? @db.Timestamptz
+  cancelledById  String?   @db.Uuid
+  cancelReason   String?
+  /// edits of a confirmed invoice (D-41); the history is in InvoiceRevision
+  editCount      Int       @default(0)
+  lastEditedAt   DateTime? @db.Timestamptz
+  lastEditedById String?   @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @db.Timestamptz
 
   organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   shop          Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
@@ -432,8 +443,10 @@ model Invoice {
   order         Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
   createdBy     User              @relation("CreatedInvoices", fields: [createdById], references: [id], onDelete: Restrict)
   cancelledBy   User?             @relation("CancelledInvoices", fields: [cancelledById], references: [id], onDelete: Restrict)
+  lastEditedBy  User?             @relation("EditedInvoices", fields: [lastEditedById], references: [id], onDelete: Restrict)
   items         InvoiceItem[]
   ledgerEntries ShopLedgerEntry[]
+  revisions     InvoiceRevision[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, invoiceDate])
@@ -515,32 +528,62 @@ model Payment {
   @@index([organizationId, paymentDate])
 }
 
+/// One edit of a confirmed invoice (D-41): who, when, why, and the invoice before and after
+/// (full JSON snapshots of the invoice and its items). Append-only.
+model InvoiceRevision {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  organizationId       String   @db.Uuid
+  invoiceId            String   @db.Uuid
+  /// 1, 2, … per invoice
+  revisionNo           Int
+  reason               String
+  previousPayableValue Decimal  @db.Decimal(14, 2)
+  newPayableValue      Decimal  @db.Decimal(14, 2)
+  previous             Json
+  current              Json
+  editedById           String   @db.Uuid
+  createdAt            DateTime @default(now()) @db.Timestamptz
+
+  organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice       Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  editedBy      User              @relation("InvoiceRevisions", fields: [editedById], references: [id], onDelete: Restrict)
+  ledgerEntries ShopLedgerEntry[]
+
+  @@unique([invoiceId, revisionNo])
+  @@index([organizationId, createdAt])
+}
+
 /// The single source of truth for shop credit (D-30). Balance = Σ debitAmount − Σ creditAmount.
 /// Append-only; exactly one of debitAmount / creditAmount is > 0.
 model ShopLedgerEntry {
-  id              String          @id @default(uuid(7)) @db.Uuid
-  organizationId  String          @db.Uuid
-  shopId          String          @db.Uuid
-  type            LedgerEntryType
-  debitAmount     Decimal         @default(0) @db.Decimal(14, 2)
-  creditAmount    Decimal         @default(0) @db.Decimal(14, 2)
+  id                String          @id @default(uuid(7)) @db.Uuid
+  organizationId    String          @db.Uuid
+  shopId            String          @db.Uuid
+  type              LedgerEntryType
+  debitAmount       Decimal         @default(0) @db.Decimal(14, 2)
+  creditAmount      Decimal         @default(0) @db.Decimal(14, 2)
   /// business date (organization timezone); running balances order by (transactionDate, createdAt, id)
-  transactionDate DateTime        @db.Date
-  invoiceId       String?         @db.Uuid
+  transactionDate   DateTime        @db.Date
+  invoiceId         String?         @db.Uuid
   /// set for PAYMENT entries; one entry per payment
-  paymentId       String?         @unique @db.Uuid
-  notes           String?
-  createdById     String          @db.Uuid
-  createdAt       DateTime        @default(now()) @db.Timestamptz
+  paymentId         String?         @unique @db.Uuid
+  /// set for INVOICE_EDIT_REVERSAL / INVOICE_EDIT entries: the edit they belong to (D-41)
+  invoiceRevisionId String?         @db.Uuid
+  notes             String?
+  createdById       String          @db.Uuid
+  createdAt         DateTime        @default(now()) @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  shop         Shop         @relation(fields: [shopId], references: [id], onDelete: Restrict)
-  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  createdBy    User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  invoice         Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  payment         Payment?         @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoiceRevision InvoiceRevision? @relation(fields: [invoiceRevisionId], references: [id], onDelete: Restrict)
+  createdBy       User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   /// one INVOICE debit and at most one INVOICE_REVERSAL per invoice
   @@unique([invoiceId, type])
+  /// one reversal and one debit per invoice edit
+  @@unique([invoiceRevisionId, type])
   @@index([organizationId, shopId, transactionDate, createdAt, id])
   @@index([organizationId, type, transactionDate])
 }

@@ -7,6 +7,7 @@ import {
   type CreateInvoiceInput,
   createInvoiceSchema,
   type InvoiceDraft,
+  type InvoiceDraftLine,
   type InvoiceLineField,
   type Product,
 } from '@mytraders/shared-types';
@@ -34,7 +35,7 @@ import { useCurrentUser } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { formatAmount, formatQuantity } from '@/lib/format/number';
 import { cn } from '@/lib/utils';
-import { useCreateInvoice } from '../hooks/useInvoices';
+import { useCreateInvoice, useEditInvoice } from '../hooks/useInvoices';
 import { ProductPickerDialog } from './ProductPickerDialog';
 
 /** One editable row. Inputs are kept as typed text; the shared calculator reads them. */
@@ -63,20 +64,29 @@ const derivedPcs = (product: Product, qtyCtn: string) =>
     ? String(Number(qtyCtn) * product.piecesPerCarton)
     : '';
 
-/** A new row from the product's current values. */
-function lineFor(product: Product, qtyCtn: number | null, qtyPcs: number | null): FormLine {
+/** A new row from the product's current values (or, editing, the line's saved values). */
+function lineFor(
+  product: Product,
+  qtyCtn: number | null,
+  qtyPcs: number | null,
+  values?: InvoiceDraftLine['values'],
+): FormLine {
+  const pouchPcs =
+    product.type === 'POUCH' && qtyCtn !== null && product.piecesPerCarton
+      ? qtyCtn * product.piecesPerCarton
+      : null;
   return {
     key: newKey(),
     product,
     qtyCtn: qtyCtn?.toString() ?? '',
     qtyPcs: qtyPcs?.toString() ?? '',
-    pcsEdited: false,
-    retailPrice: product.retailPrice,
-    tradePrice: product.tradePrice,
-    gstRate: product.defaultTaxRate,
-    toRate: '0',
-    atoRate: '0',
-    specialDiscount: '0',
+    pcsEdited: values !== undefined && pouchPcs !== qtyPcs,
+    retailPrice: values?.retailPrice ?? product.retailPrice,
+    tradePrice: values?.tradePrice ?? product.tradePrice,
+    gstRate: values?.gstRate ?? product.defaultTaxRate,
+    toRate: values?.toRate ?? '0',
+    atoRate: values?.atoRate ?? '0',
+    specialDiscount: values?.specialDiscount ?? '0',
   };
 }
 
@@ -104,23 +114,28 @@ function calculate(line: FormLine) {
 }
 
 /**
- * The one invoice form (docs/frontend-guidelines.md §7) for both entry points: a shop's direct
- * invoice (no rows) and a pending order (rows prefilled). Values shown here are a live preview with
- * the shared calculator; the server recomputes everything when the invoice is confirmed.
+ * The one invoice form (docs/frontend-guidelines.md §7) for its entry points: a shop's direct
+ * invoice (no rows), a pending order (rows prefilled) and editing a confirmed invoice (`draft.edit`,
+ * D-41: saved values prefilled, reason required). Values shown here are a live preview with the
+ * shared calculator; the server recomputes everything when the invoice is saved.
  */
 export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
   const navigate = useNavigate();
   const currency = useCurrentUser().organization?.currency ?? '';
+  const editing = draft.edit;
   const create = useCreateInvoice();
+  const update = useEditInvoice(editing?.invoiceId ?? '');
+  const saving = create.isPending || update.isPending;
   const [lines, setLines] = useState<FormLine[]>(() =>
-    draft.items.map((item) => lineFor(item.product, item.qtyCtn, item.qtyPcs)),
+    draft.items.map((item) => lineFor(item.product, item.qtyCtn, item.qtyPcs, item.values)),
   );
   const [invoiceDate, setInvoiceDate] = useState(draft.invoiceDate);
   const [duePayment, setDuePayment] = useState(draft.duePayment ?? '');
-  const [advanceTax, setAdvanceTax] = useState('');
-  const [furtherTax, setFurtherTax] = useState('');
-  const [adtDiscount, setAdtDiscount] = useState('');
-  const [notes, setNotes] = useState('');
+  const [advanceTax, setAdvanceTax] = useState(editing?.advanceTax ?? '');
+  const [furtherTax, setFurtherTax] = useState(editing?.furtherTax ?? '');
+  const [adtDiscount, setAdtDiscount] = useState(editing?.adtDiscount ?? '');
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [picker, setPicker] = useState<{ replaceKey: string | null } | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -234,21 +249,41 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
     return true;
   };
 
+  const onSaveError = (error: Error) => {
+    setConfirming(false);
+    if (error instanceof ApiError && error.body?.details?.length) {
+      setErrors(Object.fromEntries(error.body.details.map((d) => [d.path, d.message])));
+      toast.error(error.message);
+    } else {
+      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server');
+    }
+  };
+
   const submit = () => {
+    if (editing) {
+      if (reason.trim().length < 3) {
+        setErrors({ reason: 'Enter the reason for this edit' });
+        return;
+      }
+      const { shopId: _shop, orderId: _order, ...values } = payload();
+      update.mutate(
+        { ...values, reason: reason.trim() },
+        {
+          onSuccess: (invoice) => {
+            toast.success(`Invoice ${invoice.invoiceNumber} updated`);
+            navigate(`/invoices/${invoice.id}`, { replace: true });
+          },
+          onError: onSaveError,
+        },
+      );
+      return;
+    }
     create.mutate(payload(), {
       onSuccess: (invoice) => {
         toast.success(`Invoice ${invoice.invoiceNumber} confirmed`);
         navigate(`/invoices/${invoice.id}`, { replace: true });
       },
-      onError: (error) => {
-        setConfirming(false);
-        if (error instanceof ApiError && error.body?.details?.length) {
-          setErrors(Object.fromEntries(error.body.details.map((d) => [d.path, d.message])));
-          toast.error(error.message);
-        } else {
-          toast.error(error instanceof ApiError ? error.message : 'Could not reach the server');
-        }
-      },
+      onError: onSaveError,
     });
   };
 
@@ -259,9 +294,17 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
     <div className="space-y-5 pb-10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Create invoice</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {editing ? `Edit invoice ${editing.invoiceNumber}` : 'Create invoice'}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {draft.order ? (
+            {editing ? (
+              <>
+                Same invoice number and shop. Saving recalculates every value, keeps the previous
+                version in the edit history and corrects the shop ledger (current invoice value{' '}
+                {currency} {formatAmount(editing.payableValue)}).
+              </>
+            ) : draft.order ? (
               <>
                 From order{' '}
                 <Link to={`/orders/${draft.order.id}`} className="font-medium underline">
@@ -297,7 +340,9 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
           <div>
             <div className="text-xs text-muted-foreground">Invoice number</div>
             <div className="font-mono font-semibold">{draft.proposedInvoiceNumber}</div>
-            <div className="text-xs text-muted-foreground">Assigned when you confirm</div>
+            <div className="text-xs text-muted-foreground">
+              {editing ? 'Does not change' : 'Assigned when you confirm'}
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <Field label="Invoice date" id="invoiceDate" error={errors.invoiceDate}>
@@ -320,9 +365,11 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
               id="duePayment"
               error={errors.duePayment}
               hint={
-                draft.duePayment === null
-                  ? 'Printed on the invoice only. Automatic from the shop ledger once it is built (Phase 5).'
-                  : 'From the shop ledger. Changing it here only changes this invoice, never the ledger.'
+                editing
+                  ? 'As saved on this invoice. Changing it only changes the printed invoice, never the ledger.'
+                  : draft.duePayment === null
+                    ? 'Printed on the invoice only. Automatic from the shop ledger once it is built (Phase 5).'
+                    : 'From the shop ledger. Changing it here only changes this invoice, never the ledger.'
               }
             >
               <Input
@@ -626,16 +673,24 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
 
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" asChild>
-          <Link to={draft.order ? `/orders/${draft.order.id}` : `/shops/${draft.shop.id}`}>
+          <Link
+            to={
+              editing
+                ? `/invoices/${editing.invoiceId}`
+                : draft.order
+                  ? `/orders/${draft.order.id}`
+                  : `/shops/${draft.shop.id}`
+            }
+          >
             Cancel
           </Link>
         </Button>
         <Button
-          disabled={blocked || lines.length === 0 || create.isPending}
+          disabled={blocked || lines.length === 0 || saving}
           onClick={() => check() && setConfirming(true)}
         >
           <Check />
-          Confirm invoice
+          {editing ? 'Save changes' : 'Confirm invoice'}
         </Button>
       </div>
 
@@ -649,30 +704,54 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
 
       <AlertDialog
         open={confirming}
-        onOpenChange={(open) => !open && !create.isPending && setConfirming(false)}
+        onOpenChange={(open) => !open && !saving && setConfirming(false)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm this invoice?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {editing ? `Save changes to ${editing.invoiceNumber}?` : 'Confirm this invoice?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {draft.shop.name} · {lines.length} product{lines.length === 1 ? '' : 's'} · total
               gross value {currency} {formatAmount(totals.grandTotal)}, payable value {currency}{' '}
-              {formatAmount(totalPayable)}. The server recalculates every value. A confirmed invoice
-              cannot be edited.
-              {draft.order && ` Order ${draft.order.orderNumber} will be marked invoiced.`}
+              {formatAmount(totalPayable)}. The server recalculates every value.
+              {editing
+                ? ` Invoice value ${formatAmount(editing.payableValue)} → ${formatAmount(payableValue)}: the ledger reverses the old value and posts the new one.`
+                : ' Only an Admin can edit it later, with a reason.'}
+              {!editing &&
+                draft.order &&
+                ` Order ${draft.order.orderNumber} will be marked invoiced.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {editing && (
+            <div className="space-y-1.5">
+              <Label htmlFor="editReason">Reason for this edit (required)</Label>
+              <Textarea
+                id="editReason"
+                rows={3}
+                maxLength={300}
+                placeholder="e.g. Shop returned 2 cartons; wrong T.P entered"
+                value={reason}
+                aria-invalid={!!errors.reason}
+                onChange={(e) => {
+                  setErrors({});
+                  setReason(e.target.value);
+                }}
+              />
+              {errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
+            </div>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={create.isPending}>Back to the invoice</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>Back to the invoice</AlertDialogCancel>
             <AlertDialogAction
-              disabled={create.isPending}
+              disabled={saving || (editing !== undefined && reason.trim().length < 3)}
               onClick={(event) => {
                 event.preventDefault();
                 submit();
               }}
             >
-              {create.isPending && <Loader2 className="animate-spin" />}
-              Confirm invoice
+              {saving && <Loader2 className="animate-spin" />}
+              {editing ? 'Save changes' : 'Confirm invoice'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

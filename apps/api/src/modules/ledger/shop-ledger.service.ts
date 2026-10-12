@@ -37,6 +37,19 @@ export interface LedgerInvoice {
   amount: string;
 }
 
+/** An edit of a confirmed invoice, as the ledger needs it (D-41). */
+export interface LedgerInvoiceEdit {
+  invoiceId: string;
+  shopId: string;
+  invoiceNumber: string;
+  revisionId: string;
+  revisionNo: number;
+  /** Invoice Value before / after the edit */
+  previousAmount: string;
+  newAmount: string;
+  reason: string;
+}
+
 interface EntryRow {
   id: string;
   type: LedgerEntryType;
@@ -66,7 +79,9 @@ const asDate = (value: string) => new Date(`${value}T00:00:00Z`);
  *   INVOICE           debit   (confirmed invoice, its Grand Total)
  *   PAYMENT           credit  (money received)
  *   MANUAL_ADJUSTMENT debit (increase) | credit (decrease), with a reason
- *   INVOICE_REVERSAL  credit  (cancelled invoice, exactly its debit)
+ *   INVOICE_REVERSAL  credit  (cancelled invoice, what it still owes: its debit ± edits)
+ *   INVOICE_EDIT_REVERSAL credit (edited invoice, its previous Invoice Value)   D-41
+ *   INVOICE_EDIT      debit   (edited invoice, its corrected Invoice Value)      D-41
  *
  * Entries are append-only (database trigger). There is no balance column anywhere; every balance,
  * running balance and area sheet is computed from the entries. Every raw query filters on the
@@ -304,9 +319,69 @@ export class ShopLedgerService {
   }
 
   /**
-   * Cancelling an invoice keeps its debit and adds an INVOICE_REVERSAL credit of exactly the same
-   * amount, dated the cancellation day. Runs in the cancel transaction; the unique index makes a
-   * second reversal impossible. Negative (advance) balances are not supported in the MVP: if the
+   * Editing a confirmed invoice (D-41) never changes or deletes ledger rows: it adds an
+   * INVOICE_EDIT debit of the corrected Invoice Value and an INVOICE_EDIT_REVERSAL credit of the
+   * previous one, both dated the edit day and linked to the revision. The debit is written first
+   * (earlier createdAt), so no running balance dips below zero between the two. Refused when the
+   * shop's balance would end below zero (payments already cover more than the corrected invoice).
+   * No entries when the value is unchanged.
+   */
+  async invoiceEdited(tx: TenantTx, edit: LedgerInvoiceEdit, userId: string): Promise<void> {
+    const organizationId = this.tenant.requireOrganizationId();
+    await this.lockShop(tx, organizationId, edit.shopId);
+    const previous = new Decimal(edit.previousAmount);
+    const next = new Decimal(edit.newAmount);
+    if (previous.equals(next)) return;
+    const { outstandingBalance } = await this.balance(edit.shopId, tx);
+    const after = new Decimal(outstandingBalance).minus(previous).plus(next);
+    if (after.isNegative()) {
+      throw new ConflictException(
+        `Cannot save this edit of invoice ${edit.invoiceNumber}: the shop's balance would become ` +
+          `${money(after)} (it owes ${outstandingBalance}; the invoice value goes from ` +
+          `${money(previous)} to ${money(next)}). Payments already cover more than the corrected ` +
+          'invoice — correct the related payment or adjustment first, then edit.',
+      );
+    }
+    const date = asDate(await this.today(tx));
+    const at = new Date();
+    const notes = `Invoice ${edit.invoiceNumber} edited (revision ${edit.revisionNo}): ${edit.reason}`;
+    if (next.greaterThan(0)) {
+      await tx.shopLedgerEntry.create({
+        data: {
+          organizationId,
+          shopId: edit.shopId,
+          type: 'INVOICE_EDIT',
+          debitAmount: money(next),
+          transactionDate: date,
+          invoiceRevisionId: edit.revisionId,
+          notes,
+          createdById: userId,
+          createdAt: at,
+        },
+      });
+    }
+    if (previous.greaterThan(0)) {
+      await tx.shopLedgerEntry.create({
+        data: {
+          organizationId,
+          shopId: edit.shopId,
+          type: 'INVOICE_EDIT_REVERSAL',
+          creditAmount: money(previous),
+          transactionDate: date,
+          invoiceRevisionId: edit.revisionId,
+          notes,
+          createdById: userId,
+          createdAt: new Date(at.getTime() + 1),
+        },
+      });
+    }
+  }
+
+  /**
+   * Cancelling an invoice keeps its entries and adds an INVOICE_REVERSAL credit of what the invoice
+   * still owes in the ledger — its debit, adjusted by any edits (= its current Invoice Value) —
+   * dated the cancellation day. Runs in the cancel transaction; the unique index makes a second
+   * reversal impossible. Negative (advance) balances are not supported in the MVP: if the
    * reversal would take the shop's current balance below zero, the cancellation is refused.
    */
   async invoiceCancelled(
@@ -317,17 +392,21 @@ export class ShopLedgerService {
   ): Promise<void> {
     const organizationId = this.tenant.requireOrganizationId();
     await this.lockShop(tx, organizationId, invoice.shopId);
-    const debit = await tx.shopLedgerEntry.findFirst({
-      where: { invoiceId: invoice.id, type: 'INVOICE' },
-      select: { debitAmount: true },
-    });
-    if (!debit) return;
+    const [row] = await tx.$queryRaw<{ net: string }[]>`
+      SELECT COALESCE(SUM(e."debitAmount" - e."creditAmount"), 0)::text AS "net"
+      FROM "ShopLedgerEntry" e
+      LEFT JOIN "InvoiceRevision" r
+        ON r."id" = e."invoiceRevisionId" AND r."organizationId" = ${organizationId}::uuid
+      WHERE e."organizationId" = ${organizationId}::uuid
+        AND (e."invoiceId" = ${invoice.id}::uuid OR r."invoiceId" = ${invoice.id}::uuid)`;
+    const owed = new Decimal(row.net);
+    if (!owed.greaterThan(0)) return;
     const { outstandingBalance } = await this.balance(invoice.shopId, tx);
-    const after = new Decimal(outstandingBalance).minus(debit.debitAmount);
+    const after = new Decimal(outstandingBalance).minus(owed);
     if (after.isNegative()) {
       throw new ConflictException(
         `Cannot cancel invoice ${invoice.invoiceNumber}: the shop's balance would become ` +
-          `${money(after)} (it owes ${outstandingBalance}, the invoice is ${money(debit.debitAmount)}). ` +
+          `${money(after)} (it owes ${outstandingBalance}, the invoice is ${money(owed)}). ` +
           'Payments already cover this invoice — correct the related payment or adjustment first ' +
           '(e.g. Adjust Credit → Increase), then cancel.',
       );
@@ -337,7 +416,7 @@ export class ShopLedgerService {
         organizationId,
         shopId: invoice.shopId,
         type: 'INVOICE_REVERSAL',
-        creditAmount: debit.debitAmount,
+        creditAmount: money(owed),
         transactionDate: asDate(await this.today(tx)),
         invoiceId: invoice.id,
         notes: `Invoice ${invoice.invoiceNumber} cancelled: ${reason}`,
@@ -473,11 +552,12 @@ export class ShopLedgerService {
       SELECT e."id", e."type", e."transactionDate",
         e."debitAmount"::text AS "debit", e."creditAmount"::text AS "credit",
         e."running"::text AS "runningBalance", e."notes",
-        e."invoiceId", i."invoiceNumber",
+        i."id" AS "invoiceId", i."invoiceNumber",
         e."paymentId", p."method" AS "paymentMethod", p."reference" AS "paymentReference",
         e."createdById", u."name" AS "createdByName", e."createdAt"
       FROM e
-      LEFT JOIN "Invoice" i ON i."id" = e."invoiceId"
+      LEFT JOIN "InvoiceRevision" r ON r."id" = e."invoiceRevisionId"
+      LEFT JOIN "Invoice" i ON i."id" = COALESCE(e."invoiceId", r."invoiceId")
       LEFT JOIN "Payment" p ON p."id" = e."paymentId"
       JOIN "User" u ON u."id" = e."createdById"
       ${page.only ? Prisma.sql`WHERE e."id" = ${page.only}::uuid` : Prisma.empty}

@@ -1,4 +1,8 @@
-import { type CreateInvoiceInput, type ListInvoicesQueryInput } from '@mytraders/shared-types';
+import {
+  type CreateInvoiceInput,
+  type EditInvoiceInput,
+  type ListInvoicesQueryInput,
+} from '@mytraders/shared-types';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateBalances } from '@/features/ledger/hooks/useLedger';
 import { ordersKeys } from '@/features/orders/hooks/useOrders';
@@ -8,6 +12,8 @@ export const invoicesKeys = {
   all: ['invoices'] as const,
   list: (params: ListInvoicesQueryInput) => ['invoices', 'list', params] as const,
   detail: (id: string) => ['invoices', 'detail', id] as const,
+  batch: (ids: string[]) => ['invoices', 'batch', ids] as const,
+  editDraft: (id: string) => ['invoices', 'draft', 'edit', id] as const,
   draft: (source: { shopId?: string; orderId?: string }) => ['invoices', 'draft', source] as const,
 };
 
@@ -70,6 +76,47 @@ export function useCancelInvoice() {
         queryClient.invalidateQueries({ queryKey: invoicesKeys.all }),
         // the reversal credit changed the shop's balance
         invalidateBalances(queryClient),
+      ]);
+    },
+  });
+}
+
+/** Several invoices at once, for bulk printing. */
+export function useInvoiceBatch(ids: string[]) {
+  return useQuery({
+    queryKey: invoicesKeys.batch(ids),
+    queryFn: () => invoicesApi.batch(ids),
+    enabled: ids.length > 0,
+  });
+}
+
+/** The invoice form opened on a confirmed invoice (D-41). Never cached. */
+export function useInvoiceEditDraft(id: string) {
+  return useQuery({
+    queryKey: invoicesKeys.editDraft(id),
+    queryFn: () => invoicesApi.editDraft(id),
+    enabled: id !== '',
+    gcTime: 0,
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+export function useEditInvoice(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EditInvoiceInput) => invoicesApi.edit(id, body),
+    onSuccess: (invoice) => {
+      queryClient.setQueryData(invoicesKeys.detail(invoice.id), invoice);
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: invoicesKeys.all,
+          predicate: (query) => query.queryKey[1] !== 'detail' && query.queryKey[1] !== 'draft',
+        }),
+        // the edit's reversal + new debit changed the shop's balance; reports / dashboard read
+        // the invoice values
+        invalidateBalances(queryClient, { drafts: false }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
       ]);
     },
   });

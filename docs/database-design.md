@@ -212,7 +212,7 @@ model OrderItem {               // reachable only through its Order (not a tenan
   @@unique([orderId, productId])  // a product appears once per order
 }
 
-model Invoice {                                   // append-only (DB triggers): only CONFIRMED → CANCELLED
+model Invoice {                                   // append-only (DB triggers): only CONFIRMED → CANCELLED, or a controlled edit (D-41: values / lines only, inside the edit transaction; also editCount, lastEditedAt, lastEditedById)
   id                 String        @id @default(uuid(7)) @db.Uuid
   organizationId     String        @db.Uuid
   invoiceNumber      String                        // prefix + padded counter, allocated on confirm
@@ -302,20 +302,39 @@ model ShopLedgerEntry {                           // append-only; the source of 
   id              String          @id @default(uuid(7)) @db.Uuid
   organizationId  String          @db.Uuid
   shopId          String          @db.Uuid
-  type            LedgerEntryType // INVOICE | PAYMENT | MANUAL_ADJUSTMENT | INVOICE_REVERSAL
+  type            LedgerEntryType // INVOICE | PAYMENT | MANUAL_ADJUSTMENT | INVOICE_REVERSAL | INVOICE_EDIT_REVERSAL | INVOICE_EDIT
   debitAmount     Decimal         @default(0) @db.Decimal(14, 2)
   creditAmount    Decimal         @default(0) @db.Decimal(14, 2)
   transactionDate DateTime        @db.Date
   invoiceId       String?         @db.Uuid
   paymentId       String?         @unique @db.Uuid
+  invoiceRevisionId String?       @db.Uuid         // INVOICE_EDIT* entries (D-41)
   notes           String?
   createdById     String          @db.Uuid
   createdAt       DateTime        @default(now()) @db.Timestamptz
   @@unique([invoiceId, type])
+  @@unique([invoiceRevisionId, type])
   @@index([organizationId, shopId, transactionDate, createdAt, id])
   @@index([organizationId, type, transactionDate])
   // CHECK: amounts ≥ 0, exactly one side > 0; INVOICE ⇒ debit + invoiceId; INVOICE_REVERSAL ⇒ credit +
-  //        invoiceId; PAYMENT ⇒ credit + paymentId; MANUAL_ADJUSTMENT ⇒ no links, notes required
+  //        invoiceId; PAYMENT ⇒ credit + paymentId; MANUAL_ADJUSTMENT ⇒ no links, notes required;
+  //        INVOICE_EDIT_REVERSAL ⇒ credit + invoiceRevisionId; INVOICE_EDIT ⇒ debit + invoiceRevisionId
+}
+
+model InvoiceRevision {                           // tenant model; append-only (DB trigger) — D-41
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  organizationId       String   @db.Uuid
+  invoiceId            String   @db.Uuid
+  revisionNo           Int                        // 1, 2, … per invoice
+  reason               String                     // required, ≥ 3 chars (CHECK)
+  previousPayableValue Decimal  @db.Decimal(14, 2)
+  newPayableValue      Decimal  @db.Decimal(14, 2)
+  previous             Json                       // editable values + lines before the edit
+  current              Json                       // … after the edit
+  editedById           String   @db.Uuid
+  createdAt            DateTime @default(now()) @db.Timestamptz
+  @@unique([invoiceId, revisionNo])
+  @@index([organizationId, createdAt])
 }
 
 model ExpenseCategory {                           // tenant model; never deleted (deactivate)

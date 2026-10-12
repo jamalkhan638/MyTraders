@@ -24,6 +24,8 @@ Every request is checked for: authenticated → user active → organization not
 | Invoices: create / confirm (direct or from order) | ✅ | ❌ |
 | Invoices: list / view / print / draft / preview | ✅ | ❌ |
 | Invoices: cancel with reason (ledger reversal credit) | ✅ | ❌ |
+| Invoices: edit a confirmed invoice with reason (`GET /invoices/:id/edit-draft`, `PUT /invoices/:id`, D-41); cancelled → 409; another org → 404 | ✅ | ❌ |
+| Invoices: bulk print (`GET /invoices/batch?ids=`, another org's id → 404) | ✅ | ❌ |
 | Ledger: record payment / adjust credit (shop details) | ✅ | ❌ |
 | Ledger: view history, collection sheet, market credit | ✅ | ❌ (no balance, credit or payment ever reaches a booker — D-24) |
 | Expenses & categories (add, edit, void; categories add / rename / deactivate) | ✅ | ❌ (no partner access in the MVP) |
