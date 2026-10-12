@@ -3,6 +3,7 @@ import {
   calculateInvoiceLine,
   calculateInvoiceTotals,
   calculatePayableValue,
+  calculateTotalPayable,
   type CreateInvoiceInput,
   createInvoiceSchema,
   type InvoiceDraft,
@@ -136,6 +137,11 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
     ? calculatePayableValue({ grandTotal: totals.grandTotal, advanceTax, furtherTax, adtDiscount })
     : null;
   const payableNegative = payableValue?.startsWith('-') ?? false;
+  // UX preview only; the server recomputes and prints the same total (D-39)
+  const totalPayable =
+    payableValue === null || payableNegative
+      ? null
+      : calculateTotalPayable({ payableValue, duePayment: duePayment || null });
   const usedIds = new Set(lines.map((l) => l.product.id));
   const inactiveProducts = lines.filter((l) => !l.product.isActive);
 
@@ -550,14 +556,14 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
             <SummaryRow label="GST" value={totals.totalGstAmount} />
             <SummaryRow label="Total trade offer" value={totals.totalTradeOffer} negative />
             <div className="flex items-baseline justify-between border-t pt-2">
-              <span className="font-semibold">Grand total ({currency})</span>
+              <span className="font-semibold">Total gross value ({currency})</span>
               <span className="text-xl font-semibold tabular-nums" data-testid="grand-total">
                 {complete ? formatAmount(totals.grandTotal) : '—'}
               </span>
             </div>
             {!complete && lines.length > 0 && (
               <p className="text-right text-xs text-destructive">
-                Complete every row to see the grand total.
+                Complete every row to see the total gross value.
               </p>
             )}
             <div className="space-y-2 border-t pt-3">
@@ -585,28 +591,28 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
                 onChange={setAdtDiscount}
                 error={errors.adtDiscount}
               />
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">
-                  Due payment <span className="text-xs">(previous credit, display only)</span>
-                </span>
-                <span className="tabular-nums">{formatAmount(duePayment || null)}</span>
-              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">
+                Due payment <span className="text-xs">(previous balance)</span>
+              </span>
+              <span className="tabular-nums">{duePayment ? formatAmount(duePayment) : '—'}</span>
             </div>
             <div className="flex items-baseline justify-between border-t pt-2">
               <span className="font-semibold">
                 Payable value ({currency})
                 <span className="block text-xs font-normal text-muted-foreground">
-                  Grand total + advance tax + further tax − ADT discount
+                  Gross value + advance tax + further tax − ADT discount + due payment
                 </span>
               </span>
               <span
                 className={cn(
-                  'text-xl font-semibold tabular-nums',
+                  'text-2xl font-bold tabular-nums',
                   payableNegative && 'text-destructive',
                 )}
                 data-testid="payable-value"
               >
-                {payableValue === null ? '—' : formatAmount(payableValue)}
+                {totalPayable === null ? '—' : formatAmount(totalPayable)}
               </span>
             </div>
             {payableNegative && (
@@ -649,9 +655,9 @@ export function InvoiceForm({ draft }: { draft: InvoiceDraft }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm this invoice?</AlertDialogTitle>
             <AlertDialogDescription>
-              {draft.shop.name} · {lines.length} product{lines.length === 1 ? '' : 's'} · grand
-              total {currency} {formatAmount(totals.grandTotal)}, payable value {currency}{' '}
-              {formatAmount(payableValue)}. The server recalculates every value. A confirmed invoice
+              {draft.shop.name} · {lines.length} product{lines.length === 1 ? '' : 's'} · total
+              gross value {currency} {formatAmount(totals.grandTotal)}, payable value {currency}{' '}
+              {formatAmount(totalPayable)}. The server recalculates every value. A confirmed invoice
               cannot be edited.
               {draft.order && ` Order ${draft.order.orderNumber} will be marked invoiced.`}
             </AlertDialogDescription>

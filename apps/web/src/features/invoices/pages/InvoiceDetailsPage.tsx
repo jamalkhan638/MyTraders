@@ -189,21 +189,21 @@ function InvoiceView({ invoice }: { invoice: InvoiceDetails }) {
 
         <div className="mt-5 flex justify-end print:mt-3 print:break-inside-avoid">
           <dl className="w-full max-w-sm space-y-1">
-            <Total label={`Grand total (${invoice.currency})`} value={invoice.grandTotal} strong />
+            <Total
+              label={`Total gross value (${invoice.currency})`}
+              value={invoice.grandTotal}
+              strong
+            />
             <Total label="Advance tax" value={invoice.advanceTax} />
             <Total label="Further tax" value={invoice.furtherTax} />
-            <Total label="ADT / special discount" value={invoice.adtDiscount} negative />
-            <Total
-              label="Due payment"
-              value={
-                invoice.duePayment && invoice.duePayment !== '0.00' ? invoice.duePayment : null
-              }
-            />
-            {/* always shown: the final amount of this invoice (and its ledger debit) */}
+            <Total label="ADT / special discount" value={invoice.adtDiscount} />
+            <Total label="Due payment" value={invoice.duePayment} />
+            {/* Payable = gross + taxes − discount + due payment (D-39); the ledger only takes this
+                invoice's own value (payableValue), never the due payment again */}
             <Total
               label={`Payable value (${invoice.currency})`}
-              value={invoice.payableValue}
-              strong
+              value={invoice.totalPayable}
+              final
             />
           </dl>
         </div>
@@ -294,26 +294,27 @@ function Total({
   label,
   value,
   strong,
-  negative,
+  final,
 }: {
   label: string;
+  /** null = not entered on this invoice → shown as — */
   value: string | null;
   strong?: boolean;
-  negative?: boolean;
+  /** the last line: the amount the shop pays */
+  final?: boolean;
 }) {
-  if (value === null) return null;
+  const empty = value === null || value === '0.00';
   return (
     <div
       className={cn(
         'flex justify-between gap-4 border-b py-1 last:border-0',
         strong && 'text-base font-semibold print:text-xs',
+        final && 'mt-1 border-t-2 border-foreground/70 pt-2 text-lg font-bold print:text-sm',
       )}
+      data-testid={final ? 'invoice-payable' : undefined}
     >
       <dt>{label}</dt>
-      <dd className="tabular-nums">
-        {negative && '− '}
-        {formatAmount(value)}
-      </dd>
+      <dd className="tabular-nums">{empty && !strong && !final ? '—' : formatAmount(value)}</dd>
     </div>
   );
 }

@@ -81,6 +81,19 @@ Payable Value (final invoice amount) = Grand Total + Advance Tax + Further Tax �
 ```
 Owner's example: 100,000 + 2,000 + 1,000 − 3,000 = **100,000**. A discount larger than Grand Total + taxes is refused (422 on `adtDiscount`). A client-sent `payableValue` is ignored.
 
+**Printed summary (D-39, owner)** — bottom of the invoice, in this order; a value not entered shows "—":
+
+```
+Total gross value          (= Grand Total, Σ Gross Value of all rows)
+Advance tax
+Further tax
+ADT / special discount
+Due payment                (shop's previous balance, snapshot)
+Payable value              = Total gross value + Advance Tax + Further Tax − ADT discount + Due Payment   (bold)
+```
+
+The printed **Payable value includes Due Payment** so the shop sees everything it owes. The **ledger debit, sales and profit keep using this invoice's own value** — `payableValue` = Grand Total + Advance Tax + Further Tax − ADT discount (D-31, D-33) — because the previous balance is already in the shop ledger and must never be charged twice. The API returns both: `payableValue` (invoice value) and `totalPayable` (printed Payable value = `payableValue` + Due Payment, `calculateTotalPayable`).
+
 | Field | Stored | Printed |
 |---|---|---|
 | Grand Total | `grandTotal` | always |

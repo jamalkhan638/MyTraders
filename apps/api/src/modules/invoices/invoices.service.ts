@@ -19,6 +19,7 @@ import {
   type InvoiceSummary,
   type ListInvoicesQuery,
   calculatePayableValue,
+  calculateTotalPayable,
   optionalInvoiceAmount,
   type Paginated,
 } from '@mytraders/shared-types';
@@ -245,6 +246,7 @@ export class InvoicesService {
       totalTradeOffer: totals.totalTradeOffer,
       grandTotal: totals.grandTotal,
       payableValue,
+      totalPayable: calculateTotalPayable({ payableValue, duePayment: input.duePayment }),
     };
   }
 
@@ -661,6 +663,10 @@ function toDetails(row: DetailRow): InvoiceDetails {
     adtDiscount: optional(row.adtDiscount),
     duePayment: optional(row.duePayment),
     payableValue: amount(row.payableValue),
+    totalPayable: calculateTotalPayable({
+      payableValue: amount(row.payableValue),
+      duePayment: optional(row.duePayment),
+    }),
     notes: row.notes,
     createdBy: row.createdBy,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,

@@ -436,6 +436,24 @@ export function calculatePayableValue(values: {
   ).toFixed(2);
 }
 
+/**
+ * Printed Payable Value (D-39) — what the shop is asked to pay, at the bottom of the invoice:
+ *
+ *   Payable Value (printed) = Invoice Value (this invoice: Grand Total + Advance Tax + Further Tax
+ *                             − ADT discount) + Due Payment (previous balance)
+ *
+ * Display only: the ledger, sales and profit use the Invoice Value (`payableValue`), never this
+ * total — Due Payment is already in the shop ledger and must not be charged twice.
+ */
+export function calculateTotalPayable(values: {
+  payableValue: string;
+  duePayment?: string | null;
+}): string {
+  const due = dec(values.duePayment ?? null) ?? new D(0);
+  const invoice = dec(values.payableValue) ?? new D(values.payableValue);
+  return money(invoice.plus(due)).toFixed(2);
+}
+
 /** "Optional" invoice-level amounts: blank or zero are not stored and not printed. */
 export function optionalInvoiceAmount(value: string | null | undefined): string | null {
   const d = dec(value ?? null);
@@ -535,8 +553,13 @@ export const invoiceDetailsSchema = invoiceSummarySchema.extend({
   furtherTax: z.string().nullable(),
   adtDiscount: z.string().nullable(),
   duePayment: z.string().nullable(),
-  /** Grand Total + Advance Tax + Further Tax − ADT discount; always printed (D-31) */
+  /**
+   * Invoice Value of THIS invoice: Grand Total + Advance Tax + Further Tax − ADT discount (D-31).
+   * The ledger debit and the sales / profit base. (Field name kept for compatibility.)
+   */
   payableValue: z.string(),
+  /** printed "Payable value" = payableValue + Due Payment (D-39); display only */
+  totalPayable: z.string(),
   notes: z.string().nullable(),
   createdBy: refSchema,
   cancelledAt: z.string().nullable(),
@@ -570,6 +593,8 @@ export const invoicePreviewSchema = z.object({
   totalTradeOffer: z.string(),
   grandTotal: z.string(),
   payableValue: z.string(),
+  /** payableValue + Due Payment (D-39), printed as "Payable value" */
+  totalPayable: z.string(),
 });
 export type InvoicePreview = z.infer<typeof invoicePreviewSchema>;
 

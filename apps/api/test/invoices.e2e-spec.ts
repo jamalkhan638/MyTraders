@@ -336,6 +336,32 @@ describe('Invoices (e2e)', () => {
       );
     });
 
+    it('printed Payable Value = gross + taxes − ADT + Due Payment; the ledger takes the invoice value only (D-39)', async () => {
+      const ledgerBefore = (await draft(`?shopId=${shop.id}`)).body.duePayment as string;
+      const res = await createInvoice(
+        invoice([tinLine()], {
+          advanceTax: '100',
+          furtherTax: '50',
+          adtDiscount: '25',
+          duePayment: '52320',
+        }),
+      ).expect(201);
+      const invoiceValue = (Number(res.body.grandTotal) + 100 + 50 - 25).toFixed(2);
+      expect(res.body.payableValue).toBe(invoiceValue);
+      expect(res.body.totalPayable).toBe((Number(invoiceValue) + 52320).toFixed(2));
+      const saved = await getInvoice(res.body.id).expect(200);
+      expect(saved.body.totalPayable).toBe(res.body.totalPayable);
+      // the ledger grew by the invoice value only — the Due Payment is not charged again
+      const ledgerAfter = (await draft(`?shopId=${shop.id}`)).body.duePayment as string;
+      expect((Number(ledgerAfter) - Number(ledgerBefore)).toFixed(2)).toBe(invoiceValue);
+      const preview = await http()
+        .post('/api/invoices/preview')
+        .set(auth(adminToken))
+        .send(invoice([tinLine()], { duePayment: '1000' }))
+        .expect(200);
+      expect(preview.body.totalPayable).toBe((Number(preview.body.payableValue) + 1000).toFixed(2));
+    });
+
     it('Grand Total = Σ Gross; blank / 0 optional values are not kept and count as zero', async () => {
       const blank = await createInvoice(
         invoice([tinLine()], {
