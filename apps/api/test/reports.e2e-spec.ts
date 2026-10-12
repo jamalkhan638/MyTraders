@@ -346,6 +346,24 @@ describe('Reports (e2e)', () => {
       const search = await report('shop-credit', '?q=ideal').expect(200);
       expect(search.body.rows.map((r: { shop: Id }) => r.shop.id)).toEqual([ideal.id]);
     });
+
+    it('all areas (no areaId, the collection sheet "All areas"): every area, totals add up', async () => {
+      const all = (await report('shop-credit', '?balance=all').expect(200)).body;
+      const areaIds = new Set(all.rows.map((r: { area: Id }) => r.area.id));
+      expect(areaIds).toEqual(new Set([saddar.id, cantt.id]));
+      const perArea = await Promise.all(
+        [saddar.id, cantt.id].map(
+          async (id) => (await report('shop-credit', `?areaId=${id}&balance=all`).expect(200)).body,
+        ),
+      );
+      expect(all.rowCount).toBe(perArea[0].rowCount + perArea[1].rowCount);
+      const sumAreas = perArea
+        .map((r) => Number(r.totals.outstanding.replace('.', '')))
+        .reduce((x, y) => x + y, 0);
+      expect(Number(all.totals.outstanding.replace('.', ''))).toBe(sumAreas);
+      // every shop that owes is in the all-areas total → it equals the organization's market credit
+      expect(all.totals.outstanding).toBe(all.marketCredit);
+    });
   });
 
   describe('Product sales report', () => {

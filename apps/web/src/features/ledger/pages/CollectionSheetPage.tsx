@@ -20,7 +20,7 @@ type Row = ShopCreditReport['rows'][number];
 
 /**
  * Finance → Collection Sheet: a printable register for market collection. The Admin picks an area
- * and prints; the collector writes Payment and Remaining Balance by hand. Read-only — payments are
+ * (or All areas — the default) and prints; the collector writes Payment and Remaining Balance by hand. Read-only — payments are
  * entered from Shop Details. Balance = current Shop Ledger outstanding, Bill Date = latest confirmed
  * invoice, Area = the shop's current area (all from GET /reports/shop-credit, no new formula).
  */
@@ -29,19 +29,29 @@ export function CollectionSheetPage() {
   const currency = user.organization?.currency ?? '';
   const [params, setParams] = useSearchParams();
   const areas = useAreas({ status: 'active', pageSize: 100 });
-  const areaId = params.get('areaId') ?? areas.data?.items[0]?.id ?? '';
-  const areaName = areas.data?.items.find((a) => a.id === areaId)?.name ?? '';
+  // no areaId in the URL = All areas (the report then covers every shop of the organization)
+  const areaId = params.get('areaId') ?? '';
+  const allAreas = areaId === '';
+  const areaName = allAreas
+    ? 'All areas'
+    : (areas.data?.items.find((a) => a.id === areaId)?.name ?? '');
   const [search, setSearch] = useState('');
   const [owingOnly, setOwingOnly] = useState(false);
   const q = useDebouncedValue(search.trim());
-  const sheet = useReport<ShopCreditReport>(
-    'shop-credit',
-    areaId ? { areaId, q: q || undefined, balance: owingOnly ? 'owing' : 'all' } : null,
-  );
+  const sheet = useReport<ShopCreditReport>('shop-credit', {
+    areaId: areaId || undefined,
+    q: q || undefined,
+    balance: owingOnly ? 'owing' : 'all',
+  });
   // Inactive shops stay on the sheet only while they still owe something; ordered by name.
   const rows = (sheet.data?.rows ?? [])
     .filter((r) => r.shop.isActive || r.outstanding !== '0.00')
-    .sort((a, b) => a.shop.name.localeCompare(b.shop.name));
+    // All areas: grouped by area, then by shop name — the collector walks one area at a time
+    .sort(
+      (a, b) =>
+        (allAreas ? a.area.name.localeCompare(b.area.name) : 0) ||
+        a.shop.name.localeCompare(b.shop.name),
+    );
   // the server's Σ outstanding of the matching shops (the hidden rows are zero balances)
   const totalBalance = sheet.data?.totals.outstanding ?? '0.00';
 
@@ -77,7 +87,7 @@ export function CollectionSheetPage() {
       <div className="print:hidden">
         <PageHeader
           title="Area Collection Sheet"
-          description="Choose an area and print the sheet for the collector. Payment and Remaining Balance are left blank to fill in by hand. Record actual payments from the shop's page."
+          description="Choose an area (or all areas) and print the sheet for the collector. Payment and Remaining Balance are left blank to fill in by hand. Record actual payments from the shop's page."
           actions={
             <div className="flex gap-2">
               <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
@@ -95,8 +105,11 @@ export function CollectionSheetPage() {
           <NativeSelect
             aria-label="Area"
             value={areaId}
-            onChange={(e) => setParams({ areaId: e.target.value }, { replace: true })}
+            onChange={(e) =>
+              setParams(e.target.value ? { areaId: e.target.value } : {}, { replace: true })
+            }
           >
+            <option value="">All areas</option>
             {areas.data?.items.map((area) => (
               <option key={area.id} value={area.id}>
                 {area.name}
@@ -144,6 +157,7 @@ export function CollectionSheetPage() {
             <h2 className="font-semibold">{areaName}</h2>
             <span className="text-xs text-muted-foreground">
               {plural(rows.length, 'shop')} · amounts in {currency}
+              {sheet.data.truncated && ' · list cut at the report limit — choose an area'}
             </span>
           </div>
           <div className="relative overflow-x-auto print:overflow-visible">
